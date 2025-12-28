@@ -1,0 +1,46 @@
+# Python AI Server - Specific .gitignore
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Environment Variables
+.env
+*.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Generated Audio Files
+static/*.mp3
+static/*.wav
+static/*.ogg
+!static/.gitkeep
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+
+# Logs
+*.log
+logs/
+
+# AI Models (if downloaded)
+models/
+*.bin
+*.pt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

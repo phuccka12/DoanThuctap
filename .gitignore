@@ -1,0 +1,208 @@
+# ============================================
+# .GITIGNORE - AI English Learning App
+# ============================================
+
+# --- ENVIRONMENT VARIABLES ---
+.env
+.env.local
+.env.*.local
+*.env
+
+# --- PYTHON ---
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- NODE.JS ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- BUILD OUTPUTS ---
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# --- LOGS ---
+logs/
+*.log
+*.log.*
+combined.log
+error.log
+
+# --- DATABASES ---
+*.db
+*.sqlite
+*.sqlite3
+data/
+mongodb_data/
+
+# --- IDE & EDITORS ---
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# --- OS FILES ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# --- TEMPORARY FILES ---
+*.tmp
+*.temp
+tmp/
+temp/
+
+# --- AUDIO/VIDEO FILES (generated) ---
+*.mp3
+*.wav
+*.ogg
+*.mp4
+*.avi
+uploads/
+static/*.mp3
+static/*.wav
+
+# --- AI MODELS (too large for git) ---
+*.bin
+*.pt
+*.pth
+*.h5
+*.keras
+models/
+checkpoints/
+
+# --- TESTING ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+nosetests.xml
+test-results/
+
+# --- DOCUMENTATION ---
+docs/_build/
+site/
+
+# --- SECRETS & KEYS ---
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+credentials.json
+service-account-key.json
+
+# --- MISC ---
+.eslintcache
+*.bak
+*.orig
+*.rej
+.sass-cache/
+connect.lock
+typings/
+
+# --- KEEP THESE FOLDERS BUT IGNORE CONTENTS ---
+!.gitkeep
+uploads/.gitkeep
+static/.gitkeep
+
+# ============================================
+# PROJECT-SPECIFIC IGNORES
+# ============================================
+
+# Python AI server generated audio
+server/python_ai/static/*.mp3
+server/python_ai/static/*.wav
+
+# Client build outputs
+client-web/dist/
+client-web/build/
+client-app/.expo/
+client-app/android/
+client-app/ios/
+
+# MongoDB dump
+dump/
+backup/
+
+# User uploads
+user_uploads/
+recordings/
