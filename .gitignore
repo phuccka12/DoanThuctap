@@ -141,7 +141,9 @@ static/*.wav
 *.pth
 *.h5
 *.keras
-models/
+# models/  # ❌ COMMENTED OUT - This was blocking server/src/models
+# Only ignore AI model folders in python_ai, not MongoDB models
+server/python_ai/models/
 checkpoints/
 
 # --- TESTING ---
