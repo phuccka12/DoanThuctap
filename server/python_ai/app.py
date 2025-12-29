@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 import language_tool_python
 import textstat
 import spacy
@@ -23,12 +23,13 @@ CORS(app)
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("❌ Lỗi: Chưa có GEMINI_API_KEY trong .env")
-genai.configure(api_key=api_key)
+
+# Khởi tạo client với API key
+client = genai.Client(api_key=api_key)
 
 # ⚠️ CHỌN MODEL (Nếu 2.5 lỗi thì đổi về 1.5-flash)
 MODEL_NAME = 'gemini-2.5-flash'
 print(f"🧠 Đang kích hoạt bộ não: {MODEL_NAME}")
-model_gemini = genai.GenerativeModel(MODEL_NAME)
 
 # --- 2. KHỞI ĐỘNG CÁC ENGINE (QUAN TRỌNG: PHẢI TẢI HẾT Ở ĐÂY) ---
 
@@ -152,7 +153,11 @@ def check_writing():
         }}
         """
 
-        response = model_gemini.generate_content(prompt)
+        # Gọi API Gemini với client mới
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
         return response.text.replace('```json', '').replace('```', '').strip(), 200
 
     except Exception as e:
@@ -233,7 +238,12 @@ def check_speaking():
         }}
         """
 
-        response = model_gemini.generate_content([prompt, uploaded_file])
+        # Upload file và gọi API
+        uploaded_file = client.files.upload(path=tmp_path)
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=[prompt, uploaded_file]
+        )
         
         # Dọn dẹp
         os.remove(tmp_path)
@@ -295,7 +305,10 @@ def conversation():
         }}
         """
         
-        response = model_gemini.generate_content(prompt)
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
         response_json = response.text.replace('```json', '').replace('```', '').strip()
         
         # 4. Xử lý JSON & Tạo Audio
