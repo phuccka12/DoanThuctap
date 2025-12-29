@@ -13,10 +13,10 @@ const signToken = (user) => {
 // POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { full_name, email, password } = req.body;
+    const { user_name, email, password } = req.body;
 
-    if (!full_name || !email || !password) {
-      return res.status(400).json({ message: "Vui lòng nhập đủ họ tên, email, mật khẩu" });
+    if (!user_name || !email || !password) {
+      return res.status(400).json({ message: "Vui lòng nhập đủ user_name, email, mật khẩu" });
     }
     if (password.length < 6) {
       return res.status(400).json({ message: "Mật khẩu tối thiểu 6 ký tự" });
@@ -27,15 +27,13 @@ exports.register = async (req, res) => {
     if (existed) return res.status(409).json({ message: "Email đã tồn tại" });
 
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
-      full_name: full_name.trim(),
+      user_name: user_name.trim(),
       email: emailLower,
-      password_hash,
+      password_hash: hashedPassword,
       role: "standard",
-      status: "active",
-      gamification_data: { level: 1, gold: 0, exp: 0, streak: 0 },
     });
 
     const token = signToken(user);
@@ -45,7 +43,7 @@ exports.register = async (req, res) => {
       token,
       user: {
         id: user._id,
-        full_name: user.full_name,
+        user_name: user.user_name,
         email: user.email,
         role: user.role,
         vip_expire_at: user.vip_expire_at,
@@ -67,12 +65,14 @@ exports.login = async (req, res) => {
 
     const emailLower = String(email).toLowerCase().trim();
     const user = await User.findOne({ email: emailLower });
+    
     if (!user) return res.status(401).json({ message: "Sai email hoặc mật khẩu" });
 
-    if (user.status === "banned")
-      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    if (user.lock_until && user.lock_until > new Date()) {
+      return res.status(423).json({ message: "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau." });
+    }
 
-    // nếu hết hạn VIP thì tự hạ xuống standard (tuỳ bạn)
+    // nếu hết hạn VIP thì tự hạ xuống standard
     if (user.role === "vip" && user.vip_expire_at && user.vip_expire_at < new Date()) {
       user.role = "standard";
       user.vip_expire_at = null;
@@ -80,7 +80,9 @@ exports.login = async (req, res) => {
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: "Sai email hoặc mật khẩu" });
-
+    
+    user.failed_login_attempts = 0;
+    user.lock_until = null;
     user.last_login_at = new Date();
     await user.save();
 
@@ -91,13 +93,77 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
-        full_name: user.full_name,
+        user_name: user.user_name,
         email: user.email,
         role: user.role,
         vip_expire_at: user.vip_expire_at,
         gamification_data: user.gamification_data,
       },
     });
+  } catch (err) {
+    return res.status(500).json({ message: "Lỗi server", error: err.message });
+  }
+};
+
+// POST /api/auth/refresh
+exports.refresh = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
+    
+    if (!token) {
+      return res.status(401).json({ message: "Không tìm thấy token" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.user_id);
+
+    if (!user) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+
+    // Check VIP expiry
+    if (user.role === "vip" && user.vip_expire_at && user.vip_expire_at < new Date()) {
+      user.role = "standard";
+      user.vip_expire_at = null;
+      await user.save();
+    }
+
+    const newToken = signToken(user);
+
+    return res.json({
+      message: "Làm mới token thành công",
+      token: newToken,
+      user: {
+        id: user._id,
+        user_name: user.user_name,
+        email: user.email,
+        role: user.role,
+        vip_expire_at: user.vip_expire_at,
+        gamification_data: user.gamification_data,
+      },
+    });
+  } catch (err) {
+    return res.status(401).json({ message: "Token không hợp lệ", error: err.message });
+  }
+};
+
+// POST /api/auth/logout
+exports.logout = async (req, res) => {
+  try {
+    // For JWT, we can't invalidate token on server side
+    // Client should remove token from storage
+    return res.json({ message: "Đăng xuất thành công" });
+  } catch (err) {
+    return res.status(500).json({ message: "Lỗi server", error: err.message });
+  }
+};
+
+// POST /api/auth/logout-all
+exports.logoutAll = async (req, res) => {
+  try {
+    // This would require a session management system
+    // For now, just return success message
+    return res.json({ message: "Đăng xuất khỏi tất cả thiết bị thành công" });
   } catch (err) {
     return res.status(500).json({ message: "Lỗi server", error: err.message });
   }

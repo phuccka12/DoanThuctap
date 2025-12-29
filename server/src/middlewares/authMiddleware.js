@@ -1,23 +1,79 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const jwt = require('jsonwebtoken');
 
-const authMiddleware = async (req, res, next) => {
-  try {
-    const auth = req.headers.authorization || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (!token) return res.status(401).json({ message: "Thiếu access token" });
+// Middleware kiểm tra JWT token
+const protect = async (req, res, next) => {
+  let token;
 
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+  // Kiểm tra token trong Authorization header
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Lấy token từ header
+      token = req.headers.authorization.split(' ')[1];
 
-    const user = await User.findById(decoded.user_id).select("-password_hash");
-    if (!user) return res.status(401).json({ message: "Token không hợp lệ" });
-    if (user.status === "banned") return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = user;
-    next();
-  } catch {
-    return res.status(401).json({ message: "Access token hết hạn hoặc không hợp lệ" });
+      // Gắn user ID vào request
+      req.userId = decoded.id;
+      req.userRole = decoded.role;
+
+      next();
+    } catch (error) {
+      console.error('Token verification failed:', error.message);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Not authorized, token failed' 
+      });
+    }
+  }
+
+  // Kiểm tra token trong cookie (nếu không có trong header)
+  if (!token && req.cookies && req.cookies.token) {
+    try {
+      token = req.cookies.token;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.userId = decoded.id;
+      req.userRole = decoded.role;
+      next();
+    } catch (error) {
+      console.error('Cookie token verification failed:', error.message);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Not authorized, token failed' 
+      });
+    }
+  }
+
+  if (!token) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Not authorized, no token' 
+    });
   }
 };
 
-module.exports = authMiddleware;
+// Middleware kiểm tra role admin
+const admin = (req, res, next) => {
+  if (req.userRole && req.userRole === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ 
+      success: false, 
+      message: 'Not authorized as admin' 
+    });
+  }
+};
+
+// Middleware kiểm tra role VIP
+const vip = (req, res, next) => {
+  if (req.userRole && (req.userRole === 'vip' || req.userRole === 'admin')) {
+    next();
+  } else {
+    res.status(403).json({ 
+      success: false, 
+      message: 'VIP access required' 
+    });
+  }
+};
+
+module.exports = { protect, admin, vip };
