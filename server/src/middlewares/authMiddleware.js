@@ -13,8 +13,8 @@ const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Gắn user ID vào request
-      req.userId = decoded.id;
+      // Gắn user ID vào request (decoded có user_id, không phải id)
+      req.userId = decoded.user_id;
       req.userRole = decoded.role;
 
       next();
@@ -32,7 +32,7 @@ const protect = async (req, res, next) => {
     try {
       token = req.cookies.token;
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.userId = decoded.id;
+      req.userId = decoded.user_id;
       req.userRole = decoded.role;
       next();
     } catch (error) {
