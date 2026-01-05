@@ -1,6 +1,6 @@
 // Login Page - Dark Theme
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -11,9 +11,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
   
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'account_not_found') {
+      setError('Tài khoản chưa được đăng ký. Vui lòng đăng ký trước khi đăng nhập bằng Google.');
+    } else if (errorParam === 'server_error') {
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+    }
+  }, [searchParams]);
+
+  const handleGoogleLogin = () => {
+    window.location.href = 'http://localhost:3000/api/auth/google/login';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -163,6 +177,7 @@ export default function Login() {
               {/* Google Login */}
               <button
                 type="button"
+                onClick={handleGoogleLogin}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all border border-gray-300"
               >
                 <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">

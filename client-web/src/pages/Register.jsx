@@ -1,6 +1,6 @@
 // Register Page - Dark Theme
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
@@ -14,9 +14,23 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
   
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'account_exists') {
+      setError('Email này đã được đăng ký. Vui lòng đăng nhập.');
+    } else if (errorParam === 'server_error') {
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+    }
+  }, [searchParams]);
+
+  const handleGoogleRegister = () => {
+    window.location.href = 'http://localhost:3000/api/auth/google/register';
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -257,6 +271,7 @@ export default function Register() {
               {/* Google Login */}
               <button
                 type="button"
+                onClick={handleGoogleRegister}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all border border-gray-300"
               >
                 <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">

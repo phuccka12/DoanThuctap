@@ -26,7 +26,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1a1d29] flex items-center justify-center p-4">
       <div className="w-full max-w-md mx-auto">
         {/* Header Card */}
         <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 rounded-t-2xl p-6 text-white relative overflow-hidden">
@@ -38,13 +38,13 @@ export default function ForgotPassword() {
             </div>
             <div>
               <h2 className="text-2xl font-bold">Quên mật khẩu</h2>
-              <p className="text-sm text-white/80">Nhập email để nhận mã khôi phục mật khẩu</p>
+              <p className="text-sm text-white/80">Nhập email để nhận link đặt lại mật khẩu</p>
             </div>
           </div>
         </div>
 
         {/* Form Card */}
-        <div className="bg-gray-800 rounded-b-2xl p-6 shadow-2xl">
+        <div className="bg-[#252b3b] rounded-b-2xl p-6 shadow-2xl">
           {success ? (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -90,7 +90,7 @@ export default function ForgotPassword() {
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-white/95 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                     required
                   />
                 </div>

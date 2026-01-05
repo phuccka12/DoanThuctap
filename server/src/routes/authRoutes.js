@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const passport = require("../config/passport");
 
 const { protect, admin, vip } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validate");
@@ -19,6 +20,7 @@ const {
   forgotPassword,
   resetPassword
 } = require("../controllers/authExtraController");
+const { googleCallback } = require("../controllers/googleAuthController");
 const User = require("../models/User");
 
 // Level 2
@@ -27,6 +29,39 @@ router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAll);
+
+// Google OAuth routes - Đăng nhập
+router.get("/google/login", (req, res, next) => {
+  req.session.authType = 'login';
+  passport.authenticate("google-login", { scope: ["profile", "email"] })(req, res, next);
+});
+
+// Google OAuth routes - Đăng ký
+router.get("/google/register", (req, res, next) => {
+  req.session.authType = 'register';
+  passport.authenticate("google-register", { scope: ["profile", "email"] })(req, res, next);
+});
+
+// Chung 1 callback cho cả login và register
+router.get("/google/callback", (req, res, next) => {
+  const authType = req.session.authType || 'login';
+  const strategy = authType === 'register' ? 'google-register' : 'google-login';
+  const errorRedirect = authType === 'register' ? '/register' : '/login';
+  const errorMessage = authType === 'register' ? 'account_exists' : 'account_not_found';
+  
+  passport.authenticate(strategy, { session: false }, (err, user, info) => {
+    if (err) {
+      console.error(`Google ${authType} error:`, err);
+      return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}${errorRedirect}?error=server_error`);
+    }
+    if (!user) {
+      console.log(`Google ${authType} failed:`, info?.message);
+      return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}${errorRedirect}?error=${errorMessage}`);
+    }
+    req.user = user;
+    googleCallback(req, res, next);
+  })(req, res, next);
+});
 
 // Get current user info
 router.get("/me", protect, async (req, res) => {

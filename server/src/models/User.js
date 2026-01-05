@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password_hash: { type: String, required: true },
 
+    // Google OAuth fields
+    google_id: { type: String, unique: true, sparse: true },
+    avatar: { type: String, default: null },
+
     role: { type: String, enum: ["standard", "vip", "admin"], default: "standard" },
     status: { type: String, enum: ["active", "banned"], default: "active" },
     vip_expire_at: { type: Date, default: null },

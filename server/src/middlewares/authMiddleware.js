@@ -11,7 +11,7 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
 
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET);
 
       // Gắn user ID vào request (decoded có user_id, không phải id)
       req.userId = decoded.user_id;
@@ -31,7 +31,7 @@ const protect = async (req, res, next) => {
   if (!token && req.cookies && req.cookies.token) {
     try {
       token = req.cookies.token;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET);
       req.userId = decoded.user_id;
       req.userRole = decoded.role;
       next();

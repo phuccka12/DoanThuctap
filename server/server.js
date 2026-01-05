@@ -4,6 +4,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
+const session = require('express-session');
+const passport = require('./src/config/passport');
 const connectDB = require('./src/config/db');
 
 // Import routes
@@ -33,6 +35,23 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cookieParser());
 app.use(express.json());
+
+// Session middleware for passport
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'your_session_secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  })
+);
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(
   cors({

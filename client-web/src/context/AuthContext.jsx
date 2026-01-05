@@ -62,6 +62,22 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  const setAccessToken = (newToken) => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+  };
+
+  const fetchUserInfo = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/me`);
+      setUser(res.data.user);
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     token,
@@ -69,6 +85,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    setAccessToken,
+    fetchUserInfo,
     isAuthenticated: !!token && !!user,
   };
 
