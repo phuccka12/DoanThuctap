@@ -9,6 +9,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import GoogleCallback from './pages/GoogleCallback';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
 import AIWriting from './pages/AiWriting';
 import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
@@ -45,6 +46,11 @@ function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           } />
           <Route path="/writing" element={

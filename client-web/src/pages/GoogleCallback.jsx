@@ -10,6 +10,7 @@ export default function GoogleCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       const token = searchParams.get('token');
+      const refreshToken = searchParams.get('refreshToken');
       const error = searchParams.get('error');
 
       if (error) {
@@ -19,8 +20,8 @@ export default function GoogleCallback() {
       }
 
       if (token) {
-        // Lưu access token
-        setAccessToken(token);
+        // Lưu access token và refresh token (nếu có)
+        setAccessToken(token, refreshToken);
         
         // Fetch user info
         try {

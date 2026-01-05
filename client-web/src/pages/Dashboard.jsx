@@ -1,43 +1,3 @@
-/**
- * Dashboard Component - Main dashboard page for IELTS learning platform
- * 
- * DATA INTEGRATION POINTS:
- * ========================
- * 
- * 1. User Profile Data (line ~60-70):
- *    - Replace mock user data with API call to: GET /api/user/profile
- *    - Fields: name, email, avatar, initials, currentBand, targetBand, hasCompletedPlacementTest
- * 
- * 2. Gamification Stats (line ~71-75):
- *    - Fetch from: GET /api/user/stats or include in user profile
- *    - Fields: streak, totalXP, level
- * 
- * 3. Today's Tasks (line ~76):
- *    - API endpoint: GET /api/tasks/today or GET /api/practice/today
- *    - Expected structure: [{ title, subtitle, percent, icon }]
- * 
- * 4. Weekly Time Spent (line ~77-80):
- *    - API endpoint: GET /api/analytics/time-spent?period=week
- *    - Expected structure: { total: number (minutes), breakdown: [{ label, value, color }] }
- * 
- * 5. Latest Scores (line ~81):
- *    - API endpoint: GET /api/scores/latest?limit=3
- *    - Expected structure: [{ score: number, label: string }]
- * 
- * 6. Reminders (line ~82):
- *    - API endpoint: GET /api/reminders or GET /api/notifications
- *    - Expected structure: [{ label: string, id: number }]
- * 
- * 7. Progress Goal (line ~83-87):
- *    - API endpoint: GET /api/user/goals/current
- *    - Expected structure: { current, target, label }
- * 
- * NOTES:
- * - All API calls should be made in the useEffect hook (starting at line ~54)
- * - Add proper error handling for each API call
- * - Consider adding loading skeleton/spinner states
- * - Token/auth should be handled by AuthContext
- */
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -47,8 +7,12 @@ import {
   FaHome,
   FaBookOpen,
   FaGraduationCap,
-  FaCalendarAlt,
+  FaMap,
+  FaLightbulb,
+  FaPenFancy,
+  FaMicrophoneAlt,
   FaComments,
+  FaHistory,
   FaUser,
   FaCog,
   FaSignOutAlt,
@@ -56,8 +20,6 @@ import {
   FaBell,
   FaChartPie,
   FaClipboardCheck,
-  FaMicrophoneAlt,
-  FaPenFancy,
   FaFire,
   FaTrophy,
   FaStar,
@@ -79,14 +41,32 @@ const theme = {
   hover: "hover:bg-[#2a3142]",
 };
 
-const navItems = [
-  { key: "dashboard", label: "My Dashboard", icon: <FaHome /> },
-  { key: "practice", label: "Practice", icon: <FaBookOpen /> },
-  { key: "courses", label: "Courses", icon: <FaGraduationCap /> },
-  { key: "schedule", label: "Schedule", icon: <FaCalendarAlt /> },
-  { key: "messages", label: "Messages", icon: <FaComments /> },
-  { key: "profile", label: "Profile", icon: <FaUser /> },
-  { key: "settings", label: "Settings", icon: <FaCog /> },
+// Navigation structure with 3 main groups
+const navGroups = [
+  {
+    title: "QUẢN LÝ & LỘ TRÌNH",
+    items: [
+      { key: "dashboard", label: "Tổng quan", icon: <FaHome />, route: "/dashboard" },
+      { key: "roadmap", label: "Lộ trình học", icon: <FaMap />, route: "/roadmap" },
+      { key: "topics", label: "Kho Chủ đề", icon: <FaLightbulb />, route: "/topics" },
+    ]
+  },
+  {
+    title: "LUYỆN THI & CHẤM ĐIỂM",
+    items: [
+      { key: "writing", label: "Luyện Writing", icon: <FaPenFancy />, route: "/ai-writing" },
+      { key: "speaking", label: "Luyện Speaking", icon: <FaMicrophoneAlt />, route: "/ai-speaking" },
+      { key: "conversation", label: "Hội thoại 1-1", icon: <FaComments />, route: "/ai-conversation" },
+    ]
+  },
+  {
+    title: "CÁ NHÂN & KẾT QUẢ",
+    items: [
+      { key: "history", label: "Kết quả & Sửa lỗi", icon: <FaHistory />, route: "/history" },
+      { key: "profile", label: "Hồ sơ", icon: <FaUser />, route: "/profile" },
+      { key: "settings", label: "Cài đặt", icon: <FaCog />, route: "/settings" },
+    ]
+  }
 ];
 
 export default function Dashboard() {
@@ -97,6 +77,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Fetch dashboard data from API
   useEffect(() => {
@@ -254,13 +235,22 @@ export default function Dashboard() {
   return (
     <div className={cn("min-h-screen", theme.page)}>
       <div className="max-w-[1600px] mx-auto p-6 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_380px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_380px] gap-6">
           {/* SIDEBAR */}
-          <Sidebar active={active} setActive={setActive} onLogout={handleLogout} />
+          <Sidebar 
+            active={active} 
+            setActive={setActive} 
+            onLogout={handleLogout}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
 
           {/* MAIN */}
           <main className="space-y-6">
-            <Topbar user={dashboardData.user} />
+            <Topbar 
+              user={dashboardData.user} 
+              onMenuClick={() => setSidebarOpen(true)}
+            />
 
             <WelcomeBanner
               name={dashboardData.user.name}
@@ -370,71 +360,164 @@ export default function Dashboard() {
   );
 }
 
-function Sidebar({ active, setActive, onLogout }) {
+function Sidebar({ active, setActive, onLogout, isOpen, onClose }) {
   const navigate = useNavigate();
   
   const handleNavClick = (item) => {
     setActive(item.key);
-    // TODO: Navigate to actual routes when pages are created
-    // if (item.key !== 'dashboard') {
-    //   navigate(`/${item.key}`);
-    // }
+    onClose(); // Close sidebar on mobile after selection
+    
+    // Navigate to route if specified
+    if (item.route) {
+      navigate(item.route);
+    }
   };
 
   return (
-    <aside className={cn("rounded-3xl border", theme.border, theme.sidebar, "p-5")}
-    >
-      <div className="flex items-center gap-3 px-2 mb-1">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white flex items-center justify-center font-bold text-lg">
-          AI
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside 
+        className={cn(
+          "rounded-3xl border p-5 transition-transform duration-300 ease-in-out overflow-y-auto",
+          theme.border, 
+          theme.sidebar,
+          // Mobile: fixed positioning with slide animation
+          "fixed top-0 left-0 h-full w-[300px] z-50 lg:relative lg:w-auto lg:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+        {/* Logo Section */}
+        <div className="flex items-center gap-3 px-2 mb-6">
+          <div className="relative group">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-purple-500/30 transition-all group-hover:shadow-purple-500/50 group-hover:scale-105">
+              <svg 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                className="w-7 h-7"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+                <path 
+                  d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="8" r="1.5" fill="currentColor" opacity="0.8"/>
+                <circle cx="15" cy="11" r="1" fill="currentColor" opacity="0.6"/>
+              </svg>
+            </div>
+          </div>
+          
+          <div className="flex-1">
+            <div className={cn("font-black text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight")}>
+              LetsLearn
+            </div>
+            <div className={cn("text-xs font-semibold tracking-wide uppercase", theme.sub, "opacity-70")}>
+              IELTS Platform
+            </div>
+          </div>
         </div>
-        <div>
-          <div className={cn("font-bold text-lg", theme.text)}>LetsLearn</div>
-          <div className={cn("text-sm", theme.sub)}>IELTS Dashboard</div>
+
+        {/* Navigation Groups */}
+        <div className="space-y-6">
+          {navGroups.map((group, groupIndex) => (
+            <div key={groupIndex}>
+              {/* Group Title */}
+              <div className={cn("px-3 mb-2 text-xs font-bold tracking-wider uppercase", theme.sub, "opacity-60")}>
+                {group.title}
+              </div>
+              
+              {/* Group Items */}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = item.key === active;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => handleNavClick(item)}
+                      style={{
+                        backgroundColor: isActive ? 'rgba(147, 51, 234, 0.15)' : 'transparent',
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group",
+                        isActive
+                          ? "border border-purple-500/40 shadow-lg shadow-purple-500/10"
+                          : "border border-transparent hover:bg-[#2a3142] hover:border-purple-500/30 hover:shadow-md"
+                      )}
+                    >
+                      <span className={cn(
+                        "text-base shrink-0 transition-colors duration-200",
+                        isActive ? "text-purple-400" : "text-gray-500 group-hover:text-purple-400"
+                      )}>
+                        {item.icon}
+                      </span>
+                      <span className={cn(
+                        "font-medium transition-colors duration-200",
+                        isActive ? "text-purple-300" : "text-gray-400 group-hover:text-white"
+                      )}>
+                        {item.label}
+                      </span>
+                      {isActive && (
+                        <span className="ml-auto w-1.5 h-6 rounded-full bg-gradient-to-b from-purple-500 to-blue-500 shadow-sm" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
 
-      <div className="mt-6 space-y-2">
-        {navItems.map((it) => {
-          const isActive = it.key === active;
-          return (
-            <button
-              key={it.key}
-              onClick={() => handleNavClick(it)}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base transition",
-                isActive
-                  ? "bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/50 text-purple-400 shadow-sm"
-                  : "text-gray-400 hover:bg-[#2a3142]"
-              )}
-            >
-              <span className={cn("text-lg", isActive ? "text-purple-400" : "text-gray-500")}>{it.icon}</span>
-              <span className="font-medium">{it.label}</span>
-              {isActive ? <span className="ml-auto w-2 h-7 rounded-full bg-gradient-to-b from-purple-500 to-blue-500" /> : null}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 pt-5 border-t border-gray-700">
-        <button 
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base text-gray-400 hover:bg-[#2a3142] transition"
-        >
-          <span className="text-gray-500 text-lg"><FaSignOutAlt /></span>
-          <span className="font-medium">Log out</span>
-        </button>
-      </div>
-    </aside>
+        {/* Logout Button */}
+        <div className="mt-6 pt-5 border-t border-gray-700">
+          <button 
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-red-900/20 hover:text-red-400 transition-all"
+          >
+            <span className="text-base flex-shrink-0"><FaSignOutAlt /></span>
+            <span className="font-medium">Đăng xuất</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
-function Topbar({ user }) {
+function Topbar({ user, onMenuClick }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <div>
-        <div className={cn("text-base", theme.sub)}>My Dashboard</div>
-        <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>Overview</div>
+      <div className="flex items-center gap-4">
+        {/* Hamburger Menu Button - Only visible on mobile/tablet */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden w-12 h-12 rounded-2xl border border-gray-700 bg-[#252b3b] flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:bg-[#2a3142] transition group"
+          aria-label="Toggle menu"
+        >
+          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
+          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
+          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
+        </button>
+        
+        <div>
+          <div className={cn("text-base", theme.sub)}>My Dashboard</div>
+          <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>Overview</div>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -468,7 +551,7 @@ function WelcomeBanner({ name, hasDonePlacementTest, onStartTest }) {
       <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="max-w-2xl">
           <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>
-            Good Morning {name}!
+            Welcome to  {name}!!!
           </div>
           <p className={cn("mt-3 text-base md:text-lg", theme.sub)}>
             {hasDonePlacementTest

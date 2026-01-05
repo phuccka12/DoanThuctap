@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -7,7 +7,7 @@ const dashboardService = {
   // Get all dashboard data
   getDashboardData: async () => {
     try {
-      const response = await axios.get(`${API_URL}/dashboard`);
+      const response = await axiosInstance.get(`${API_URL}/dashboard`);
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -18,7 +18,7 @@ const dashboardService = {
   // Get user profile with statistics
   getUserProfile: async () => {
     try {
-      const response = await axios.get(`${API_URL}/auth/me`);
+      const response = await axiosInstance.get(`${API_URL}/auth/me`);
       return response.data.user;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -29,7 +29,7 @@ const dashboardService = {
   // Get today's practice tasks
   getTodayTasks: async () => {
     try {
-      const response = await axios.get(`${API_URL}/practice/today`);
+      const response = await axiosInstance.get(`${API_URL}/practice/today`);
       return response.data.tasks || [];
     } catch (error) {
       console.error('Error fetching today tasks:', error);
@@ -40,7 +40,7 @@ const dashboardService = {
   // Get time spent analytics
   getTimeSpent: async (period = 'week') => {
     try {
-      const response = await axios.get(`${API_URL}/analytics/time-spent`, {
+      const response = await axiosInstance.get(`${API_URL}/analytics/time-spent`, {
         params: { period }
       });
       return response.data;
@@ -53,7 +53,7 @@ const dashboardService = {
   // Get latest scores
   getLatestScores: async (limit = 3) => {
     try {
-      const response = await axios.get(`${API_URL}/scores/latest`, {
+      const response = await axiosInstance.get(`${API_URL}/scores/latest`, {
         params: { limit }
       });
       return response.data.scores || [];
@@ -66,7 +66,7 @@ const dashboardService = {
   // Get reminders
   getReminders: async () => {
     try {
-      const response = await axios.get(`${API_URL}/reminders`);
+      const response = await axiosInstance.get(`${API_URL}/reminders`);
       return response.data.reminders || [];
     } catch (error) {
       console.error('Error fetching reminders:', error);
@@ -77,7 +77,7 @@ const dashboardService = {
   // Get user progress/goals
   getUserGoals: async () => {
     try {
-      const response = await axios.get(`${API_URL}/user/goals/current`);
+      const response = await axiosInstance.get(`${API_URL}/user/goals/current`);
       return response.data;
     } catch (error) {
       console.error('Error fetching user goals:', error);
@@ -88,7 +88,7 @@ const dashboardService = {
   // Update placement test status
   updatePlacementTestStatus: async (completed = true) => {
     try {
-      const response = await axios.put(`${API_URL}/user/placement-test`, {
+      const response = await axiosInstance.put(`${API_URL}/user/placement-test`, {
         completed
       });
       return response.data;

@@ -1,6 +1,6 @@
 // Authentication Context
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosConfig';
 
 const AuthContext = createContext(null);
 
@@ -11,10 +11,9 @@ export const AuthProvider = ({ children }) => {
 
   const API_URL = 'http://localhost:3000/api/auth';
 
-  // Configure axios defaults
+  // Configure axios defaults and fetch user on mount
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchUser();
     } else {
       setLoading(false);
@@ -23,21 +22,28 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get(`${API_URL}/me`);
+      const res = await axiosInstance.get(`${API_URL}/me`);
       setUser(res.data.user);
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      logout();
+      // Only logout if it's not a token refresh issue
+      if (error.response?.status === 401 && !localStorage.getItem('refreshToken')) {
+        logout();
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const login = async (email, password) => {
-    const res = await axios.post(`${API_URL}/login`, { email, password });
-    const { token: newToken, user: userData } = res.data;
+    const res = await axiosInstance.post(`${API_URL}/login`, { email, password });
+    const { token: newToken, refreshToken, user: userData } = res.data;
     
     localStorage.setItem('token', newToken);
+    // Only store refresh token if provided (normal login has it, Google OAuth might not)
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     setToken(newToken);
     setUser(userData);
     
@@ -45,10 +51,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (user_name, email, password) => {
-    const res = await axios.post(`${API_URL}/register`, { user_name, email, password });
-    const { token: newToken, user: userData } = res.data;
+    const res = await axiosInstance.post(`${API_URL}/register`, { user_name, email, password });
+    const { token: newToken, refreshToken, user: userData } = res.data;
     
     localStorage.setItem('token', newToken);
+    // Only store refresh token if provided
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     setToken(newToken);
     setUser(userData);
     
@@ -57,20 +67,24 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setToken(null);
     setUser(null);
-    delete axios.defaults.headers.common['Authorization'];
+    delete axiosInstance.defaults.headers.common['Authorization'];
   };
 
-  const setAccessToken = (newToken) => {
+  const setAccessToken = (newToken, newRefreshToken = null) => {
     localStorage.setItem('token', newToken);
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    }
     setToken(newToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
 
   const fetchUserInfo = async () => {
     try {
-      const res = await axios.get(`${API_URL}/me`);
+      const res = await axiosInstance.get(`${API_URL}/me`);
       setUser(res.data.user);
     } catch (error) {
       console.error('Failed to fetch user:', error);

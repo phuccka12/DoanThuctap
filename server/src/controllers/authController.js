@@ -5,8 +5,8 @@ const User = require("../models/User");
 const signToken = (user) => {
   return jwt.sign(
     { user_id: user._id.toString(), role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || process.env.JWT_EXPIRES_IN || "15m" }
   );
 };
 
@@ -114,7 +114,7 @@ exports.refresh = async (req, res) => {
       return res.status(401).json({ message: "Không tìm thấy token" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET);
     const user = await User.findById(decoded.user_id);
 
     if (!user) {

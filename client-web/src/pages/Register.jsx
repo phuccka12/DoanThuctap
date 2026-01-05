@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
   const [formData, setFormData] = useState({
-    user_name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -50,7 +51,9 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register(formData.user_name, formData.email, formData.password);
+      // Combine first name and last name to create full user_name
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim() || formData.firstName;
+      await register(fullName, formData.email, formData.password);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng ký thất bại');
@@ -91,7 +94,7 @@ export default function Register() {
               {/* Tên */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Tên
+                  Tên <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -101,9 +104,9 @@ export default function Register() {
                   </div>
                   <input
                     type="text"
-                    name="user_name"
+                    name="firstName"
                     placeholder="Tên của bạn"
-                    value={formData.user_name}
+                    value={formData.firstName}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                     required
@@ -124,7 +127,10 @@ export default function Register() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Họ của bạn"
+                    name="lastName"
+                    placeholder="Họ của bạn (tùy chọn)"
+                    value={formData.lastName}
+                    onChange={handleChange}
                     className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
                   />
                 </div>
