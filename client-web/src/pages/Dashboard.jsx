@@ -7,12 +7,8 @@ import {
   FaHome,
   FaBookOpen,
   FaGraduationCap,
-  FaMap,
-  FaLightbulb,
-  FaPenFancy,
-  FaMicrophoneAlt,
+  FaCalendarAlt,
   FaComments,
-  FaHistory,
   FaUser,
   FaCog,
   FaSignOutAlt,
@@ -20,6 +16,8 @@ import {
   FaBell,
   FaChartPie,
   FaClipboardCheck,
+  FaMicrophoneAlt,
+  FaPenFancy,
   FaFire,
   FaTrophy,
   FaStar,
@@ -28,43 +26,42 @@ import {
 const cn = (...c) => c.filter(Boolean).join(" ");
 
 const theme = {
-  page: "bg-[#1a1d29]",
-  sidebar: "bg-[#252b3b]",
-  card: "bg-[#252b3b]",
-  border: "border-gray-700",
-  text: "text-white",
-  sub: "text-gray-400",
-  accent: "text-purple-400",
-  accentBg: "bg-gradient-to-r from-purple-600 to-blue-600",
-  accentSoft: "bg-purple-900/30",
-  input: "bg-[#1a1d29] border-gray-700",
-  hover: "hover:bg-[#2a3142]",
+  page: "bg-gradient-to-br from-purple-50 via-white to-violet-50",
+  sidebar: "bg-white shadow-lg",
+  card: "bg-white shadow-md",
+  border: "border-purple-100",
+  text: "text-gray-800",
+  sub: "text-gray-600",
+  accent: "text-[#6C5CE7]",
+  accentBg: "bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9]",
+  accentSoft: "bg-[#A29BFE]/20",
+  input: "bg-white border-purple-200",
+  hover: "hover:bg-purple-50",
 };
 
-// Navigation structure with 3 main groups
 const navGroups = [
   {
     title: "QUẢN LÝ & LỘ TRÌNH",
     items: [
-      { key: "dashboard", label: "Tổng quan", icon: <FaHome />, route: "/dashboard" },
-      { key: "roadmap", label: "Lộ trình học", icon: <FaMap />, route: "/roadmap" },
-      { key: "topics", label: "Kho Chủ đề", icon: <FaLightbulb />, route: "/topics" },
+      { key: "dashboard", label: "Tổng quan", icon: <FaHome />, badge: null },
+      { key: "roadmap", label: "Lộ trình học", icon: <FaCalendarAlt />, badge: "AI" },
+      { key: "topics", label: "Kho Chủ đề", icon: <FaBookOpen />, badge: null },
     ]
   },
   {
     title: "LUYỆN THI & CHẤM ĐIỂM",
     items: [
-      { key: "writing", label: "Luyện Writing", icon: <FaPenFancy />, route: "/ai-writing" },
-      { key: "speaking", label: "Luyện Speaking", icon: <FaMicrophoneAlt />, route: "/ai-speaking" },
-      { key: "conversation", label: "Hội thoại 1-1", icon: <FaComments />, route: "/ai-conversation" },
+      { key: "writing", label: "Luyện Writing", icon: <FaPenFancy />, badge: "Check" },
+      { key: "speaking", label: "Luyện Speaking", icon: <FaMicrophoneAlt />, badge: "Check" },
+      { key: "conversation", label: "Hội thoại AI", icon: <FaComments />, badge: "1-1" },
     ]
   },
   {
     title: "CÁ NHÂN & KẾT QUẢ",
     items: [
-      { key: "history", label: "Kết quả & Sửa lỗi", icon: <FaHistory />, route: "/history" },
-      { key: "profile", label: "Hồ sơ", icon: <FaUser />, route: "/profile" },
-      { key: "settings", label: "Cài đặt", icon: <FaCog />, route: "/settings" },
+      { key: "feedback", label: "Kết quả & Sửa lỗi", icon: <FaClipboardCheck />, badge: null },
+      { key: "profile", label: "Hồ sơ", icon: <FaUser />, badge: null },
+      { key: "settings", label: "Cài đặt", icon: <FaCog />, badge: null },
     ]
   }
 ];
@@ -77,7 +74,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Fetch dashboard data from API
   useEffect(() => {
@@ -207,10 +203,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1d29] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-300">Loading your dashboard...</p>
+          <div className="w-16 h-16 border-4 border-[#6C5CE7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-700">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -218,12 +214,12 @@ export default function Dashboard() {
 
   if (error || !dashboardData) {
     return (
-      <div className="min-h-screen bg-[#1a1d29] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-300">{error || "Unable to load dashboard data"}</p>
+          <p className="text-gray-700">{error || "Unable to load dashboard data"}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700"
+            className="mt-4 px-4 py-2 bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white rounded-lg hover:from-[#8E44AD] hover:to-[#00CEC9] shadow-lg"
           >
             Retry
           </button>
@@ -235,22 +231,13 @@ export default function Dashboard() {
   return (
     <div className={cn("min-h-screen", theme.page)}>
       <div className="max-w-[1600px] mx-auto p-6 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_380px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_380px] gap-6">
           {/* SIDEBAR */}
-          <Sidebar 
-            active={active} 
-            setActive={setActive} 
-            onLogout={handleLogout}
-            isOpen={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-          />
+          <Sidebar active={active} setActive={setActive} onLogout={handleLogout} />
 
           {/* MAIN */}
           <main className="space-y-6">
-            <Topbar 
-              user={dashboardData.user} 
-              onMenuClick={() => setSidebarOpen(true)}
-            />
+            <Topbar user={dashboardData.user} />
 
             <WelcomeBanner
               name={dashboardData.user.name}
@@ -273,18 +260,70 @@ export default function Dashboard() {
               </Card>
 
               <Card>
-                <CardHeader title="Time Spent" right={<span className={cn("text-xs", theme.sub)}>This week</span>} />
-                <div className="mt-5">
-                  <TimeDonut
-                    centerTop={dashboardData.weeklyTimeSpent.total > 0 ? `${Math.floor(dashboardData.weeklyTimeSpent.total / 60)}h` : "0h"}
-                    centerBottom={dashboardData.weeklyTimeSpent.total > 0 ? `${dashboardData.weeklyTimeSpent.total % 60}m` : "0m"}
-                    segments={dashboardData.weeklyTimeSpent.breakdown.length > 0 ? dashboardData.weeklyTimeSpent.breakdown : [
-                      { label: "Writing", value: 0, color: "#2563EB" },
-                      { label: "Speaking", value: 0, color: "#7C3AED" },
-                      { label: "Reading", value: 0, color: "#F59E0B" },
-                      { label: "Listening", value: 0, color: "#10B981" },
-                    ]}
-                  />
+                <CardHeader title="Tiến độ học tập" right={<span className="text-xs font-medium text-[#6C5CE7] bg-[#6C5CE7]/10 px-3 py-1.5 rounded-lg">Tuần này</span>} />
+                <div className="mt-6 space-y-5">
+                  {/* Tổng thời gian */}
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#6C5CE7]/10 to-[#00CEC9]/10 border border-[#6C5CE7]/20">
+                    <div>
+                      <div className="text-sm text-slate-600 font-medium">Tổng thời gian</div>
+                      <div className="text-3xl font-bold text-slate-800 mt-1">
+                        {dashboardData.weeklyTimeSpent.total > 0 
+                          ? `${Math.floor(dashboardData.weeklyTimeSpent.total / 60)}h ${dashboardData.weeklyTimeSpent.total % 60}m` 
+                          : "0h 0m"}
+                      </div>
+                    </div>
+                    <div className="text-4xl">📚</div>
+                  </div>
+
+                  {/* Progress bars cho từng kỹ năng */}
+                  <div className="space-y-4">
+                    {(dashboardData.weeklyTimeSpent.breakdown.length > 0 ? dashboardData.weeklyTimeSpent.breakdown : [
+                      { label: "Writing", value: 0, color: "#6C5CE7", icon: "✍️" },
+                      { label: "Speaking", value: 0, color: "#00CEC9", icon: "🎤" },
+                      { label: "Reading", value: 0, color: "#A29BFE", icon: "📖" },
+                      { label: "Listening", value: 0, color: "#74B9FF", icon: "🎧" },
+                    ]).map((skill, idx) => {
+                      const totalTime = dashboardData.weeklyTimeSpent.total || 1;
+                      const percentage = Math.round((skill.value / totalTime) * 100) || 0;
+                      const hours = Math.floor(skill.value / 60);
+                      const mins = skill.value % 60;
+                      
+                      return (
+                        <div key={idx}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{skill.icon || "📝"}</span>
+                              <span className="font-semibold text-slate-700">{skill.label}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-slate-500">
+                                {skill.value > 0 ? `${hours}h ${mins}m` : "0m"}
+                              </span>
+                              <span className="text-sm font-bold text-[#6C5CE7] min-w-[40px] text-right">{percentage}%</span>
+                            </div>
+                          </div>
+                          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full transition-all duration-500 ease-out"
+                              style={{ 
+                                width: `${percentage}%`,
+                                background: `linear-gradient(to right, ${skill.color}, ${skill.color}dd)`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Message động */}
+                  <div className="text-center pt-2">
+                    <p className="text-sm text-slate-600">
+                      {dashboardData.weeklyTimeSpent.total > 0 
+                        ? "🎯 Tuyệt vời! Tiếp tục phát huy nhé!" 
+                        : "💪 Hãy bắt đầu luyện tập ngay hôm nay!"}
+                    </p>
+                  </div>
                 </div>
               </Card>
             </div>
@@ -360,179 +399,130 @@ export default function Dashboard() {
   );
 }
 
-function Sidebar({ active, setActive, onLogout, isOpen, onClose }) {
+function Sidebar({ active, setActive, onLogout }) {
   const navigate = useNavigate();
   
   const handleNavClick = (item) => {
     setActive(item.key);
-    onClose(); // Close sidebar on mobile after selection
     
-    // Navigate to route if specified
-    if (item.route) {
-      navigate(item.route);
+    // Navigation routing
+    const routes = {
+      'dashboard': '/dashboard',
+      'roadmap': '/roadmap',
+      'topics': '/topics',
+      'writing': '/ai-writing',
+      'speaking': '/ai-speaking',
+      'conversation': '/ai-conversation',
+      'feedback': '/feedback',
+      'profile': '/profile',
+      'settings': '/settings',
+    };
+    
+    if (routes[item.key] && item.key !== 'dashboard') {
+      navigate(routes[item.key]);
     }
   };
 
   return (
-    <>
-      {/* Overlay for mobile */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <aside 
-        className={cn(
-          "rounded-3xl border p-5 transition-transform duration-300 ease-in-out overflow-y-auto",
-          theme.border, 
-          theme.sidebar,
-          // Mobile: fixed positioning with slide animation
-          "fixed top-0 left-0 h-full w-[300px] z-50 lg:relative lg:w-auto lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
-        {/* Logo Section */}
-        <div className="flex items-center gap-3 px-2 mb-6">
-          <div className="relative group">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-purple-500/30 transition-all group-hover:shadow-purple-500/50 group-hover:scale-105">
-              <svg 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                className="w-7 h-7"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path 
-                  d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" 
-                  stroke="currentColor" 
-                  strokeWidth="2.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <path 
-                  d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" 
-                  stroke="currentColor" 
-                  strokeWidth="2.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <circle cx="12" cy="8" r="1.5" fill="currentColor" opacity="0.8"/>
-                <circle cx="15" cy="11" r="1" fill="currentColor" opacity="0.6"/>
-              </svg>
-            </div>
-          </div>
-          
-          <div className="flex-1">
-            <div className={cn("font-black text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent tracking-tight")}>
-              LetsLearn
-            </div>
-            <div className={cn("text-xs font-semibold tracking-wide uppercase", theme.sub, "opacity-70")}>
-              IELTS Platform
-            </div>
-          </div>
+    <aside className={cn("rounded-3xl border p-6 h-fit sticky top-6", theme.border, theme.sidebar)}
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-2 mb-8">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white flex items-center justify-center font-bold text-lg shadow-md">
+          AI
         </div>
+        <div>
+          <div className={cn("font-bold text-lg", theme.text)}>IELTS Coach</div>
+          <div className="text-xs text-[#6C5CE7] font-semibold uppercase tracking-wider">Premium</div>
+        </div>
+      </div>
 
-        {/* Navigation Groups */}
-        <div className="space-y-6">
-          {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              {/* Group Title */}
-              <div className={cn("px-3 mb-2 text-xs font-bold tracking-wider uppercase", theme.sub, "opacity-60")}>
+      {/* Navigation Groups */}
+      <div className="space-y-6">
+        {navGroups.map((group, groupIdx) => (
+          <div key={groupIdx}>
+            {/* Group Title */}
+            <div className="px-2 mb-3">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 {group.title}
-              </div>
-              
-              {/* Group Items */}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const isActive = item.key === active;
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => handleNavClick(item)}
-                      style={{
-                        backgroundColor: isActive ? 'rgba(147, 51, 234, 0.15)' : 'transparent',
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group",
-                        isActive
-                          ? "border border-purple-500/40 shadow-lg shadow-purple-500/10"
-                          : "border border-transparent hover:bg-[#2a3142] hover:border-purple-500/30 hover:shadow-md"
-                      )}
-                    >
-                      <span className={cn(
-                        "text-base shrink-0 transition-colors duration-200",
-                        isActive ? "text-purple-400" : "text-gray-500 group-hover:text-purple-400"
-                      )}>
-                        {item.icon}
-                      </span>
-                      <span className={cn(
-                        "font-medium transition-colors duration-200",
-                        isActive ? "text-purple-300" : "text-gray-400 group-hover:text-white"
-                      )}>
-                        {item.label}
-                      </span>
-                      {isActive && (
-                        <span className="ml-auto w-1.5 h-6 rounded-full bg-gradient-to-b from-purple-500 to-blue-500 shadow-sm" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              </h4>
             </div>
-          ))}
-        </div>
+            
+            {/* Group Items */}
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = item.key === active;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handleNavClick(item)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-r from-[#A29BFE]/30 to-[#00CEC9]/20 border border-[#6C5CE7]/30 text-[#6C5CE7] shadow-sm font-semibold"
+                        : "text-gray-600 hover:bg-purple-50 hover:text-[#6C5CE7]"
+                    )}
+                  >
+                    <span className={cn("text-base", isActive ? "text-[#6C5CE7]" : "text-gray-500")}>{item.icon}</span>
+                    <span className="flex-1 text-left">{item.label}</span>
+                    
+                    {/* Badge */}
+                    {item.badge && (
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                        item.badge === "AI" ? "bg-[#6C5CE7] text-white" :
+                        item.badge === "Check" ? "bg-[#00CEC9] text-white" :
+                        "bg-orange-500 text-white"
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
+                    
+                    {/* Active Indicator */}
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#00CEC9] shadow-[0_0_8px_#00CEC9]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
 
-        {/* Logout Button */}
-        <div className="mt-6 pt-5 border-t border-gray-700">
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-red-900/20 hover:text-red-400 transition-all"
-          >
-            <span className="text-base flex-shrink-0"><FaSignOutAlt /></span>
-            <span className="font-medium">Đăng xuất</span>
-          </button>
-        </div>
-      </aside>
-    </>
+      {/* Logout Button */}
+      <div className="mt-8 pt-6 border-t border-dashed border-purple-100">
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors font-medium"
+        >
+          <FaSignOutAlt className="text-base" />
+          <span>Đăng xuất</span>
+        </button>
+      </div>
+    </aside>
   );
 }
 
-function Topbar({ user, onMenuClick }) {
+function Topbar({ user }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        {/* Hamburger Menu Button - Only visible on mobile/tablet */}
-        <button
-          onClick={onMenuClick}
-          className="lg:hidden w-12 h-12 rounded-2xl border border-gray-700 bg-[#252b3b] flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:bg-[#2a3142] transition group"
-          aria-label="Toggle menu"
-        >
-          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
-          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
-          <span className="w-6 h-0.5 bg-gray-400 rounded-full transition-all group-hover:bg-purple-400" />
-        </button>
-        
-        <div>
-          <div className={cn("text-base", theme.sub)}>My Dashboard</div>
-          <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>Overview</div>
-        </div>
+      <div>
+        <div className={cn("text-base", theme.sub)}>My Dashboard</div>
+        <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>Overview</div>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="hidden md:block relative">
-          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg" />
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
           <input
-            className="w-[400px] pl-12 pr-5 py-3.5 rounded-2xl border border-gray-700 bg-[#1a1d29] text-white text-base outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500"
+            className="w-[400px] pl-12 pr-5 py-3.5 rounded-2xl border border-purple-200 bg-white text-gray-800 text-base outline-none focus:ring-2 focus:ring-[#6C5CE7] placeholder-gray-400"
             placeholder="What are you looking for?"
           />
         </div>
-        <button className="w-14 h-14 rounded-2xl border border-gray-700 bg-[#252b3b] flex items-center justify-center text-gray-400 hover:bg-[#2a3142] transition text-xl">
+        <button className="w-14 h-14 rounded-2xl border border-purple-200 bg-white flex items-center justify-center text-gray-600 hover:bg-purple-50 transition text-xl shadow-sm">
           <FaBell />
         </button>
-        <div className="flex items-center gap-3 rounded-2xl border border-gray-700 bg-[#252b3b] px-4 py-2.5">
-          <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 text-white flex items-center justify-center font-bold text-lg">
+        <div className="flex items-center gap-3 rounded-2xl border border-purple-200 bg-white px-4 py-2.5 shadow-sm">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#6C5CE7] to-[#00CEC9] text-white flex items-center justify-center font-bold text-lg shadow-md">
             {user.initials}
           </div>
           <div className="hidden sm:block leading-tight">
@@ -547,11 +537,11 @@ function Topbar({ user, onMenuClick }) {
 
 function WelcomeBanner({ name, hasDonePlacementTest, onStartTest }) {
   return (
-    <div className="rounded-3xl border border-gray-700 bg-gradient-to-r from-purple-900/40 via-blue-900/40 to-purple-900/40 overflow-hidden">
+    <div className="rounded-3xl border border-purple-200 bg-gradient-to-r from-[#A29BFE]/20 via-purple-50 to-[#A29BFE]/20 overflow-hidden shadow-md">
       <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="max-w-2xl">
           <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>
-            Welcome to  {name}!!!
+            Good Morning {name}! 🌟
           </div>
           <p className={cn("mt-3 text-base md:text-lg", theme.sub)}>
             {hasDonePlacementTest
@@ -562,7 +552,7 @@ function WelcomeBanner({ name, hasDonePlacementTest, onStartTest }) {
           {!hasDonePlacementTest && (
             <button
               onClick={onStartTest}
-              className="mt-5 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold text-base hover:from-purple-700 hover:to-blue-700 transition"
+              className="mt-5 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white font-semibold text-base hover:from-[#8E44AD] hover:to-[#00CEC9] transition shadow-md hover:shadow-lg"
             >
               Start Placement Test
               <span className="opacity-90">→</span>
@@ -598,7 +588,7 @@ function SmallLink({ children, onClick }) {
   return (
     <button 
       onClick={onClick}
-      className="text-sm font-medium text-purple-400 hover:text-purple-300 transition"
+      className="text-sm font-medium text-[#6C5CE7] hover:text-[#8E44AD] transition"
     >
       {children} →
     </button>
@@ -607,9 +597,9 @@ function SmallLink({ children, onClick }) {
 
 function TaskRow({ title, subtitle, percent, icon }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-700 bg-[#1a1d29] p-4">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-purple-100 bg-[#A29BFE]/10 p-4 hover:shadow-md transition">
       <div className="flex items-center gap-4 min-w-0">
-        <div className="w-14 h-14 rounded-2xl bg-[#252b3b] border border-gray-700 flex items-center justify-center text-purple-400 text-xl">
+        <div className="w-14 h-14 rounded-2xl bg-white border border-purple-200 flex items-center justify-center text-[#6C5CE7] text-xl shadow-sm">
           {icon}
         </div>
         <div className="min-w-0">
@@ -629,11 +619,11 @@ function ProgressRing({ percent }) {
     <div
       className="w-16 h-16 rounded-full flex items-center justify-center"
       style={{
-        backgroundImage: `conic-gradient(#a855f7 ${deg}deg, #374151 0deg)`,
+        backgroundImage: `conic-gradient(#6C5CE7 ${deg}deg, #e5e7eb 0deg)`,
       }}
     >
-      <div className="w-[52px] h-[52px] rounded-full bg-[#252b3b] flex items-center justify-center border border-gray-700">
-        <div className="text-sm font-bold text-gray-300">{percent}%</div>
+      <div className="w-[52px] h-[52px] rounded-full bg-white flex items-center justify-center border border-purple-200 shadow-sm">
+        <div className="text-sm font-bold text-gray-800">{percent}%</div>
       </div>
     </div>
   );
@@ -654,23 +644,23 @@ function TimeDonut({ segments, centerTop, centerBottom }) {
 
   return (
     <div className="flex flex-col md:flex-row items-center gap-6">
-      <div className="relative w-52 h-52 rounded-full" style={{ backgroundImage: `conic-gradient(${stops})` }}>
-        <div className="absolute inset-5 rounded-full bg-[#252b3b] border border-gray-700 flex flex-col items-center justify-center">
+      <div className="relative w-52 h-52 rounded-full shadow-md" style={{ backgroundImage: `conic-gradient(${stops})` }}>
+        <div className="absolute inset-5 rounded-full bg-white border border-purple-200 flex flex-col items-center justify-center shadow-sm">
           <div className={cn("text-2xl font-bold", theme.text)}>{centerTop}</div>
           <div className={cn("text-base", theme.sub)}>{centerBottom}</div>
         </div>
       </div>
 
       <div className="flex-1 w-full">
-        <div className={cn("text-base font-bold", theme.text)}>Good job, keep going!</div>
+        <div className={cn("text-base font-bold", theme.text)}>Good job, keep going! 🎯</div>
         <div className="mt-4 space-y-3">
           {segments.map((s, i) => (
             <div key={i} className="flex items-center justify-between text-base">
               <div className="flex items-center gap-3">
-                <span className="w-3 h-3 rounded-full" style={{ background: s.color }} />
-                <span className="text-gray-300 font-medium">{s.label}</span>
+                <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: s.color }} />
+                <span className="text-gray-700 font-medium">{s.label}</span>
               </div>
-              <span className="text-gray-400 font-semibold">{Math.round((s.value / total) * 100)}%</span>
+              <span className="text-gray-600 font-semibold">{Math.round((s.value / total) * 100)}%</span>
             </div>
           ))}
         </div>
@@ -683,9 +673,9 @@ function Pill({ icon, label, onClick }) {
   return (
     <button 
       onClick={onClick}
-      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-gray-700 bg-[#252b3b] text-base text-gray-300 hover:bg-[#2a3142] transition"
+      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-purple-200 bg-white text-base text-gray-700 hover:bg-[#A29BFE]/20 hover:border-[#6C5CE7] transition shadow-sm hover:shadow-md"
     >
-      <span className="text-purple-400 text-lg">{icon}</span>
+      <span className="text-[#6C5CE7] text-lg">{icon}</span>
       <span className="font-medium">{label}</span>
     </button>
   );
@@ -697,25 +687,25 @@ function ProfileCard({ user }) {
     >
       <div className="flex items-center justify-between">
         <div className={cn("text-base font-bold", theme.text)}>Profile</div>
-        <button className="text-sm font-medium text-purple-400 hover:text-purple-300 transition">Edit</button>
+        <button className="text-sm font-medium text-[#6C5CE7] hover:text-[#8E44AD] transition">Edit</button>
       </div>
 
       <div className="mt-5 flex flex-col items-center text-center">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-purple-500/50">
+        <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#6C5CE7] to-[#00CEC9] flex items-center justify-center text-white font-bold text-3xl shadow-lg">
           {user.initials}
         </div>
         <div className={cn("mt-4 font-bold text-xl", theme.text)}>{user.name}</div>
         <div className={cn("text-sm", theme.sub)}>{user.band}</div>
 
-        <div className="mt-5 w-full rounded-2xl bg-[#1a1d29] border border-gray-700 p-4">
+        <div className="mt-5 w-full rounded-2xl bg-[#A29BFE]/15 border border-purple-200 p-4">
           <div className="flex items-center justify-between text-base">
-            <span className="text-gray-300 font-medium">{user.goal}</span>
-            <span className="text-gray-200 font-bold">This month</span>
+            <span className="text-gray-700 font-medium">{user.goal}</span>
+            <span className="text-gray-800 font-bold">This month</span>
           </div>
-          <div className="mt-3 w-full h-2.5 rounded-full bg-gray-700 overflow-hidden">
-            <div className="h-full w-[55%] bg-gradient-to-r from-purple-500 to-blue-500" />
+          <div className="mt-3 w-full h-2.5 rounded-full bg-purple-100 overflow-hidden">
+            <div className="h-full w-[55%] bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] shadow-sm" />
           </div>
-          <div className="mt-2 text-sm text-gray-400">55% progress</div>
+          <div className="mt-2 text-sm text-gray-600">55% progress</div>
         </div>
       </div>
     </div>
@@ -723,19 +713,19 @@ function ProfileCard({ user }) {
 }
 
 function ScoreRow({ score, label }) {
-  const color = score >= 7.5 ? "bg-purple-900/30 text-purple-400" : score >= 6 ? "bg-blue-900/30 text-blue-400" : "bg-orange-900/30 text-orange-400";
+  const color = score >= 7.5 ? "bg-green-100 text-green-700 border border-green-300" : score >= 6 ? "bg-[#A29BFE]/30 text-[#6C5CE7] border border-purple-300" : "bg-orange-100 text-orange-700 border border-orange-300";
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-gray-700 bg-[#1a1d29] p-4">
+    <div className="flex items-center justify-between rounded-2xl border border-purple-100 bg-[#A29BFE]/10 p-4 hover:shadow-md transition">
       <div className={cn("text-base font-medium", theme.text)}>{label}</div>
-      <span className={cn("text-sm font-bold px-3 py-1.5 rounded-full", color)}>{score}</span>
+      <span className={cn("text-sm font-bold px-3 py-1.5 rounded-full shadow-sm", color)}>{score}</span>
     </div>
   );
 }
 
 function ReminderRow({ label }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-gray-700 bg-[#1a1d29] p-4">
-      <span className="w-11 h-11 rounded-2xl bg-purple-900/30 text-purple-400 flex items-center justify-center text-lg">
+    <div className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-[#A29BFE]/10 p-4 hover:shadow-md transition">
+      <span className="w-11 h-11 rounded-2xl bg-white border border-purple-200 text-[#6C5CE7] flex items-center justify-center text-lg shadow-sm">
         <FaClipboardCheck />
       </span>
       <div className={cn("text-base font-medium", theme.text)}>{label}</div>
@@ -744,44 +734,44 @@ function ReminderRow({ label }) {
 }
 
 function Illustration() {
-  // Dark theme illustration
+  // Modern Purple theme illustration
   return (
     <svg viewBox="0 0 520 180" className="w-full h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="22" width="520" height="136" rx="24" fill="#2a3142" />
+      <rect x="0" y="22" width="520" height="136" rx="24" fill="#f5f3ff" />
       <path
         d="M340 136c16-26 48-38 76-30 17 5 33 17 40 36"
-        stroke="#8b5cf6"
+        stroke="#00CEC9"
         strokeWidth="4"
         strokeLinecap="round"
-        opacity="0.65"
+        opacity="0.75"
       />
       <path
         d="M214 132c8-40 46-68 86-64 38 4 68 35 70 72"
-        stroke="#a855f7"
+        stroke="#6C5CE7"
         strokeWidth="5"
         strokeLinecap="round"
         opacity="0.85"
       />
-      <circle cx="246" cy="78" r="18" stroke="#a855f7" strokeWidth="5" />
-      <circle cx="344" cy="82" r="16" stroke="#a855f7" strokeWidth="5" />
+      <circle cx="246" cy="78" r="18" stroke="#6C5CE7" strokeWidth="5" />
+      <circle cx="344" cy="82" r="16" stroke="#6C5CE7" strokeWidth="5" />
       <path
         d="M228 125c10-20 30-33 52-33 23 0 44 14 54 35"
-        stroke="#a855f7"
+        stroke="#A29BFE"
         strokeWidth="5"
         strokeLinecap="round"
       />
       <path
         d="M328 120c8-18 26-30 46-30 18 0 34 10 44 24"
-        stroke="#a855f7"
+        stroke="#A29BFE"
         strokeWidth="5"
         strokeLinecap="round"
       />
       <path
         d="M396 74c12-20 36-30 58-24"
-        stroke="#3b82f6"
+        stroke="#00CEC9"
         strokeWidth="4"
         strokeLinecap="round"
-        opacity="0.65"
+        opacity="0.75"
       />
     </svg>
   );
