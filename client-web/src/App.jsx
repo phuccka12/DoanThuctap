@@ -13,6 +13,7 @@ import Profile from './pages/Profile';
 import AIWriting from './pages/AiWriting';
 import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
+import NotFound from './pages/NotFound';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -53,21 +54,24 @@ function App() {
               <Profile />
             </ProtectedRoute>
           } />
-          <Route path="/writing" element={
+          <Route path="/ai-writing" element={
             <ProtectedRoute>
               <AIWriting />
             </ProtectedRoute>
           } />
-          <Route path="/speaking" element={
+          <Route path="/ai-speaking" element={
             <ProtectedRoute>
               <AISpeaking />
             </ProtectedRoute>
           } />
-          <Route path="/conversation" element={
+          <Route path="/ai-conversation" element={
             <ProtectedRoute>
               <AIConversation />
             </ProtectedRoute>
           } />
+          
+          {/* 404 - Catch all undefined routes */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

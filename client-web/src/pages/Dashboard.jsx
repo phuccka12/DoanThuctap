@@ -2,7 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import dashboardService from "../services/dashboardService";
+import ThemeToggle from "../components/ThemeToggle";
+import PetWidget from "../components/PetWidget";
 import {
   FaHome,
   FaBookOpen,
@@ -69,11 +72,27 @@ const navGroups = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { isDark } = useTheme();
   
   const [active, setActive] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
+
+  // Dynamic theme based on dark mode
+  const dynamicTheme = isDark ? {
+    page: "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
+    sidebar: "bg-gray-800 shadow-2xl border-gray-700",
+    card: "bg-gray-800 shadow-xl",
+    border: "border-gray-700",
+    text: "text-white",
+    sub: "text-gray-400",
+    accent: "text-[#A29BFE]",
+    accentBg: "bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9]",
+    accentSoft: "bg-[#A29BFE]/10",
+    input: "bg-gray-700 border-gray-600 text-white placeholder-gray-400",
+    hover: "hover:bg-gray-700",
+  } : theme;
 
   // Fetch dashboard data from API
   useEffect(() => {
@@ -229,25 +248,26 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={cn("min-h-screen", theme.page)}>
-      <div className="max-w-[1600px] mx-auto p-6 md:p-8">
+    <div className={cn("min-h-screen", dynamicTheme.page)}>
+      <div className="max-w-[1800px] mx-auto p-6 md:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_380px] gap-6">
           {/* SIDEBAR */}
-          <Sidebar active={active} setActive={setActive} onLogout={handleLogout} />
+          <Sidebar active={active} setActive={setActive} onLogout={handleLogout} theme={dynamicTheme} />
 
           {/* MAIN */}
           <main className="space-y-6">
-            <Topbar user={dashboardData.user} />
+            <Topbar user={dashboardData.user} theme={dynamicTheme} />
 
             <WelcomeBanner
               name={dashboardData.user.name}
               hasDonePlacementTest={dashboardData.user.hasCompletedPlacementTest}
               onStartTest={handleStartPlacementTest}
+              theme={dynamicTheme}
             />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader title="Today Practice" right={<SmallLink onClick={() => navigate('/practice')}>View all</SmallLink>} />
+              <Card theme={dynamicTheme}>
+                <CardHeader title="Today Practice" right={<SmallLink onClick={() => navigate('/practice')} theme={dynamicTheme}>View all</SmallLink>} theme={dynamicTheme} />
                 <div className="mt-5 space-y-4">
                   {dashboardData.todayTasks.length > 0 ? (
                     dashboardData.todayTasks.map((t, i) => (
@@ -259,8 +279,8 @@ export default function Dashboard() {
                 </div>
               </Card>
 
-              <Card>
-                <CardHeader title="Tiến độ học tập" right={<span className="text-xs font-medium text-[#6C5CE7] bg-[#6C5CE7]/10 px-3 py-1.5 rounded-lg">Tuần này</span>} />
+              <Card theme={dynamicTheme}>
+                <CardHeader title="Tiến độ học tập" right={<span className="text-xs font-medium text-[#6C5CE7] bg-[#6C5CE7]/10 px-3 py-1.5 rounded-lg">Tuần này</span>} theme={dynamicTheme} />
                 <div className="mt-6 space-y-5">
                   {/* Tổng thời gian */}
                   <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#6C5CE7]/10 to-[#00CEC9]/10 border border-[#6C5CE7]/20">
@@ -330,12 +350,12 @@ export default function Dashboard() {
 
             <div className={cn("rounded-3xl border", theme.border, theme.card, "p-5 md:p-6")}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <div className={cn("text-base font-semibold", theme.text)}>Quick Actions</div>
                   <div className={cn("text-sm", theme.sub)}>Bắt đầu nhanh 1 bài trong 10 phút</div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Pill 
                     icon={<FaPenFancy />} 
                     label="Writing" 
@@ -347,8 +367,13 @@ export default function Dashboard() {
                     onClick={() => navigate('/ai-speaking')}
                   />
                   <Pill 
+                    icon={<FaComments />} 
+                    label="Conversation" 
+                    onClick={() => navigate('/ai-conversation')}
+                  />
+                  <Pill 
                     icon={<FaChartPie />} 
-                    label="Mock" 
+                    label="Mock Test" 
                     onClick={() => navigate('/mock-tests')}
                   />
                 </div>
@@ -358,6 +383,7 @@ export default function Dashboard() {
 
           {/* RIGHT PANEL */}
           <aside className="space-y-6">
+            <PetWidget theme={dynamicTheme} />
             <ProfileCard 
               user={{
                 name: dashboardData.user.name,
@@ -399,7 +425,7 @@ export default function Dashboard() {
   );
 }
 
-function Sidebar({ active, setActive, onLogout }) {
+function Sidebar({ active, setActive, onLogout, theme: t }) {
   const navigate = useNavigate();
   
   const handleNavClick = (item) => {
@@ -424,7 +450,7 @@ function Sidebar({ active, setActive, onLogout }) {
   };
 
   return (
-    <aside className={cn("rounded-3xl border p-6 h-fit sticky top-6", theme.border, theme.sidebar)}
+    <aside className={cn("rounded-3xl border p-6 h-fit sticky top-6", t.border, t.sidebar)}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-2 mb-8">
@@ -432,7 +458,7 @@ function Sidebar({ active, setActive, onLogout }) {
           AI
         </div>
         <div>
-          <div className={cn("font-bold text-lg", theme.text)}>IELTS Coach</div>
+          <div className={cn("font-bold text-lg", t.text)}>IELTS Coach</div>
           <div className="text-xs text-[#6C5CE7] font-semibold uppercase tracking-wider">Premium</div>
         </div>
       </div>
@@ -502,32 +528,36 @@ function Sidebar({ active, setActive, onLogout }) {
   );
 }
 
-function Topbar({ user }) {
+function Topbar({ user, theme: t }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <div className={cn("text-base", theme.sub)}>My Dashboard</div>
-        <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>Overview</div>
+        <div className={cn("text-base", t.sub)}>My Dashboard</div>
+        <div className={cn("text-3xl md:text-4xl font-bold", t.text)}>Overview</div>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="hidden md:block relative">
-          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+          <FaSearch className={cn("absolute left-4 top-1/2 -translate-y-1/2 text-lg", t.sub)} />
           <input
-            className="w-[400px] pl-12 pr-5 py-3.5 rounded-2xl border border-purple-200 bg-white text-gray-800 text-base outline-none focus:ring-2 focus:ring-[#6C5CE7] placeholder-gray-400"
+            className={cn("w-[400px] pl-12 pr-5 py-3.5 rounded-2xl border text-base outline-none focus:ring-2 focus:ring-[#6C5CE7]", t.input, t.border)}
             placeholder="What are you looking for?"
           />
         </div>
-        <button className="w-14 h-14 rounded-2xl border border-purple-200 bg-white flex items-center justify-center text-gray-600 hover:bg-purple-50 transition text-xl shadow-sm">
-          <FaBell />
+        
+        {/* Theme Toggle Button */}
+        <ThemeToggle />
+        
+        <button className={cn("w-14 h-14 rounded-2xl border flex items-center justify-center transition text-xl shadow-sm", t.border, t.card, t.hover)}>
+          <FaBell className={t.sub} />
         </button>
-        <div className="flex items-center gap-3 rounded-2xl border border-purple-200 bg-white px-4 py-2.5 shadow-sm">
+        <div className={cn("flex items-center gap-3 rounded-2xl border px-4 py-2.5 shadow-sm", t.border, t.card)}>
           <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#6C5CE7] to-[#00CEC9] text-white flex items-center justify-center font-bold text-lg shadow-md">
             {user.initials}
           </div>
           <div className="hidden sm:block leading-tight">
-            <div className={cn("text-base font-semibold", theme.text)}>{user.name}</div>
-            <div className={cn("text-sm", theme.sub)}>{user.band}</div>
+            <div className={cn("text-base font-semibold", t.text)}>{user.name}</div>
+            <div className={cn("text-sm", t.sub)}>{user.band}</div>
           </div>
         </div>
       </div>
@@ -541,7 +571,7 @@ function WelcomeBanner({ name, hasDonePlacementTest, onStartTest }) {
       <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="max-w-2xl">
           <div className={cn("text-3xl md:text-4xl font-bold", theme.text)}>
-            Good Morning {name}! 🌟
+            Welcome to  {name}! 🌟
           </div>
           <p className={cn("mt-3 text-base md:text-lg", theme.sub)}>
             {hasDonePlacementTest

@@ -37,8 +37,8 @@ exports.googleCallback = async (req, res) => {
     // Set cookie
     res.cookie("refresh_token", refreshToken, cookieOptions());
 
-    // Redirect về frontend với access token
-    const redirectUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/auth/google/callback?token=${accessToken}`;
+    // Redirect về frontend với access token VÀ refresh token
+    const redirectUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/auth/google/callback?token=${accessToken}&refreshToken=${refreshToken}`;
     res.redirect(redirectUrl);
   } catch (error) {
     console.error("Google callback error:", error);

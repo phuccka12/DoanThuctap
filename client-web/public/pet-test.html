@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pet Widget Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="w-full max-w-md mx-auto p-6">
+    <div class="bg-white rounded-2xl border border-purple-100 p-6 shadow-2xl">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">🐱 Your Pet</h2>
+      
+      <div class="flex items-center gap-4 mb-6">
+        <!-- Animated Pet Avatar -->
+        <div id="petAvatar" class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center shadow-lg overflow-hidden relative">
+          <span class="text-white text-2xl font-bold">🐱</span>
+        </div>
+        
+        <div class="flex-1">
+          <div class="font-bold text-lg text-gray-800">Buddy Cat</div>
+          <div class="text-sm text-gray-600">Level 1 • Streak 0d</div>
+          <div class="mt-2 text-sm text-gray-600">
+            <div>Hunger: 0%</div>
+            <div>Happiness: 80%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <button onclick="checkin()" class="w-full px-4 py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-purple-500 to-cyan-500 hover:opacity-90 transition">
+          ✨ Check-in Daily
+        </button>
+        
+        <div class="flex gap-2">
+          <button onclick="feed()" class="flex-1 px-4 py-2 rounded-xl border border-purple-200 hover:bg-purple-50 transition flex items-center justify-center gap-2">
+            🍗 Feed
+          </button>
+          <button onclick="play()" class="flex-1 px-4 py-2 rounded-xl border border-purple-200 hover:bg-purple-50 transition flex items-center justify-center gap-2">
+            ❤️ Play
+          </button>
+        </div>
+      </div>
+
+      <div id="message" class="mt-4 p-3 rounded-lg bg-purple-50 text-purple-800 text-sm text-center hidden"></div>
+    </div>
+
+    <div class="text-center mt-6">
+      <a href="/dashboard" class="text-white hover:underline">← Back to Dashboard</a>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <script>
+    // Load Lottie animation
+    fetch('/cat-pet.json')
+      .then(res => res.json())
+      .then(data => {
+        const container = document.getElementById('petAvatar');
+        container.innerHTML = '';
+        
+        const player = document.createElement('lottie-player');
+        player.setAttribute('autoplay', '');
+        player.setAttribute('loop', '');
+        player.setAttribute('mode', 'normal');
+        player.style.width = '100%';
+        player.style.height = '100%';
+        player.load(data);
+        
+        container.appendChild(player);
+      })
+      .catch(err => {
+        console.error('Failed to load animation:', err);
+      });
+
+    function showMessage(text) {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 3000);
+    }
+
+    function checkin() {
+      showMessage('✨ Check-in successful! +10 points');
+    }
+
+    function feed() {
+      showMessage('🍗 Fed your pet! Hunger -20%');
+    }
+
+    function play() {
+      showMessage('❤️ Played with your pet! Happiness +15%');
+    }
+  </script>
+</body>
+</html>

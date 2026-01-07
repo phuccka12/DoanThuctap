@@ -21,6 +21,8 @@ const speakingQuestionRoutes = require('./src/routes/Public/PublicSpeakingQuesti
 const adminTopicRoutes = require('./src/routes/Admin/AdminTopics');
 const adminWritingPromptRoutes = require('./src/routes/Admin/AdminWritingPrompts');
 const adminSpeakingQuestionRoutes = require('./src/routes/Admin/AdminSpeakingQuestions');
+const petRoutes = require('./src/routes/petRoutes');
+const { startPetDecayJob } = require('./src/jobs/petDecay');
 
 // Khởi tạo app
 const app = express();
@@ -73,6 +75,12 @@ app.use('/api/speaking-questions', speakingQuestionRoutes);
 app.use('/api/admin/topics', adminTopicRoutes);
 app.use('/api/admin/writing-prompts', adminWritingPromptRoutes);
 app.use('/api/admin/speaking-questions', adminSpeakingQuestionRoutes);
+
+// Pet feature
+app.use('/api/pet', petRoutes);
+
+// start background jobs
+startPetDecayJob();
 
 
 

@@ -21,13 +21,15 @@ import {
 const cn = (...c) => c.filter(Boolean).join(' ');
 
 const theme = {
-  page: 'bg-[#1a1d29]',
-  card: 'bg-[#252b3b]',
-  border: 'border-gray-700',
-  text: 'text-white',
-  sub: 'text-gray-400',
-  input: 'bg-[#1a1d29] border-gray-700 text-white',
-  hover: 'hover:bg-[#2a3142]',
+  page: 'bg-gradient-to-br from-purple-50 via-white to-violet-50',
+  card: 'bg-white shadow-md',
+  border: 'border-purple-100',
+  text: 'text-gray-800',
+  sub: 'text-gray-600',
+  input: 'bg-white border-purple-200',
+  hover: 'hover:bg-purple-50',
+  accent: 'text-[#6C5CE7]',
+  accentBg: 'bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9]',
 };
 
 export default function Profile() {
@@ -134,8 +136,8 @@ export default function Profile() {
     return (
       <div className={cn('min-h-screen', theme.page, 'flex items-center justify-center')}>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-300">Đang tải profile...</p>
+          <div className="w-16 h-16 border-4 border-[#6C5CE7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-700">Đang tải profile...</p>
         </div>
       </div>
     );
@@ -152,7 +154,7 @@ export default function Profile() {
           </div>
           <button
             onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:bg-[#2a3142] hover:text-white transition"
+            className="px-4 py-2 rounded-xl border border-purple-200 text-gray-600 hover:bg-purple-50 hover:text-[#6C5CE7] transition"
           >
             ← Quay lại
           </button>
@@ -160,12 +162,12 @@ export default function Profile() {
 
         {/* Alerts */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl">
+          <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl">
             {error}
           </div>
         )}
         {success && (
-          <div className="bg-green-500/10 border border-green-500/30 text-green-400 p-4 rounded-xl">
+          <div className="bg-green-50 border border-green-200 text-green-600 p-4 rounded-xl">
             {success}
           </div>
         )}
@@ -178,7 +180,7 @@ export default function Profile() {
               <div className="text-center">
                 {/* Avatar */}
                 <div className="relative inline-block mb-4">
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white text-4xl font-bold shadow-lg shadow-purple-500/30">
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#6C5CE7] to-[#00CEC9] flex items-center justify-center text-white text-4xl font-bold shadow-lg">
                     {profileData.avatar ? (
                       <img
                         src={profileData.avatar}
@@ -190,7 +192,7 @@ export default function Profile() {
                     )}
                   </div>
                   {editing && (
-                    <button className="absolute bottom-0 right-0 w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white hover:bg-purple-700 transition shadow-lg">
+                    <button className="absolute bottom-0 right-0 w-10 h-10 bg-[#6C5CE7] rounded-full flex items-center justify-center text-white hover:bg-[#8E44AD] transition shadow-lg">
                       <FaCamera />
                     </button>
                   )}
@@ -208,9 +210,9 @@ export default function Profile() {
                     </div>
                     <div className={cn('text-xs', theme.sub)}>Band hiện tại</div>
                   </div>
-                  <div className="text-gray-600">→</div>
+                  <div className="text-gray-400">→</div>
                   <div className="text-center">
-                    <div className={cn('text-2xl font-bold text-purple-400')}>
+                    <div className={cn('text-2xl font-bold', theme.accent)}>
                       {profileData.target_band || '-'}
                     </div>
                     <div className={cn('text-xs', theme.sub)}>Mục tiêu</div>
@@ -221,7 +223,10 @@ export default function Profile() {
                 {!editing && (
                   <button
                     onClick={() => setEditing(true)}
-                    className="mt-6 w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+                    className={cn(
+                      'mt-6 w-full py-3 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2',
+                      'bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] hover:from-[#8E44AD] hover:to-[#00CEC9] shadow-lg'
+                    )}
                   >
                     <FaEdit /> Chỉnh sửa profile
                   </button>
@@ -251,13 +256,17 @@ export default function Profile() {
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-xl transition flex items-center gap-2 disabled:opacity-50"
+                      className={cn(
+                        'px-4 py-2 text-white font-semibold rounded-xl transition flex items-center gap-2',
+                        'bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] hover:from-[#8E44AD] hover:to-[#00CEC9] shadow-lg',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
                     >
                       <FaSave /> {saving ? 'Đang lưu...' : 'Lưu'}
                     </button>
                     <button
                       onClick={handleCancel}
-                      className="px-4 py-2 rounded-xl border border-gray-700 text-gray-400 hover:bg-[#2a3142] hover:text-white transition flex items-center gap-2"
+                      className="px-4 py-2 rounded-xl border border-purple-200 text-gray-600 hover:bg-purple-50 hover:text-[#6C5CE7] transition flex items-center gap-2"
                     >
                       <FaTimes /> Hủy
                     </button>
@@ -374,8 +383,8 @@ export default function Profile() {
                       'w-full px-4 py-3 rounded-xl border transition-colors',
                       theme.input,
                       theme.border,
-                      'placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50',
-                      !editing && 'cursor-not-allowed opacity-60'
+                      'placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/50 focus:border-[#6C5CE7]',
+                      !editing && 'cursor-not-allowed opacity-60 bg-gray-50'
                     )}
                   />
                 </div>
@@ -394,7 +403,7 @@ function InputField({ icon, label, disabled, ...props }) {
     <div>
       <label className={cn('block text-sm font-medium mb-2', theme.text)}>{label}</label>
       <div className="relative">
-        <div className={cn('absolute left-3 top-1/2 -translate-y-1/2', theme.sub)}>
+        <div className={cn('absolute left-3 top-1/2 -translate-y-1/2', disabled ? 'text-gray-400' : theme.sub)}>
           {icon}
         </div>
         <input
@@ -403,8 +412,8 @@ function InputField({ icon, label, disabled, ...props }) {
             'w-full pl-10 pr-4 py-3 rounded-xl border transition-colors',
             theme.input,
             theme.border,
-            'placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50',
-            disabled && 'cursor-not-allowed opacity-60'
+            'placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/50 focus:border-[#6C5CE7]',
+            disabled && 'cursor-not-allowed opacity-60 bg-gray-50'
           )}
         />
       </div>
