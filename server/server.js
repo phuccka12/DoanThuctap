@@ -11,6 +11,7 @@ const connectDB = require('./src/config/db');
 // Import routes
 const aiRoutes = require('./src/routes/aiRoutes');
 const authRoutes = require('./src/routes/authRoutes');
+const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
 // Import CMS public routes
 const topicRoutes = require('./src/routes/Public/PublicTopics');
@@ -65,6 +66,7 @@ app.use(
 // Routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', dashboardRoutes); // Dashboard routes
 
 // Public CMS routes
 app.use('/api/topics', topicRoutes);

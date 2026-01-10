@@ -190,6 +190,9 @@ def check_speaking():
         result = whisper_model.transcribe(tmp_path)
         transcript = result["text"]
         print(f"📝 Transcript: {transcript}")
+        
+        # Cleanup
+        os.remove(tmp_path)
 
         # 3. GỬI CHO GEMINI
         uploaded_file = genai.upload_file(tmp_path)
@@ -267,8 +270,13 @@ async def generate_audio_edge(text, filepath):
 @app.route('/api/speaking/conversation', methods=['POST'])
 def conversation():
     try:
+        # Kiểm tra Whisper trước
+        if whisper_model is None: 
+            return jsonify({"error": "Whisper chưa load! Kiểm tra FFmpeg."}), 500
+        
         # 1. Nhận dữ liệu
-        if 'audio' not in request.files: return jsonify({"error": "Thiếu audio"}), 400
+        if 'audio' not in request.files: 
+            return jsonify({"error": "Thiếu audio"}), 400
         
         audio_file = request.files['audio']
         history_str = request.form.get('history', '[]') 
@@ -279,7 +287,6 @@ def conversation():
             tmp_path = tmp.name
 
         print(f"🗣️ Conversation: Whisper đang nghe...")
-        if whisper_model is None: return jsonify({"error": "Whisper chưa load!"}), 500
         
         result = whisper_model.transcribe(tmp_path)
         user_text = result["text"]
@@ -320,15 +327,21 @@ def conversation():
         filename = f"ai_ask_{uuid.uuid4()}.mp3"
         filepath = os.path.join("static", filename)
         
+        # Đảm bảo thư mục static tồn tại
+        os.makedirs("static", exist_ok=True)
+        
         # Gọi hàm Edge TTS (Xử lý Async)
         try:
             asyncio.run(generate_audio_edge(ai_text, filepath))
-        except Exception as e:
+        except RuntimeError as e:
             # Fallback nếu lỗi loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(generate_audio_edge(ai_text, filepath))
-            loop.close()
+            if "cannot be called from a running event loop" in str(e):
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(generate_audio_edge(ai_text, filepath))
+                loop.close()
+            else:
+                raise
 
         audio_url = f"{request.host_url}static/{filename}"
         
@@ -341,6 +354,8 @@ def conversation():
 
     except Exception as e:
         print(f"❌ Lỗi Conversation: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
