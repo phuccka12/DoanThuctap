@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Token - IELTS Coach</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      color: white;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      max-width: 500px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 2em;
+    }
+    .btn {
+      background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(108, 92, 231, 0.5);
+    }
+    .btn:active {
+      transform: scale(0.95);
+    }
+    .info {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .success {
+      color: #55EFC4;
+      font-weight: bold;
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔑 Token Expired?</h1>
+    
+    <div class="info">
+      <strong>Vấn đề:</strong><br>
+      JWT Token đã hết hạn (expired)<br><br>
+      
+      <strong>Giải pháp:</strong><br>
+      1. Clear localStorage<br>
+      2. Đăng nhập lại để nhận token mới (7 ngày)<br><br>
+      
+      <strong>Lý do token hết hạn:</strong><br>
+      Token cũ chỉ sống 15 phút. Đã được tăng lên 7 ngày.
+    </div>
+
+    <button class="btn" onclick="clearToken()">
+      🗑️ Clear Token & Reload
+    </button>
+
+    <button class="btn" onclick="goToLogin()">
+      🔐 Đi đến Đăng nhập
+    </button>
+
+    <div class="success" id="success">
+      ✅ Đã xóa token! Đang chuyển hướng...
+    </div>
+
+    <script>
+      function clearToken() {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.getElementById('success').style.display = 'block';
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      }
+
+      function goToLogin() {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/login';
+      }
+
+      // Auto check if already cleared
+      if (!localStorage.getItem('token')) {
+        document.querySelector('.info').innerHTML = '<strong>✅ Token đã được xóa!</strong><br>Bạn có thể đăng nhập lại ngay.';
+      }
+    </script>
+  </div>
+</body>
+</html>

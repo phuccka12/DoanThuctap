@@ -8,7 +8,8 @@ passport.use('google-login',
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `http://localhost:3000/api/auth/google/callback`,
+      // Use env GOOGLE_CALLBACK_URL if provided, otherwise build from PORT
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`,
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
@@ -51,7 +52,8 @@ passport.use('google-register',
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `http://localhost:3000/api/auth/google/callback`,
+      // Use env GOOGLE_CALLBACK_URL if provided, otherwise build from PORT
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`,
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {

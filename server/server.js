@@ -12,6 +12,7 @@ const connectDB = require('./src/config/db');
 const aiRoutes = require('./src/routes/aiRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
+const onboardingRoutes = require('./src/routes/onboardingRoutes');
 
 // Import CMS public routes
 const topicRoutes = require('./src/routes/Public/PublicTopics');
@@ -67,6 +68,7 @@ app.use(
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', dashboardRoutes); // Dashboard routes
+app.use('/api/onboarding', onboardingRoutes); // Onboarding routes
 
 // Public CMS routes
 app.use('/api/topics', topicRoutes);

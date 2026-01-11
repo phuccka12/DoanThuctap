@@ -81,7 +81,9 @@ router.get("/me", protect, async (req, res) => {
         email_verified: user.email_verified,
         gamification_data: user.gamification_data,
         last_login_at: user.last_login_at,
-        created_at: user.created_at
+        created_at: user.created_at,
+        onboarding_completed: user.onboarding_completed, // ← THÊM DÒNG NÀY
+        learning_preferences: user.learning_preferences  // ← VÀ DÒNG NÀY
       }
     });
   } catch (err) {

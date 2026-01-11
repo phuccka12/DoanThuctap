@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  const API_URL = 'http://localhost:3000/api/auth';
+  const API_URL = 'http://localhost:5000/api/auth'; // Changed to port 5000
 
   // Configure axios defaults and fetch user on mount
   useEffect(() => {
@@ -84,10 +84,13 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserInfo = async () => {
     try {
+      console.log('🔄 Fetching user info from:', `${API_URL}/me`);
       const res = await axiosInstance.get(`${API_URL}/me`);
+      console.log('✅ User data received:', res.data.user);
+      console.log('📊 onboarding_completed:', res.data.user?.onboarding_completed);
       setUser(res.data.user);
     } catch (error) {
-      console.error('Failed to fetch user:', error);
+      console.error('❌ Failed to fetch user:', error);
       throw error;
     }
   };
@@ -102,6 +105,7 @@ export const AuthProvider = ({ children }) => {
     setAccessToken,
     fetchUserInfo,
     isAuthenticated: !!token && !!user,
+    needsOnboarding: user && !user.onboarding_completed,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

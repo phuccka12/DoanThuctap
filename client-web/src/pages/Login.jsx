@@ -26,7 +26,7 @@ export default function Login() {
   }, [searchParams]);
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:3000/api/auth/google/login';
+    window.location.href = 'http://localhost:5000/api/auth/google/login';
   };
 
   const handleSubmit = async (e) => {

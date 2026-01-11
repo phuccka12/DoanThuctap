@@ -1,6 +1,6 @@
 import axiosInstance from '../utils/axiosConfig';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:5000/api'; // Changed to port 5000
 
 // Dashboard API Service
 const dashboardService = {

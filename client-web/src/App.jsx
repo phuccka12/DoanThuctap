@@ -13,21 +13,31 @@ import Profile from './pages/Profile';
 import AIWriting from './pages/AiWriting';
 import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
+import Onboarding from './pages/Onboarding';
 import NotFound from './pages/NotFound';
 
-// Protected Route Component
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+// Protected Route Component with Onboarding check
+function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
+  const { isAuthenticated, needsOnboarding, loading } = useAuth();
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
   
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // If user needs onboarding and this route doesn't allow bypass, redirect to onboarding
+  if (needsOnboarding && !allowWithoutOnboarding) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  
+  return children;
 }
 
 function App() {
@@ -43,7 +53,14 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
           
-          {/* Protected Routes */}
+          {/* Onboarding Route - Protected but allows access without completed onboarding */}
+          <Route path="/onboarding" element={
+            <ProtectedRoute allowWithoutOnboarding={true}>
+              <Onboarding />
+            </ProtectedRoute>
+          } />
+          
+          {/* Protected Routes - Require onboarding completion */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
