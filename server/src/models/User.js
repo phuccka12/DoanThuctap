@@ -10,6 +10,19 @@ const gamificationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const learningPreferencesSchema = new mongoose.Schema(
+  {
+    goal: { type: String, default: null }, // 'band', 'speaking', 'writing', 'listening', 'grammar'
+    target_band: { type: Number, default: null }, // 6.5, 7.0, 7.5, 8.0
+    current_level: { type: String, default: null }, // 'beginner', 'intermediate', 'advanced'
+    study_hours_per_week: { type: Number, default: null }, // 5, 10, 15, 20
+    preferred_study_days: { type: [String], default: [] }, // ['monday', 'tuesday', ...]
+    exam_date: { type: Date, default: null },
+    focus_skills: { type: [String], default: [] }, // ['speaking', 'writing', 'listening', 'reading']
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     user_name: { type: String, required: true, trim: true },
@@ -25,6 +38,10 @@ const userSchema = new mongoose.Schema(
     vip_expire_at: { type: Date, default: null },
 
     gamification_data: { type: gamificationSchema, default: () => ({}) },
+
+    // Onboarding tracking
+    onboarding_completed: { type: Boolean, default: false },
+    learning_preferences: { type: learningPreferencesSchema, default: () => ({}) },
 
     last_login_at: { type: Date, default: null },
 

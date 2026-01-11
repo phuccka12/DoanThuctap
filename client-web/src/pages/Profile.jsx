@@ -69,7 +69,7 @@ export default function Profile() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('http://localhost:3000/api/auth/me');
+      const response = await axiosInstance.get('http://localhost:5000/api/auth/me');
       const userData = response.data.user;
       
       setProfileData({
@@ -110,7 +110,7 @@ export default function Profile() {
       setError('');
       setSuccess('');
 
-      await axiosInstance.put('http://localhost:3000/api/user/profile', profileData);
+      await axiosInstance.put('http://localhost:5000/api/user/profile', profileData);
       
       setSuccess('Cập nhật profile thành công!');
       setEditing(false);
