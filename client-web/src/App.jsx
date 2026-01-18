@@ -15,6 +15,7 @@ import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
 import Onboarding from './pages/Onboarding';
 import NotFound from './pages/NotFound';
+import Landingpage from './pages/Landingpage';
 
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
@@ -46,7 +47,8 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Landingpage />} />
+          <Route path="/landingpage" element={<Landingpage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
