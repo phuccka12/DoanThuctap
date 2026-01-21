@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin: 0 0 20px 0;
+        }
+        p {
+            color: #666;
+            font-size: 18px;
+        }
+        .success {
+            color: #10b981;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success">✓</div>
+        <h1>Server đang chạy tốt!</h1>
+        <p>Frontend server: <strong>http://localhost:5173</strong></p>
+        <p>Backend server: <strong>http://localhost:5000</strong></p>
+        <p style="margin-top: 20px; font-size: 14px; color: #999;">
+            Nếu bạn thấy trang này, có nghĩa là server đang hoạt động.<br>
+            Vấn đề có thể là ở React app hoặc browser cache.
+        </p>
+    </div>
+    <script>
+        console.log('✓ Test page loaded successfully');
+        console.log('Frontend URL: http://localhost:5173');
+        console.log('Backend URL: http://localhost:5000');
+        
+        // Test backend connection
+        fetch('http://localhost:5000/api/auth/test')
+            .then(res => {
+                console.log('✓ Backend is reachable');
+                return res.text();
+            })
+            .catch(err => {
+                console.error('✗ Backend connection failed:', err);
+            });
+    </script>
+</body>
+</html>
