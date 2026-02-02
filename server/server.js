@@ -23,7 +23,10 @@ const speakingQuestionRoutes = require('./src/routes/Public/PublicSpeakingQuesti
 const adminTopicRoutes = require('./src/routes/Admin/AdminTopics');
 const adminWritingPromptRoutes = require('./src/routes/Admin/AdminWritingPrompts');
 const adminSpeakingQuestionRoutes = require('./src/routes/Admin/AdminSpeakingQuestions');
+const adminStatsRoutes = require('./src/routes/Admin/AdminStats');
+const adminUsersRoutes = require('./src/routes/Admin/AdminUsers');
 const petRoutes = require('./src/routes/petRoutes');
+const uploadRoutes = require('./src/routes/upload');
 const { startPetDecayJob } = require('./src/jobs/petDecay');
 
 // Khởi tạo app
@@ -79,9 +82,14 @@ app.use('/api/speaking-questions', speakingQuestionRoutes);
 app.use('/api/admin/topics', adminTopicRoutes);
 app.use('/api/admin/writing-prompts', adminWritingPromptRoutes);
 app.use('/api/admin/speaking-questions', adminSpeakingQuestionRoutes);
+app.use('/api/admin/stats', adminStatsRoutes);
+app.use('/api/admin/users', adminUsersRoutes);
 
 // Pet feature
 app.use('/api/pet', petRoutes);
+
+// Upload feature (Cloudinary)
+app.use('/api/upload', uploadRoutes);
 
 // start background jobs
 startPetDecayJob();

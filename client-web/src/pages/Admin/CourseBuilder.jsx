@@ -1,0 +1,1057 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { 
+  FiPlus, FiSave, FiArrowLeft, FiLoader, FiMenu,
+  FiTrash2, FiCopy, FiEye, FiCheckCircle
+} from 'react-icons/fi';
+import { 
+  FaBook, FaVideo, FaRobot, FaClipboardCheck, 
+  FaGraduationCap, FaHeadphones 
+} from 'react-icons/fa';
+import adminService from '../../services/adminService';
+import AdminLayout from '../../components/AdminLayout';
+import FileUploader from '../../components/FileUploader';
+
+const ACTIVITY_TYPES = [
+  {
+    id: 'vocabulary',
+    label: 'Bộ Từ Vựng',
+    icon: FaBook,
+    emoji: '�',
+    description: 'Tạo bộ từ vựng theo chủ đề với hình ảnh minh họa'
+  },
+  {
+    id: 'video',
+    label: 'Bài Giảng Video',
+    icon: FaVideo,
+    emoji: '🎥',
+    description: 'Video bài giảng kèm phụ đề và câu hỏi'
+  },
+  {
+    id: 'ai_roleplay',
+    label: 'Luyện Hội Thoại AI',
+    icon: FaRobot,
+    emoji: '🤖',
+    description: 'Luyện nói với AI theo tình huống thực tế'
+  },
+  {
+    id: 'quiz',
+    label: 'Bài Kiểm Tra',
+    icon: FaClipboardCheck,
+    emoji: '✍️',
+    description: 'Tạo bài tập trắc nghiệm và tự luận'
+  },
+  {
+    id: 'grammar',
+    label: 'Ngữ Pháp',
+    icon: FaGraduationCap,
+    emoji: '�',
+    description: 'Giải thích ngữ pháp với ví dụ minh họa'
+  },
+  {
+    id: 'listening',
+    label: 'Luyện Nghe',
+    icon: FaHeadphones,
+    emoji: '🎧',
+    description: 'Bài tập nghe với phụ đề tương tác'
+  }
+];
+
+function CourseBuilder() {
+  const { topicId } = useParams();
+  const navigate = useNavigate();
+
+  // States
+  const [topic, setTopic] = useState(null);
+  const [nodes, setNodes] = useState([]);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showActivityMenu, setShowActivityMenu] = useState(false);
+
+  // Fetch topic data
+  useEffect(() => {
+    fetchTopic();
+  }, [topicId]);
+
+  const fetchTopic = async () => {
+    try {
+      setLoading(true);
+      const res = await adminService.getTopics();
+      const topicsData = res.data.data?.topics || res.data.data || [];
+      const foundTopic = topicsData.find(t => t._id === topicId);
+      
+      if (!foundTopic) {
+        alert('Topic not found!');
+        navigate('/admin/topics');
+        return;
+      }
+
+      setTopic(foundTopic);
+      
+      // Load existing nodes from topic.nodes or initialize empty
+      setNodes(foundTopic.nodes || []);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching topic:', err);
+      alert('Failed to load topic');
+      setLoading(false);
+    }
+  };
+
+  // Add new node
+  const handleAddActivity = (activityType) => {
+    const newNode = {
+      id: `node_${Date.now()}`,
+      type: activityType.id,
+      title: `${activityType.label} Mới`,
+      data: getDefaultData(activityType.id),
+      createdAt: new Date().toISOString()
+    };
+
+    setNodes([...nodes, newNode]);
+    setSelectedNodeId(newNode.id);
+    setShowActivityMenu(false);
+  };
+
+  // Get default data structure for each activity type
+  const getDefaultData = (type) => {
+    switch(type) {
+      case 'vocabulary':
+        return {
+          words: [
+            { word: '', meaning: '', pronunciation: '', example: '', imageUrl: '' }
+          ]
+        };
+      case 'video':
+        return {
+          url: '',
+          transcript: '',
+          questions: []
+        };
+      case 'ai_roleplay':
+        return {
+          scenario: '',
+          aiRole: '',
+          userGoal: '',
+          initialPrompt: ''
+        };
+      case 'quiz':
+        return {
+          questions: [
+            { 
+              question: '', 
+              options: ['', '', '', ''], 
+              correctAnswer: 0,
+              explanation: '' 
+            }
+          ]
+        };
+      case 'grammar':
+        return {
+          title: '',
+          content: '',
+          examples: []
+        };
+      case 'listening':
+        return {
+          audioUrl: '',
+          transcript: '',
+          dictationMode: false,
+          questions: []
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Handle drag end
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const items = Array.from(nodes);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setNodes(items);
+  };
+
+  // Update node data
+  const handleUpdateNode = (nodeId, updatedData) => {
+    setNodes(nodes.map(node => 
+      node.id === nodeId 
+        ? { ...node, ...updatedData }
+        : node
+    ));
+  };
+
+  // Delete node
+  const handleDeleteNode = (nodeId) => {
+    if (!window.confirm('Xóa hoạt động này?')) return;
+    setNodes(nodes.filter(n => n.id !== nodeId));
+    if (selectedNodeId === nodeId) {
+      setSelectedNodeId(null);
+    }
+  };
+
+  // Duplicate node
+  const handleDuplicateNode = (node) => {
+    const newNode = {
+      ...node,
+      id: `node_${Date.now()}`,
+      title: `${node.title} (Copy)`,
+      createdAt: new Date().toISOString()
+    };
+    setNodes([...nodes, newNode]);
+  };
+
+  // Save course
+  const handleSave = async () => {
+    if (!topic) return;
+
+    try {
+      setSaving(true);
+      
+      const updatedTopic = {
+        ...topic,
+        nodes: nodes
+      };
+
+      await adminService.updateTopic(topicId, updatedTopic);
+      
+      alert('✅ Đã lưu thành công!');
+      setSaving(false);
+    } catch (err) {
+      console.error('Error saving:', err);
+      alert('❌ Lỗi khi lưu: ' + err.message);
+      setSaving(false);
+    }
+  };
+
+  // Get selected node
+  const selectedNode = nodes.find(n => n.id === selectedNodeId);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <FiLoader className="animate-spin text-4xl text-purple-500" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      {/* Header */}
+      <div className="bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700 px-6 py-4 shadow-lg sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          {/* Left Section */}
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate('/admin/topics')}
+              className="p-2.5 hover:bg-gray-700 rounded-lg transition-all duration-200 group"
+              title="Quay lại danh sách chủ đề"
+            >
+              <FiArrowLeft className="text-xl text-gray-300 group-hover:text-white transition-colors" />
+            </button>
+            <div className="border-l border-gray-700 pl-4">
+              <h1 className="text-lg font-bold text-white flex items-center gap-2">
+                <span className="text-2xl">🏗️</span>
+                <span>Xây Dựng Khóa Học</span>
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {topic?.name || 'Chưa có tiêu đề'}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Section */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {/* TODO: Preview mode */}}
+              className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25"
+            >
+              <FiEye className="text-lg" />
+              <span>Xem Trước</span>
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2.5 bg-linear-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-medium rounded-lg transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? <FiLoader className="animate-spin text-lg" /> : <FiSave className="text-lg" />}
+              <span>{saving ? 'Đang lưu...' : 'Lưu Khóa Học'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content: Split Screen */}
+      <div className="flex h-[calc(100vh-80px)]">
+        
+        {/* LEFT PANEL: Node List (30%) */}
+        <div className="w-[30%] bg-gray-900 border-r border-gray-700 flex flex-col">
+          {/* Panel Header */}
+          <div className="px-4 py-4 border-b border-gray-700 bg-gray-800/50">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-xl">📚</span>
+              <span>Lộ Trình Học Tập</span>
+            </h2>
+            <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full font-medium">
+                {nodes.length}
+              </span>
+              <span>hoạt động • Kéo thả để sắp xếp</span>
+            </p>
+          </div>
+
+          {/* Nodes List */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="nodes-list">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-2"
+                  >
+                    {nodes.map((node, index) => {
+                      const activityType = ACTIVITY_TYPES.find(t => t.id === node.type);
+                      const Icon = activityType?.icon || FaBook;
+                      const isSelected = selectedNodeId === node.id;
+
+                      return (
+                        <Draggable key={node.id} draggableId={node.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`
+                                group relative p-3 rounded-lg border cursor-pointer
+                                transition-all duration-200
+                                ${isSelected 
+                                  ? 'bg-purple-900/30 border-purple-500' 
+                                  : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                                }
+                                ${snapshot.isDragging ? 'shadow-lg scale-105' : ''}
+                              `}
+                              onClick={() => setSelectedNodeId(node.id)}
+                            >
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="absolute left-1 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing"
+                              >
+                                <FiMenu />
+                              </div>
+
+                              {/* Content */}
+                              <div className="ml-6">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-lg">{activityType?.emoji}</span>
+                                  <span className="text-sm font-semibold text-white">
+                                    {node.title}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {activityType?.label}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDuplicateNode(node);
+                                  }}
+                                  className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white"
+                                  title="Duplicate"
+                                >
+                                  <FiCopy className="text-xs" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteNode(node.id);
+                                  }}
+                                  className="p-1.5 bg-red-900/30 hover:bg-red-800 rounded text-red-400 hover:text-red-300"
+                                  title="Delete"
+                                >
+                                  <FiTrash2 className="text-xs" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+
+            {/* Empty State */}
+            {nodes.length === 0 && (
+              <div className="text-center py-16">
+                <div className="text-7xl mb-4 animate-bounce">📦</div>
+                <p className="text-gray-400 text-sm font-medium">
+                  Chưa có hoạt động nào<br />
+                  <span className="text-purple-400">Nhấn "+ Thêm Hoạt Động"</span> để bắt đầu!
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Add Activity Button */}
+          <div className="p-4 border-t border-gray-700 bg-gray-800/30">
+            <button
+              onClick={() => setShowActivityMenu(!showActivityMenu)}
+              className="w-full py-3.5 bg-linear-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-bold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/25"
+            >
+              <FiPlus className="text-xl" />
+              <span>Thêm Hoạt Động</span>
+            </button>
+
+            {/* Activity Type Menu */}
+            {showActivityMenu && (
+              <div className="absolute bottom-20 left-4 right-4 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-100 overflow-y-auto custom-scrollbar z-50 backdrop-blur-sm">
+                <div className="p-3 border-b border-gray-700 bg-gray-900/50 sticky top-0">
+                  <p className="text-sm font-semibold text-gray-300">Chọn loại hoạt động</p>
+                </div>
+                {ACTIVITY_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => handleAddActivity(type)}
+                      className="w-full p-4 hover:bg-gray-700/70 transition-all duration-200 flex items-start gap-3 border-b border-gray-700/50 last:border-b-0 group"
+                    >
+                      <div className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center bg-linear-to-br from-purple-500/20 to-fuchsia-500/20 text-2xl group-hover:scale-110 transition-transform">
+                        {type.emoji}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="font-bold text-white text-sm mb-0.5">
+                          {type.label}
+                        </div>
+                        <div className="text-xs text-gray-400 leading-relaxed">
+                          {type.description}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Content Editor (70%) */}
+        <div className="flex-1 bg-gray-950 overflow-y-auto custom-scrollbar">
+          {selectedNode ? (
+            <ContentEditor
+              node={selectedNode}
+              activityTypes={ACTIVITY_TYPES}
+              onUpdate={(data) => handleUpdateNode(selectedNode.id, data)}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="text-8xl mb-6 animate-pulse">👈</div>
+                <h3 className="text-2xl font-bold text-white mb-3">
+                  Chọn Một Hoạt Động
+                </h3>
+                <p className="text-gray-400 text-base">
+                  Nhấn vào bất kỳ hoạt động nào từ panel bên trái<br />
+                  để bắt đầu chỉnh sửa nội dung
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+// ==========================================
+// Content Editor Component
+// ==========================================
+function ContentEditor({ node, activityTypes, onUpdate }) {
+  const activityType = activityTypes.find(t => t.id === node.type);
+  const Icon = activityType?.icon || FaBook;
+
+  const handleChange = (field, value) => {
+    onUpdate({
+      ...node,
+      [field]: value
+    });
+  };
+
+  const handleDataChange = (dataUpdates) => {
+    onUpdate({
+      ...node,
+      data: {
+        ...node.data,
+        ...dataUpdates
+      }
+    });
+  };
+
+  return (
+    <div className="p-8 max-w-5xl mx-auto">
+      {/* Editor Header */}
+      <div className="mb-8">
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gray-700 text-white text-2xl shadow-lg">
+            {activityType?.emoji}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              {activityType?.label}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {activityType?.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Title Input */}
+        <input
+          type="text"
+          value={node.title}
+          onChange={(e) => handleChange('title', e.target.value)}
+          placeholder="Tiêu đề hoạt động..."
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+        />
+      </div>
+
+      {/* Dynamic Form Based on Type */}
+      <div className="space-y-6">
+        {node.type === 'vocabulary' && (
+          <VocabularyEditor data={node.data} onChange={handleDataChange} />
+        )}
+        {node.type === 'video' && (
+          <VideoEditor data={node.data} onChange={handleDataChange} />
+        )}
+        {node.type === 'ai_roleplay' && (
+          <AIRoleplayEditor data={node.data} onChange={handleDataChange} />
+        )}
+        {node.type === 'quiz' && (
+          <QuizEditor data={node.data} onChange={handleDataChange} />
+        )}
+        {node.type === 'grammar' && (
+          <GrammarEditor data={node.data} onChange={handleDataChange} />
+        )}
+        {node.type === 'listening' && (
+          <ListeningEditor data={node.data} onChange={handleDataChange} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// Editor Components for Each Activity Type
+// ==========================================
+
+// 1. Vocabulary Editor
+function VocabularyEditor({ data, onChange }) {
+  const words = data.words || [];
+
+  const handleAddWord = () => {
+    onChange({
+      words: [...words, { word: '', meaning: '', pronunciation: '', example: '', imageUrl: '' }]
+    });
+  };
+
+  const handleWordChange = (index, field, value) => {
+    const updatedWords = [...words];
+    updatedWords[index][field] = value;
+    onChange({ words: updatedWords });
+  };
+
+  const handleRemoveWord = (index) => {
+    onChange({ words: words.filter((_, i) => i !== index) });
+  };
+
+  const handleAutoGenerate = async () => {
+    alert('🤖 AI Auto-generate feature coming soon!');
+    // TODO: Call AI API to generate vocabulary based on topic
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* AI Generate Button */}
+      <button
+        onClick={handleAutoGenerate}
+        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center space-x-2"
+      >
+        <span>⚡</span>
+        <span>Auto-generate from Topic</span>
+      </button>
+
+      {/* Word List */}
+      {words.map((word, index) => (
+        <div key={index} className="p-4 bg-gray-900 border border-gray-700 rounded-lg space-y-3">
+          <div className="flex items-start justify-between">
+            <span className="text-gray-500 text-sm font-semibold">Word #{index + 1}</span>
+            <button
+              onClick={() => handleRemoveWord(index)}
+              className="text-red-400 hover:text-red-300 text-sm"
+            >
+              <FiTrash2 />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={word.word}
+              onChange={(e) => handleWordChange(index, 'word', e.target.value)}
+              placeholder="Word (e.g., Passport)"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <input
+              type="text"
+              value={word.meaning}
+              onChange={(e) => handleWordChange(index, 'meaning', e.target.value)}
+              placeholder="Meaning (e.g., Hộ chiếu)"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <input
+              type="text"
+              value={word.pronunciation}
+              onChange={(e) => handleWordChange(index, 'pronunciation', e.target.value)}
+              placeholder="IPA (e.g., /ˈpɑːspɔːrt/)"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 mb-2">
+              📷 Hình Minh Họa
+            </label>
+            <FileUploader
+              accept="image/*"
+              folder="ielts-app/vocabulary"
+              onUploadSuccess={(data) => {
+                handleWordChange(index, 'imageUrl', data.url);
+              }}
+              maxSize={5}
+              placeholder="Kéo thả hình ảnh vào đây hoặc nhấn để chọn"
+            />
+            {word.imageUrl && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-500 mb-1">URL hiện tại:</p>
+                <input
+                  type="text"
+                  value={word.imageUrl}
+                  onChange={(e) => handleWordChange(index, 'imageUrl', e.target.value)}
+                  className="w-full px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  placeholder="hoặc paste URL trực tiếp"
+                />
+              </div>
+            )}
+          </div>
+
+          <textarea
+            value={word.example}
+            onChange={(e) => handleWordChange(index, 'example', e.target.value)}
+            placeholder="Example sentence"
+            rows={2}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+      ))}
+
+      <button
+        onClick={handleAddWord}
+        className="w-full py-3 border-2 border-dashed border-gray-700 hover:border-gray-600 rounded-lg text-gray-500 hover:text-gray-400 transition-colors flex items-center justify-center space-x-2"
+      >
+        <FiPlus />
+        <span>Add Word</span>
+      </button>
+    </div>
+  );
+}
+
+// 2. Video Editor
+function VideoEditor({ data, onChange }) {
+  const [uploadType, setUploadType] = React.useState('youtube'); // 'youtube' or 'upload'
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle Upload Type */}
+      <div className="flex gap-2 p-1 bg-gray-800 rounded-lg">
+        <button
+          onClick={() => setUploadType('youtube')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
+            uploadType === 'youtube'
+              ? 'bg-purple-600 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          📺 YouTube URL
+        </button>
+        <button
+          onClick={() => setUploadType('upload')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
+            uploadType === 'upload'
+              ? 'bg-purple-600 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          🎥 Upload Video
+        </button>
+      </div>
+
+      {/* YouTube URL Input */}
+      {uploadType === 'youtube' && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            📺 YouTube Video URL
+          </label>
+          <input
+            type="url"
+            value={data.url || ''}
+            onChange={(e) => onChange({ url: e.target.value })}
+            placeholder="https://youtube.com/watch?v=..."
+            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          {data.url && (
+            <div className="mt-3 aspect-video bg-gray-800 rounded-lg overflow-hidden">
+              <iframe
+                width="100%"
+                height="100%"
+                src={data.url.replace('watch?v=', 'embed/')}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Video preview"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video Upload */}
+      {uploadType === 'upload' && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            🎥 Upload Video File (MP4, MOV)
+          </label>
+          <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg mb-3">
+            <p className="text-xs text-yellow-400">
+              ⚠️ Lưu ý: File video có thể lớn (max 100MB). Khuyến nghị dùng YouTube để tiết kiệm storage.
+            </p>
+          </div>
+          <FileUploader
+            accept="video/*"
+            folder="ielts-app/videos"
+            onUploadSuccess={(uploadData) => {
+              onChange({ url: uploadData.url });
+            }}
+            maxSize={100}
+            placeholder="Kéo thả video vào đây hoặc nhấn để chọn"
+          />
+          {data.url && !data.url.includes('youtube') && (
+            <div className="mt-3 p-3 bg-gray-800 rounded-lg">
+              <video controls className="w-full rounded">
+                <source src={data.url} />
+                Trình duyệt không hỗ trợ phát video.
+              </video>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          📝 Transcript (Phụ đề video)
+        </label>
+        <textarea
+          value={data.transcript || ''}
+          onChange={(e) => onChange({ transcript: e.target.value })}
+          placeholder="Nhập nội dung transcript..."
+          rows={10}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+// 3. AI Roleplay Editor
+function AIRoleplayEditor({ data, onChange }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          🎭 Scenario (Context)
+        </label>
+        <textarea
+          value={data.scenario || ''}
+          onChange={(e) => onChange({ scenario: e.target.value })}
+          placeholder="Example: You are at the airport check-in counter..."
+          rows={3}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          🤖 AI Persona (Who is the AI?)
+        </label>
+        <input
+          type="text"
+          value={data.aiRole || ''}
+          onChange={(e) => onChange({ aiRole: e.target.value })}
+          placeholder="Example: A strict customs officer"
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          🎯 User Goal
+        </label>
+        <input
+          type="text"
+          value={data.userGoal || ''}
+          onChange={(e) => onChange({ userGoal: e.target.value })}
+          placeholder="Example: Pass through security successfully"
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          💬 Initial Prompt (AI's first message)
+        </label>
+        <textarea
+          value={data.initialPrompt || ''}
+          onChange={(e) => onChange({ initialPrompt: e.target.value })}
+          placeholder="Example: Good morning. Your passport and boarding pass, please."
+          rows={2}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+// 4. Quiz Editor
+function QuizEditor({ data, onChange }) {
+  const questions = data.questions || [];
+
+  const handleAddQuestion = () => {
+    onChange({
+      questions: [...questions, {
+        question: '',
+        options: ['', '', '', ''],
+        correctAnswer: 0,
+        explanation: ''
+      }]
+    });
+  };
+
+  const handleQuestionChange = (index, field, value) => {
+    const updated = [...questions];
+    updated[index][field] = value;
+    onChange({ questions: updated });
+  };
+
+  const handleOptionChange = (qIndex, oIndex, value) => {
+    const updated = [...questions];
+    updated[qIndex].options[oIndex] = value;
+    onChange({ questions: updated });
+  };
+
+  const handleRemoveQuestion = (index) => {
+    onChange({ questions: questions.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <div className="space-y-4">
+      {questions.map((q, qIndex) => (
+        <div key={qIndex} className="p-4 bg-gray-900 border border-gray-700 rounded-lg space-y-3">
+          <div className="flex items-start justify-between">
+            <span className="text-gray-500 text-sm font-semibold">Question #{qIndex + 1}</span>
+            <button
+              onClick={() => handleRemoveQuestion(qIndex)}
+              className="text-red-400 hover:text-red-300 text-sm"
+            >
+              <FiTrash2 />
+            </button>
+          </div>
+
+          <textarea
+            value={q.question}
+            onChange={(e) => handleQuestionChange(qIndex, 'question', e.target.value)}
+            placeholder="Enter question..."
+            rows={2}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+
+          <div className="space-y-2">
+            {q.options.map((opt, oIndex) => (
+              <div key={oIndex} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  name={`correct-${qIndex}`}
+                  checked={q.correctAnswer === oIndex}
+                  onChange={() => handleQuestionChange(qIndex, 'correctAnswer', oIndex)}
+                  className="text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={opt}
+                  onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                  placeholder={`Option ${oIndex + 1}`}
+                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            ))}
+          </div>
+
+          <textarea
+            value={q.explanation}
+            onChange={(e) => handleQuestionChange(qIndex, 'explanation', e.target.value)}
+            placeholder="Explanation (why this answer is correct)"
+            rows={2}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+      ))}
+
+      <button
+        onClick={handleAddQuestion}
+        className="w-full py-3 border-2 border-dashed border-gray-700 hover:border-gray-600 rounded-lg text-gray-500 hover:text-gray-400 transition-colors flex items-center justify-center space-x-2"
+      >
+        <FiPlus />
+        <span>Add Question</span>
+      </button>
+    </div>
+  );
+}
+
+// 5. Grammar Editor
+function GrammarEditor({ data, onChange }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          Grammar Point Title
+        </label>
+        <input
+          type="text"
+          value={data.title || ''}
+          onChange={(e) => onChange({ title: e.target.value })}
+          placeholder="Example: Present Perfect Tense"
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          Explanation (Supports Markdown)
+        </label>
+        <textarea
+          value={data.content || ''}
+          onChange={(e) => onChange({ content: e.target.value })}
+          placeholder="Explain the grammar rule..."
+          rows={8}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          Examples (One per line)
+        </label>
+        <textarea
+          value={(data.examples || []).join('\n')}
+          onChange={(e) => onChange({ examples: e.target.value.split('\n') })}
+          placeholder="I have lived here for 5 years.&#10;She has just finished her homework."
+          rows={4}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+// 6. Listening Editor
+function ListeningEditor({ data, onChange }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          🎧 File Audio (MP3, WAV, M4A)
+        </label>
+        <FileUploader
+          accept="audio/*"
+          folder="ielts-app/audio"
+          onUploadSuccess={(uploadData) => {
+            onChange({ audioUrl: uploadData.url });
+          }}
+          maxSize={20}
+          placeholder="Kéo thả file audio vào đây hoặc nhấn để chọn"
+        />
+        {data.audioUrl && (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500 mb-1">URL hiện tại:</p>
+            <input
+              type="text"
+              value={data.audioUrl}
+              onChange={(e) => onChange({ audioUrl: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+              placeholder="hoặc paste URL trực tiếp"
+            />
+            {/* Audio Preview */}
+            <div className="mt-2 p-3 bg-gray-800 rounded-lg">
+              <audio controls className="w-full">
+                <source src={data.audioUrl} />
+                Trình duyệt không hỗ trợ phát audio.
+              </audio>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          📝 Transcript (Phụ đề tương tác)
+        </label>
+        <textarea
+          value={data.transcript || ''}
+          onChange={(e) => onChange({ transcript: e.target.value })}
+          placeholder="Nhập nội dung transcript..."
+          rows={8}
+          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+        />
+      </div>
+
+      <div className="flex items-center space-x-3">
+        <input
+          type="checkbox"
+          id="dictation"
+          checked={data.dictationMode || false}
+          onChange={(e) => onChange({ dictationMode: e.target.checked })}
+          className="w-5 h-5 text-purple-500 rounded focus:ring-2 focus:ring-purple-500"
+        />
+        <label htmlFor="dictation" className="text-white font-semibold">
+          🎯 Dictation Mode (Hide transcript, make user type what they hear)
+        </label>
+      </div>
+    </div>
+  );
+}
+
+export default CourseBuilder;

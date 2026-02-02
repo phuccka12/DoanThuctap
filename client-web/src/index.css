@@ -123,3 +123,93 @@ button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
+
+/* Custom Scrollbar for Topic Keywords */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(55, 65, 81, 0.3);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+/* Custom Color Utilities for Tailwind v4 */
+@layer utilities {
+  /* Purple Backgrounds */
+  .bg-purple-600 {
+    background-color: rgb(147 51 234);
+  }
+  
+  .bg-purple-700 {
+    background-color: rgb(126 34 206);
+  }
+  
+  .hover\:bg-purple-700:hover {
+    background-color: rgb(126 34 206);
+  }
+  
+  /* Blue Backgrounds */
+  .bg-blue-600 {
+    background-color: rgb(37 99 235);
+  }
+  
+  .bg-blue-700 {
+    background-color: rgb(29 78 216);
+  }
+  
+  .hover\:bg-blue-700:hover {
+    background-color: rgb(29 78 216);
+  }
+  
+  /* Red Backgrounds */
+  .bg-red-600 {
+    background-color: rgb(220 38 38);
+  }
+  
+  .bg-red-700 {
+    background-color: rgb(185 28 28);
+  }
+  
+  .hover\:bg-red-700:hover {
+    background-color: rgb(185 28 28);
+  }
+  
+  /* Gray Backgrounds */
+  .bg-gray-600 {
+    background-color: rgb(75 85 99);
+  }
+  
+  .bg-gray-700 {
+    background-color: rgb(55 65 81);
+  }
+  
+  .hover\:bg-gray-600:hover {
+    background-color: rgb(75 85 99);
+  }
+  
+  .hover\:bg-gray-700:hover {
+    background-color: rgb(55 65 81);
+  }
+  
+  .bg-gray-700\/50 {
+    background-color: rgba(55, 65, 81, 0.5);
+  }
+  
+  .bg-gray-800 {
+    background-color: rgb(31 41 55);
+  }
+  
+  .hover\:bg-gray-800:hover {
+    background-color: rgb(31 41 55);
+  }
+}

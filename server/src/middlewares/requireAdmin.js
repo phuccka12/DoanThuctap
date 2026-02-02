@@ -1,12 +1,16 @@
 const requireAdmin = (req, res, next) => {
-  if (!req.user) {
+  // Check if protect middleware has run (sets req.userId and req.userRole)
+  if (!req.userId || !req.userRole) {
     return res.status(401).json({
+      success: false,
       message: 'Yêu cầu xác thực'
     });
   }
 
-  if (req.user.role !== 'admin') {
+  // Check if user is admin
+  if (req.userRole !== 'admin') {
     return res.status(403).json({
+      success: false,
       message: 'Chỉ admin mới có quyền truy cập'
     });
   }

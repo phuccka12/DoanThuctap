@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import catAnimation from '../assets/cat.json';
 
@@ -10,12 +10,17 @@ import {
   FaTrophy,
   FaCertificate,
   FaCheckCircle,
-  FaStar
+  FaStar,
+  FaArrowRight,
+  FaAward,
+  FaHeadphones,
+  FaChartLine
 } from 'react-icons/fa';
 
 const Landingpage = () => {
   const navigate = useNavigate();
   const lottieRef = useRef(null);
+  const [hoveredFeature, setHoveredFeature] = useState(null);
 
   // Simple Lottie player using canvas
   useEffect(() => {

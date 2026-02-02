@@ -89,6 +89,7 @@ export const AuthProvider = ({ children }) => {
       console.log('✅ User data received:', res.data.user);
       console.log('📊 onboarding_completed:', res.data.user?.onboarding_completed);
       setUser(res.data.user);
+      return res.data.user; // Return user data
     } catch (error) {
       console.error('❌ Failed to fetch user:', error);
       throw error;

@@ -106,7 +106,7 @@ exports.getTopicById = async (req, res) => {
 // Admin: Cập nhật topic
 exports.updateTopic = async (req, res) => {
   try {
-    const { name, cover_image, level, is_active } = req.body;
+    const { name, cover_image, level, is_active, nodes } = req.body;
     
     const topic = await Topic.findById(req.params.id);
     
@@ -131,6 +131,7 @@ exports.updateTopic = async (req, res) => {
     if (cover_image !== undefined) topic.cover_image = cover_image;
     if (level !== undefined) topic.level = level;
     if (is_active !== undefined) topic.is_active = is_active;
+    if (nodes !== undefined) topic.nodes = nodes; // Support CourseBuilder
 
     await topic.save();
 

@@ -25,8 +25,14 @@ export default function GoogleCallback() {
         
         // Fetch user info
         try {
-          await fetchUserInfo();
-          navigate('/dashboard');
+          const userData = await fetchUserInfo();
+          
+          // Check user role and redirect accordingly
+          if (userData?.role === 'admin') {
+            navigate('/admin');
+          } else {
+            navigate('/dashboard');
+          }
         } catch (err) {
           console.error('Failed to fetch user info:', err);
           navigate('/login?error=fetch_user_failed');
