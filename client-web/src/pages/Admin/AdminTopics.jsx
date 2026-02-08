@@ -668,13 +668,6 @@ function AdminTopics() {
                       <span className="font-semibold text-white">{lessonCount}</span>
                       <span className="text-gray-400 text-xs">Lessons</span>
                     </div>
-
-                    {/* Nodes Count (Course Builder) */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-purple-400">🏗️</span>
-                      <span className="font-semibold text-white">{topic.nodes?.length || 0}</span>
-                      <span className="text-gray-400 text-xs">Activities</span>
-                    </div>
                     
                     {/* Status Indicator (if synced) */}
                     {topic.is_synced && (
@@ -700,18 +693,6 @@ function AdminTopics() {
                       Edit
                     </button>
 
-                    {/* Course Builder Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/admin/topics/${topic._id}/builder`);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90"
-                      style={{ background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)' }}
-                    >
-                      🏗️ Builder
-                    </button>
-
                     {/* View Lessons Button */}
                     <button
                       onClick={(e) => {
@@ -721,8 +702,8 @@ function AdminTopics() {
                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90"
                       style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
                     >
-                      <FiEye size={14} />
-                      Lessons
+                      <FiBook size={14} />
+                      📚 Lessons
                     </button>
 
                     {/* Delete Button */}

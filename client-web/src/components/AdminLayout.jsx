@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiMenu, FiX, FiLogOut, FiHome, FiBook, FiHeadphones, FiEdit3, FiUsers } from 'react-icons/fi';
+import { FiMenu, FiX, FiLogOut, FiHome, FiBook, FiHeadphones, FiEdit3, FiUsers, FiBookOpen } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -19,6 +19,7 @@ function AdminLayout({ children }) {
     { icon: FiHome, label: 'Panel', path: '/admin' },
     { icon: FiUsers, label: 'User', path: '/admin/users' },
     { icon: FiBook, label: 'Topic', path: '/admin/topics' },
+    { icon: FiBookOpen, label: 'Vocabulary', path: '/admin/vocabulary' },
     { icon: FiHeadphones, label: 'Speaking Questions', path: '/admin/speaking-questions' },
     { icon: FiEdit3, label: 'Writing Prompts', path: '/admin/writing-prompts' },
   ];

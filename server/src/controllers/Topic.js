@@ -56,10 +56,31 @@ exports.getAllTopicsAdmin = async (req, res) => {
       query.is_active = is_active === 'true';
     }
 
-    const topics = await Topic.find(query)
-      .sort({ created_at: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    // Use aggregation to include lesson count
+    const topics = await Topic.aggregate([
+      { $match: query },
+      { $sort: { created_at: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'lessons',
+          localField: '_id',
+          foreignField: 'topic',
+          as: 'lessons'
+        }
+      },
+      {
+        $addFields: {
+          lesson_count: { $size: '$lessons' }
+        }
+      },
+      {
+        $project: {
+          lessons: 0 // Remove lessons array, only keep count
+        }
+      }
+    ]);
 
     const count = await Topic.countDocuments(query);
 

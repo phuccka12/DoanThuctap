@@ -27,6 +27,7 @@ import CourseBuilder from './pages/Admin/CourseBuilder';
 import AdminLessons from './pages/Admin/AdminLessons';
 import AdminSpeakingQuestions from './pages/Admin/AdminSpeakingQuestions';
 import AdminWritingPrompts from './pages/Admin/AdminWritingPrompts';
+import AdminVocabulary from './pages/Admin/AdminVocabulary';
 
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
@@ -124,7 +125,7 @@ function App() {
               </AdminLayout>
             </AdminRoute>
           } />
-          <Route path="/admin/topics/:topicId/builder" element={
+          <Route path="/admin/topics/:topicId/lessons/:lessonId/builder" element={
             <AdminRoute>
               <CourseBuilder />
             </AdminRoute>
@@ -133,6 +134,13 @@ function App() {
             <AdminRoute>
               <AdminLayout>
                 <AdminLessons />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/vocabulary" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminVocabulary />
               </AdminLayout>
             </AdminRoute>
           } />

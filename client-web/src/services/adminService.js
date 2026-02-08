@@ -19,7 +19,8 @@ adminAxios.interceptors.request.use((config) => {
 });
 
 // ============ TOPICS ============
-export const getTopics = () => adminAxios.get('/admin/topics');
+export const getTopics = (params) => adminAxios.get('/admin/topics', { params });
+export const getAllTopicsForDropdown = () => adminAxios.get('/admin/topics', { params: { limit: 1000, is_active: true } });
 export const getTopicById = (id) => adminAxios.get(`/admin/topics/${id}`);
 export const createTopic = (data) => adminAxios.post('/admin/topics', data);
 export const updateTopic = (id, data) => adminAxios.put(`/admin/topics/${id}`, data);
@@ -52,9 +53,29 @@ export const updateUserStatus = (id, status) => adminAxios.patch(`/admin/users/$
 export const deleteUser = (id) => adminAxios.delete(`/admin/users/${id}`);
 export const getUserStats = () => adminAxios.get('/admin/users/stats');
 
+// ============ LESSONS ============
+export const getLessonsByTopic = (topicId) => adminAxios.get(`/admin/topics/${topicId}/lessons`);
+export const createLesson = (topicId, data) => adminAxios.post(`/admin/topics/${topicId}/lessons`, data);
+export const getLessonById = (id) => adminAxios.get(`/admin/lessons/${id}`);
+export const updateLesson = (id, data) => adminAxios.put(`/admin/lessons/${id}`, data);
+export const deleteLesson = (id) => adminAxios.delete(`/admin/lessons/${id}`);
+export const reorderLessons = (topicId, lessonIds) => adminAxios.put(`/admin/topics/${topicId}/lessons/reorder`, { lessonIds });
+
+// ============ VOCABULARY BANK ============
+export const getVocabularies = (params) => adminAxios.get('/admin/vocab', { params });
+export const getVocabularyById = (id) => adminAxios.get(`/admin/vocab/${id}`);
+export const createVocabulary = (data) => adminAxios.post('/admin/vocab', data);
+export const updateVocabulary = (id, data) => adminAxios.put(`/admin/vocab/${id}`, data);
+export const deleteVocabulary = (id) => adminAxios.delete(`/admin/vocab/${id}`);
+export const bulkDeleteVocabulary = (ids) => adminAxios.delete('/admin/vocab/bulk', { data: { ids } });
+export const importVocabularyCSV = (csvData) => adminAxios.post('/admin/vocab/import', { csvData });
+export const exportVocabularyCSV = () => adminAxios.get('/admin/vocab/export');
+export const getVocabularyStats = () => adminAxios.get('/admin/vocab/stats');
+
 export default {
   // Topics
   getTopics,
+  getAllTopicsForDropdown,
   getTopicById,
   createTopic,
   updateTopic,
@@ -81,4 +102,21 @@ export default {
   updateUserStatus,
   deleteUser,
   getUserStats,
+  // Lessons
+  getLessonsByTopic,
+  createLesson,
+  getLessonById,
+  updateLesson,
+  deleteLesson,
+  reorderLessons,
+  // Vocabulary Bank
+  getVocabularies,
+  getVocabularyById,
+  createVocabulary,
+  updateVocabulary,
+  deleteVocabulary,
+  bulkDeleteVocabulary,
+  importVocabularyCSV,
+  exportVocabularyCSV,
+  getVocabularyStats,
 };

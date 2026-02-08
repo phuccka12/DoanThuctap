@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   FiPlus, FiSave, FiArrowLeft, FiLoader, FiMenu,
-  FiTrash2, FiCopy, FiEye, FiCheckCircle
+  FiTrash2, FiCopy, FiEye, FiCheckCircle, FiSearch, FiX
 } from 'react-icons/fi';
 import { 
   FaBook, FaVideo, FaRobot, FaClipboardCheck, 
@@ -59,44 +59,46 @@ const ACTIVITY_TYPES = [
 ];
 
 function CourseBuilder() {
-  const { topicId } = useParams();
+  const { topicId, lessonId } = useParams();
   const navigate = useNavigate();
 
   // States
   const [topic, setTopic] = useState(null);
+  const [lesson, setLesson] = useState(null);
   const [nodes, setNodes] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showActivityMenu, setShowActivityMenu] = useState(false);
 
-  // Fetch topic data
+  // Fetch lesson data
   useEffect(() => {
-    fetchTopic();
-  }, [topicId]);
+    fetchLesson();
+  }, [lessonId]);
 
-  const fetchTopic = async () => {
+  const fetchLesson = async () => {
     try {
       setLoading(true);
-      const res = await adminService.getTopics();
-      const topicsData = res.data.data?.topics || res.data.data || [];
-      const foundTopic = topicsData.find(t => t._id === topicId);
+      const res = await adminService.getLessonById(lessonId);
+      const lessonData = res.data.data;
       
-      if (!foundTopic) {
-        alert('Topic not found!');
-        navigate('/admin/topics');
+      if (!lessonData) {
+        alert('Lesson not found!');
+        navigate(`/admin/topics/${topicId}/lessons`);
         return;
       }
 
-      setTopic(foundTopic);
+      setLesson(lessonData);
+      setTopic(lessonData.topic_id); // Topic is populated from backend
       
-      // Load existing nodes from topic.nodes or initialize empty
-      setNodes(foundTopic.nodes || []);
+      // Load existing nodes from lesson.nodes or initialize empty
+      setNodes(lessonData.nodes || []);
       
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching topic:', err);
-      alert('Failed to load topic');
+      console.error('Error fetching lesson:', err);
+      alert('Failed to load lesson');
+      navigate(`/admin/topics/${topicId}/lessons`);
       setLoading(false);
     }
   };
@@ -209,17 +211,16 @@ function CourseBuilder() {
 
   // Save course
   const handleSave = async () => {
-    if (!topic) return;
+    if (!lesson) return;
 
     try {
       setSaving(true);
       
-      const updatedTopic = {
-        ...topic,
+      const updatedLesson = {
         nodes: nodes
       };
 
-      await adminService.updateTopic(topicId, updatedTopic);
+      await adminService.updateLesson(lessonId, updatedLesson);
       
       alert('✅ Đã lưu thành công!');
       setSaving(false);
@@ -251,19 +252,19 @@ function CourseBuilder() {
           {/* Left Section */}
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/admin/topics')}
+              onClick={() => navigate(`/admin/topics/${topicId}/lessons`)}
               className="p-2.5 hover:bg-gray-700 rounded-lg transition-all duration-200 group"
-              title="Quay lại danh sách chủ đề"
+              title="Quay lại danh sách bài học"
             >
               <FiArrowLeft className="text-xl text-gray-300 group-hover:text-white transition-colors" />
             </button>
             <div className="border-l border-gray-700 pl-4">
               <h1 className="text-lg font-bold text-white flex items-center gap-2">
                 <span className="text-2xl">🏗️</span>
-                <span>Xây Dựng Khóa Học</span>
+                <span>Xây Dựng Bài Học</span>
               </h1>
               <p className="text-sm text-gray-400 mt-0.5">
-                {topic?.name || 'Chưa có tiêu đề'}
+                {topic?.name} → {lesson?.title || 'Chưa có tiêu đề'}
               </p>
             </div>
           </div>
@@ -562,6 +563,7 @@ function ContentEditor({ node, activityTypes, onUpdate }) {
 // 1. Vocabulary Editor
 function VocabularyEditor({ data, onChange }) {
   const words = data.words || [];
+  const [showPicker, setShowPicker] = useState(false);
 
   const handleAddWord = () => {
     onChange({
@@ -584,16 +586,59 @@ function VocabularyEditor({ data, onChange }) {
     // TODO: Call AI API to generate vocabulary based on topic
   };
 
+  const handleImportFromBank = (selectedVocabs) => {
+    const importedWords = selectedVocabs.map(v => ({
+      word: v.word,
+      meaning: v.meaning,
+      pronunciation: v.pronunciation || '',
+      example: v.example || '',
+      imageUrl: v.imageUrl || ''
+    }));
+    
+    onChange({
+      words: [...words, ...importedWords]
+    });
+    
+    setShowPicker(false);
+  };
+
   return (
     <div className="space-y-4">
-      {/* AI Generate Button */}
-      <button
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={handleAutoGenerate}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center space-x-2"
+        >
+          <span>⚡</span>
+          <span>Auto-generate from Topic</span>
+        </button>
+        
+        <button
+          onClick={() => setShowPicker(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors flex items-center space-x-2"
+        >
+          <FaBook />
+          <span>Chọn từ Kho Từ Vựng</span>
+        </button>
+      </div>
+
+      {/* Vocabulary Picker Modal */}
+      {showPicker && (
+        <VocabularyPickerModal
+          onClose={() => setShowPicker(false)}
+          onImport={handleImportFromBank}
+        />
+      )}
+
+      {/* AI Generate Button - OLD, keeping for reference */}
+      {/* <button
         onClick={handleAutoGenerate}
         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center space-x-2"
       >
         <span>⚡</span>
         <span>Auto-generate from Topic</span>
-      </button>
+      </button> */}
 
       {/* Word List */}
       {words.map((word, index) => (
@@ -1049,6 +1094,284 @@ function ListeningEditor({ data, onChange }) {
         <label htmlFor="dictation" className="text-white font-semibold">
           🎯 Dictation Mode (Hide transcript, make user type what they hear)
         </label>
+      </div>
+    </div>
+  );
+}
+
+// ============ Vocabulary Picker Modal ============
+function VocabularyPickerModal({ onClose, onImport }) {
+  const [vocabularies, setVocabularies] = useState([]);
+  const [allTopics, setAllTopics] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [level, setLevel] = useState('');
+  const [topic, setTopic] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    fetchTopics();
+  }, []);
+
+  useEffect(() => {
+    fetchVocabularies();
+  }, [page, search, level, topic]);
+
+  const fetchTopics = async () => {
+    try {
+      const res = await adminService.getAllTopicsForDropdown();
+      const topicsArray = res.data.data?.topics || [];
+      setAllTopics(topicsArray);
+    } catch (err) {
+      console.error('Error fetching topics:', err);
+    }
+  };
+
+  const fetchVocabularies = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page,
+        limit: 20,
+        search: search.trim(),
+        level,
+        topic
+      };
+      
+      const res = await adminService.getVocabularies(params);
+      setVocabularies(res.data.data);
+      setTotalPages(res.data.totalPages);
+    } catch (err) {
+      console.error('Error fetching vocabularies:', err);
+      alert('Lỗi tải danh sách từ vựng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelect = (vocabId) => {
+    setSelectedIds(prev =>
+      prev.includes(vocabId)
+        ? prev.filter(id => id !== vocabId)
+        : [...prev, vocabId]
+    );
+  };
+
+  const handleImport = () => {
+    const selectedVocabs = vocabularies.filter(v => selectedIds.includes(v._id));
+    onImport(selectedVocabs);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <FaBook className="text-blue-500" />
+            Chọn Từ Vựng từ Kho
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <FiX size={24} />
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 border-b border-gray-700 bg-gray-900">
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm từ vựng..."
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <select
+              value={topic}
+              onChange={(e) => { setTopic(e.target.value); setPage(1); }}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+            >
+              <option value="">📚 Tất cả Topics</option>
+              {allTopics.map(t => (
+                <option key={t._id} value={t._id}>
+                  {t.name} ({t.level})
+                </option>
+              ))}
+            </select>
+            
+            <select
+              value={level}
+              onChange={(e) => { setLevel(e.target.value); setPage(1); }}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">🎯 Tất cả Level</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          
+          {/* Active Filters */}
+          {(search || topic || level) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-400">Đang lọc:</span>
+              {search && (
+                <span className="px-2 py-1 bg-blue-900/50 text-blue-300 rounded text-xs flex items-center gap-1">
+                  🔍 "{search}"
+                  <button onClick={() => { setSearch(''); setPage(1); }}>
+                    <FiX size={12} />
+                  </button>
+                </span>
+              )}
+              {topic && (
+                <span className="px-2 py-1 bg-purple-900/50 text-purple-300 rounded text-xs flex items-center gap-1">
+                  📚 {allTopics.find(t => t._id === topic)?.name}
+                  <button onClick={() => { setTopic(''); setPage(1); }}>
+                    <FiX size={12} />
+                  </button>
+                </span>
+              )}
+              {level && (
+                <span className="px-2 py-1 bg-green-900/50 text-green-300 rounded text-xs flex items-center gap-1">
+                  🎯 {level}
+                  <button onClick={() => { setLevel(''); setPage(1); }}>
+                    <FiX size={12} />
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={() => { setSearch(''); setTopic(''); setLevel(''); setPage(1); }}
+                className="text-xs text-red-400 hover:text-red-300 underline"
+              >
+                Xóa tất cả
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Vocabulary List */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <FiLoader className="animate-spin text-blue-500" size={32} />
+            </div>
+          ) : vocabularies.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <FaBook size={48} className="mx-auto mb-3 opacity-50" />
+              <p>Không tìm thấy từ vựng</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {vocabularies.map(vocab => (
+                <div
+                  key={vocab._id}
+                  onClick={() => toggleSelect(vocab._id)}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedIds.includes(vocab._id)
+                      ? 'border-blue-500 bg-blue-900/20'
+                      : 'border-gray-700 bg-gray-900 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Checkbox */}
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
+                      selectedIds.includes(vocab._id)
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-500'
+                    }`}>
+                      {selectedIds.includes(vocab._id) && (
+                        <FiCheckCircle className="text-white" size={14} />
+                      )}
+                    </div>
+
+                    {/* Vocab Info */}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="text-white font-bold text-lg">{vocab.word}</h4>
+                          {vocab.pronunciation && (
+                            <p className="text-gray-400 text-sm italic">{vocab.pronunciation}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          vocab.level === 'beginner' ? 'bg-green-900 text-green-300' :
+                          vocab.level === 'intermediate' ? 'bg-yellow-900 text-yellow-300' :
+                          'bg-red-900 text-red-300'
+                        }`}>
+                          {vocab.level}
+                        </span>
+                      </div>
+                      <p className="text-gray-300 mt-2">{vocab.meaning}</p>
+                      {vocab.example && (
+                        <p className="text-gray-400 text-sm mt-1 italic">"{vocab.example}"</p>
+                      )}
+                      
+                      {/* Topics Tags */}
+                      {vocab.topics && vocab.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {vocab.topics.slice(0, 3).map((topic, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-full text-xs"
+                            >
+                              {topic.name || 'Topic'}
+                            </span>
+                          ))}
+                          {vocab.topics.length > 3 && (
+                            <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded-full text-xs">
+                              +{vocab.topics.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Image Preview */}
+                    {vocab.imageUrl && (
+                      <img
+                        src={vocab.imageUrl}
+                        alt={vocab.word}
+                        className="w-20 h-20 object-cover rounded"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-700 bg-gray-900 flex justify-between items-center">
+          <div className="text-sm text-gray-400">
+            Đã chọn: <span className="text-white font-semibold">{selectedIds.length}</span> từ vựng
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={selectedIds.length === 0}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <FiCheckCircle />
+              Import {selectedIds.length > 0 && `(${selectedIds.length})`}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

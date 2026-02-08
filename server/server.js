@@ -25,6 +25,8 @@ const adminWritingPromptRoutes = require('./src/routes/Admin/AdminWritingPrompts
 const adminSpeakingQuestionRoutes = require('./src/routes/Admin/AdminSpeakingQuestions');
 const adminStatsRoutes = require('./src/routes/Admin/AdminStats');
 const adminUsersRoutes = require('./src/routes/Admin/AdminUsers');
+const adminLessonsRoutes = require('./src/routes/Admin/AdminLessons');
+const adminVocabularyRoutes = require('./src/routes/Admin/AdminVocabulary');
 const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
 const { startPetDecayJob } = require('./src/jobs/petDecay');
@@ -84,6 +86,8 @@ app.use('/api/admin/writing-prompts', adminWritingPromptRoutes);
 app.use('/api/admin/speaking-questions', adminSpeakingQuestionRoutes);
 app.use('/api/admin/stats', adminStatsRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/admin', adminLessonsRoutes); // Lessons routes (includes /topics/:id/lessons)
+app.use('/api/admin/vocab', adminVocabularyRoutes); // Vocabulary Bank
 
 // Pet feature
 app.use('/api/pet', petRoutes);

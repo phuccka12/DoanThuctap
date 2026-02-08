@@ -53,7 +53,7 @@ const protect = async (req, res, next) => {
 };
 
 // Middleware kiểm tra role admin
-const admin = (req, res, next) => {
+const requireAdmin = (req, res, next) => {
   if (req.userRole && req.userRole === 'admin') {
     next();
   } else {
@@ -63,6 +63,9 @@ const admin = (req, res, next) => {
     });
   }
 };
+
+// Alias for backward compatibility
+const admin = requireAdmin;
 
 // Middleware kiểm tra role VIP
 const vip = (req, res, next) => {
@@ -76,4 +79,4 @@ const vip = (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin, vip };
+module.exports = { protect, requireAdmin, admin, vip };

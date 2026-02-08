@@ -1,476 +1,554 @@
-
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  FiBook, FiPlus, FiSearch, FiFilter, FiEdit2, FiTrash2, 
-  FiEye, FiLoader, FiChevronRight, FiRefreshCw, FiCheckCircle,
-  FiAlertCircle, FiClock
+  FiBook, FiPlus, FiEdit2, FiTrash2, FiEye, FiRefreshCw, 
+  FiMove, FiClock, FiCheckCircle, FiXCircle, FiGrid, FiArrowLeft, FiChevronRight
 } from 'react-icons/fi';
-import { 
-  FaHeadphones, FaBook, FaPen, FaMicrophone 
-} from 'react-icons/fa';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import adminService from '../../services/adminService';
 
+/**
+ * AdminLessons - LEVEL 2: Table of Contents (Mục Lục Chương)
+ * Shows list of lessons for a topic
+ * Admin can:
+ * - Create new lessons
+ * - Reorder lessons by drag & drop
+ * - Edit lesson info
+ * - Delete lessons
+ * - Open Builder for each lesson
+ */
 function AdminLessons() {
   const { topicId } = useParams();
   const navigate = useNavigate();
 
-  // States
   const [topic, setTopic] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [skillFilter, setSkillFilter] = useState('');
-  const [levelFilter, setLevelFilter] = useState('');
-  const [aiStatusFilter, setAiStatusFilter] = useState('');
-
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    listening: 0,
-    reading: 0,
-    writing: 0,
-    speaking: 0
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newLesson, setNewLesson] = useState({
+    title: '',
+    description: '',
+    duration: 15,
+    level: 'beginner'
   });
 
-  // Fetch topic and lessons
   useEffect(() => {
-    fetchTopicAndLessons();
+    fetchLessons();
   }, [topicId]);
 
-  const fetchTopicAndLessons = async () => {
+  const fetchLessons = async () => {
     try {
       setLoading(true);
       
-      // Fetch topic info
-      const topicRes = await adminService.getTopics();
-      const topicsData = topicRes.data.data?.topics || topicRes.data.data || [];
-      const foundTopic = topicsData.find(t => t._id === topicId);
-      setTopic(foundTopic);
-
-      // Fetch lessons by topic from backend
-      // TODO: Implement getLessonsByTopic in adminService
-      // const lessonsRes = await adminService.getLessonsByTopic(topicId);
-      // const lessonsData = lessonsRes.data.data || [];
+      // Get lessons from new API
+      const res = await adminService.getLessonsByTopic(topicId);
+      const data = res.data.data;
       
-      // For now, set empty array until backend API is ready
-      const lessonsData = [];
-      setLessons(lessonsData);
-
-      // Calculate stats
-      const statsData = {
-        total: lessonsData.length,
-        listening: lessonsData.filter(l => l.skill === 'listening').length,
-        reading: lessonsData.filter(l => l.skill === 'reading').length,
-        writing: lessonsData.filter(l => l.skill === 'writing').length,
-        speaking: lessonsData.filter(l => l.skill === 'speaking').length,
-      };
-      setStats(statsData);
-
+      setTopic(data.topic);
+      setLessons(data.lessons || []);
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message);
+      console.error('Error:', err);
+      setError(err.message || 'Lỗi khi tải dữ liệu');
       setLoading(false);
     }
   };
 
-  // Filter lessons
-  const filteredLessons = lessons.filter(lesson => {
-    const matchSearch = lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       lesson.keywords.some(k => k.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchSkill = !skillFilter || lesson.skill === skillFilter;
-    const matchLevel = !levelFilter || lesson.level === levelFilter;
-    const matchAiStatus = !aiStatusFilter || lesson.ai_status === aiStatusFilter;
-    
-    return matchSearch && matchSkill && matchLevel && matchAiStatus;
-  });
+  const handleCreateLesson = async () => {
+    if (!newLesson.title.trim()) {
+      alert('Vui lòng nhập tên bài học!');
+      return;
+    }
 
-  // Handle actions
-  const handleEdit = (lesson) => {
-    // TODO: Navigate to edit page or open modal
-    alert(`Edit lesson: ${lesson.title}`);
+    try {
+      await adminService.createLesson(topicId, newLesson);
+      
+      setShowCreateModal(false);
+      setNewLesson({
+        title: '',
+        description: '',
+        duration: 15,
+        level: 'beginner'
+      });
+      
+      fetchLessons();
+      alert('✅ Tạo bài học thành công!');
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Lỗi: ' + err.message);
+    }
   };
 
-  const handleDelete = async (lessonId) => {
+  const handleDeleteLesson = async (lessonId) => {
     if (!window.confirm('Bạn có chắc muốn xóa bài học này?')) return;
+
     try {
-      // TODO: await adminService.deleteLesson(lessonId);
-      alert('Deleted successfully!');
-      fetchTopicAndLessons();
+      await adminService.deleteLesson(lessonId);
+      fetchLessons();
+      alert('✅ Đã xóa bài học!');
     } catch (err) {
-      alert('Error deleting lesson: ' + err.message);
+      console.error('Error:', err);
+      alert('❌ Lỗi: ' + err.message);
     }
   };
 
-  const handlePreview = (lesson) => {
-    // TODO: Open preview modal or navigate to user view
-    alert(`Preview lesson: ${lesson.title}`);
+  const handleOpenBuilder = (lessonId) => {
+    // Navigate to Builder for this specific lesson
+    navigate(`/admin/topics/${topicId}/lessons/${lessonId}/builder`);
   };
 
-  const handleResyncVector = async () => {
-    if (!window.confirm('Re-sync tất cả vectors cho chủ đề này?')) return;
+  const handleTogglePublish = async (lessonId, currentStatus) => {
     try {
-      // TODO: await adminService.resyncTopicVectors(topicId);
-      alert('Re-sync started! This may take a few minutes.');
-      fetchTopicAndLessons();
+      await adminService.updateLesson(lessonId, { 
+        is_published: !currentStatus 
+      });
+      fetchLessons();
+      alert(`✅ Đã ${!currentStatus ? 'xuất bản' : 'gỡ xuất bản'} bài học!`);
     } catch (err) {
-      alert('Error re-syncing: ' + err.message);
+      console.error('Error:', err);
+      alert('❌ Lỗi: ' + err.message);
     }
   };
 
-  const handleAddLesson = () => {
-    // TODO: Navigate to create lesson page
-    alert('Navigate to create lesson page');
+  const handlePublishAll = async () => {
+    if (!window.confirm('Xuất bản tất cả bài học?')) return;
+    
+    try {
+      const updatePromises = lessons.map(lesson => 
+        adminService.updateLesson(lesson._id, { is_published: true })
+      );
+      await Promise.all(updatePromises);
+      fetchLessons();
+      alert('✅ Đã xuất bản tất cả bài học!');
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Lỗi: ' + err.message);
+    }
   };
 
-  // Get skill icon and color - SIMPLIFIED (only gray + purple accent)
-  const getSkillConfig = (skill) => {
-    const configs = {
-      reading: { 
-        icon: FaBook, 
-        color: 'text-gray-300', 
-        bg: 'bg-gray-700/50', 
-        border: 'border-gray-600', 
-        label: 'Reading' 
-      },
-      listening: { 
-        icon: FaHeadphones, 
-        color: 'text-gray-300', 
-        bg: 'bg-gray-700/50', 
-        border: 'border-gray-600', 
-        label: 'Listening' 
-      },
-      writing: { 
-        icon: FaPen, 
-        color: 'text-gray-300', 
-        bg: 'bg-gray-700/50', 
-        border: 'border-gray-600', 
-        label: 'Writing' 
-      },
-      speaking: { 
-        icon: FaMicrophone, 
-        color: 'text-gray-300', 
-        bg: 'bg-gray-700/50', 
-        border: 'border-gray-600', 
-        label: 'Speaking' 
-      },
-    };
-    return configs[skill] || configs.reading;
+  const handleUnpublishAll = async () => {
+    if (!window.confirm('Gỡ xuất bản tất cả bài học?')) return;
+    
+    try {
+      const updatePromises = lessons.map(lesson => 
+        adminService.updateLesson(lesson._id, { is_published: false })
+      );
+      await Promise.all(updatePromises);
+      fetchLessons();
+      alert('✅ Đã gỡ xuất bản tất cả bài học!');
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Lỗi: ' + err.message);
+    }
   };
 
-  // Get AI status config - SIMPLIFIED (only 2 colors)
-  const getAiStatusConfig = (status) => {
-    const configs = {
-      ready: { 
-        icon: FiCheckCircle, 
-        color: 'text-green-400', 
-        bg: 'bg-green-500/20', 
-        label: 'AI Ready' 
-      },
-      pending: { 
-        icon: FiClock, 
-        color: 'text-gray-400', 
-        bg: 'bg-gray-700/50', 
-        label: 'Pending' 
-      },
-      error: { 
-        icon: FiAlertCircle, 
-        color: 'text-red-400', 
-        bg: 'bg-red-500/20', 
-        label: 'Error' 
-      },
-    };
-    return configs[status] || configs.pending;
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const items = Array.from(lessons);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setLessons(items);
+
+    try {
+      // Send new order to backend
+      const lessonIds = items.map(l => l._id);
+      await adminService.reorderLessons(topicId, lessonIds);
+    } catch (err) {
+      console.error('Error reordering:', err);
+      alert('❌ Lỗi khi sắp xếp lại');
+      fetchLessons(); // Revert
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <FiLoader className="animate-spin text-purple-500" size={32} />
+  if (loading) return (
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin text-4xl">⏳</div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200">
-        Error: {error}
+  if (error) return (
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold mb-2">Lỗi tải dữ liệu</h2>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={fetchLessons}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+          >
+            Thử lại
+          </button>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      {/* HEADER SECTION */}
-      <div className="space-y-4">
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="max-w-6xl mx-auto">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <button 
+        <div className="mb-6">
+          <button
             onClick={() => navigate('/admin/topics')}
-            className="hover:text-purple-400 transition-colors"
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-3 group"
           >
-            Kho chủ đề
+            <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
+            <span>Quay lại Topics</span>
           </button>
-          <FiChevronRight size={14} />
-          <span className="text-white font-medium">{topic?.name || 'Loading...'}</span>
-        </div>
-
-        {/* Title & Actions */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-3xl font-bold text-gray-100">{topic?.name} Lessons</h2>
-            <p className="text-gray-400 text-sm mt-1">Quản lý bài học cho chủ đề này</p>
-          </div>
           
-          <div className="flex items-center gap-2 flex-shrink-0 relative z-10">
-            {/* Re-sync Vector Button */}
+          <div className="flex items-center gap-2 text-sm">
             <button
-              onClick={handleResyncVector}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium transition-all border border-gray-600 whitespace-nowrap shadow-lg"
-              style={{ minWidth: '140px' }}
+              onClick={() => navigate('/admin/topics')}
+              className="text-blue-400 hover:text-blue-300 transition-colors"
             >
-              <FiRefreshCw size={16} />
-              <span>Re-sync Vector</span>
+              📚 Quản lý Topics
             </button>
-
-            {/* Add Lesson Button */}
-            <button
-              onClick={handleAddLesson}
-              className="flex-1 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-2"
-              style={{ minWidth: '150px' }}
-            >
-              <FiPlus size={18} />
-              <span>Thêm bài học</span>
-            </button>
+            <FiChevronRight className="text-gray-600" />
+            <span className="text-gray-300">
+              {topic?.name || 'Loading...'}
+            </span>
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-5 gap-4">
-          {/* Total */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
+        {/* Topic Info Card */}
+        {topic && (
+          <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/30 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Total</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.total}</p>
-              </div>
-              <FiBook className="text-gray-500" size={32} />
-            </div>
-          </div>
-
-          {/* Listening */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">🎧 Listening</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.listening}</p>
-              </div>
-              <FaHeadphones className="text-gray-500" size={28} />
-            </div>
-          </div>
-
-          {/* Reading */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">📖 Reading</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.reading}</p>
-              </div>
-              <FaBook className="text-gray-500" size={28} />
-            </div>
-          </div>
-
-          {/* Writing */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">✍️ Writing</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.writing}</p>
-              </div>
-              <FaPen className="text-gray-500" size={28} />
-            </div>
-          </div>
-
-          {/* Speaking */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">🗣️ Speaking</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.speaking}</p>
-              </div>
-              <FaMicrophone className="text-gray-500" size={28} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* TOOLBAR - FILTERS */}
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder={`Tìm bài học trong ${topic?.name}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-              />
-            </div>
-          </div>
-
-          {/* Skill Filter */}
-          <select
-            value={skillFilter}
-            onChange={(e) => setSkillFilter(e.target.value)}
-            className="px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-          >
-            <option value="">All Skills</option>
-            <option value="reading">Reading</option>
-            <option value="listening">Listening</option>
-            <option value="writing">Writing</option>
-            <option value="speaking">Speaking</option>
-          </select>
-
-          {/* Level Filter */}
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-          >
-            <option value="">All Levels</option>
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-
-          {/* AI Status Filter */}
-          <select
-            value={aiStatusFilter}
-            onChange={(e) => setAiStatusFilter(e.target.value)}
-            className="px-4 py-2.5 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-          >
-            <option value="">All AI Status</option>
-            <option value="ready">AI Ready</option>
-            <option value="pending">Pending</option>
-            <option value="error">Error</option>
-          </select>
-        </div>
-      </div>
-
-      {/* LESSONS LIST */}
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
-        {filteredLessons.length === 0 ? (
-          <div className="text-center py-12">
-            <FiBook className="mx-auto mb-4 text-gray-600" size={48} />
-            <p className="text-gray-400 text-lg">Không tìm thấy bài học nào</p>
-            <p className="text-gray-500 text-sm mt-2">Thử điều chỉnh bộ lọc hoặc thêm bài học mới</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-700/50">
-            {filteredLessons.map((lesson) => {
-              const skillConfig = getSkillConfig(lesson.skill);
-              const aiStatusConfig = getAiStatusConfig(lesson.ai_status);
-              const SkillIcon = skillConfig.icon;
-              const AiStatusIcon = aiStatusConfig.icon;
-
-              return (
-                <div 
-                  key={lesson._id}
-                  className="p-5 hover:bg-gray-700/30 transition-colors group"
-                >
-                  <div className="flex items-center gap-6">
-                    {/* Column 1: Info (40%) */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
-                        {lesson.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {lesson.keywords.map((keyword, idx) => (
-                          <span 
-                            key={idx}
-                            className="px-2 py-0.5 bg-purple-500/10 text-purple-300 rounded text-xs border border-purple-500/20"
-                          >
-                            #{keyword}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Column 2: Type (20%) */}
-                    <div className="flex flex-col gap-2 w-32">
-                      {/* Skill Badge */}
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${skillConfig.bg} ${skillConfig.border}`}>
-                        <SkillIcon className={skillConfig.color} size={14} />
-                        <span className={`text-xs font-semibold ${skillConfig.color}`}>
-                          {skillConfig.label}
-                        </span>
-                      </div>
-                      {/* Level Badge */}
-                      <div className="px-3 py-1 bg-gray-700/50 rounded-lg text-center">
-                        <span className="text-xs text-gray-300 font-medium">
-                          {lesson.band_score}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Column 3: AI Status (20%) */}
-                    <div className="w-32">
-                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${aiStatusConfig.bg}`}>
-                        <AiStatusIcon className={aiStatusConfig.color} size={16} />
-                        <span className={`text-sm font-semibold ${aiStatusConfig.color}`}>
-                          {aiStatusConfig.label}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Column 4: Actions (20%) */}
-                    <div className="flex items-center gap-2">
-                      {/* Edit */}
-                      <button
-                        onClick={() => handleEdit(lesson)}
-                        className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all"
-                        title="Edit"
-                      >
-                        <FiEdit2 className="text-white" size={16} />
-                      </button>
-
-                      {/* Preview */}
-                      <button
-                        onClick={() => handlePreview(lesson)}
-                        className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all"
-                        title="Preview"
-                      >
-                        <FiEye className="text-white" size={16} />
-                      </button>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => handleDelete(lesson._id)}
-                        className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-all"
-                        title="Delete"
-                      >
-                        <FiTrash2 className="text-white" size={16} />
-                      </button>
-                    </div>
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">
+                  {topic.icon_image_url ? (
+                    <img src={topic.icon_image_url} alt={topic.name} className="w-16 h-16 object-cover rounded-lg" />
+                  ) : (
+                    <span>📚</span>
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">{topic.name}</h2>
+                  <p className="text-gray-400 text-sm mt-1">{topic.description}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      topic.level === 'beginner' ? 'bg-green-900 text-green-300' :
+                      topic.level === 'intermediate' ? 'bg-yellow-900 text-yellow-300' :
+                      'bg-red-900 text-red-300'
+                    }`}>
+                      {topic.level}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {lessons.length} bài học
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Result Count */}
-      <div className="text-center text-gray-400 text-sm">
-        Hiển thị {filteredLessons.length} / {lessons.length} bài học
+        {/* Header */}
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3 mb-2">
+              <FiBook className="text-blue-500" />
+              Mục Lục Bài Học
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Cấp độ 2: Danh sách các chương (Lessons)
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handlePublishAll}
+              className="px-4 py-2 text-white rounded-lg flex items-center gap-2 font-medium transition-all duration-200 hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+              title="Xuất bản tất cả"
+            >
+              <FiCheckCircle />
+              Publish All
+            </button>
+            <button
+              onClick={handleUnpublishAll}
+              className="px-4 py-2 text-white rounded-lg flex items-center gap-2 font-medium transition-all duration-200 hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' }}
+              title="Gỡ xuất bản tất cả"
+            >
+              <FiXCircle />
+              Unpublish All
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 text-white rounded-lg flex items-center gap-2 font-medium transition-all duration-200 hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
+            >
+              <FiPlus />
+              Thêm Bài Học
+            </button>
+            <button
+              onClick={fetchLessons}
+              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <FiRefreshCw />
+            </button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="text-sm text-gray-400">Tổng bài học</div>
+            <div className="text-3xl font-bold text-white">{lessons.length}</div>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="text-sm text-gray-400">Đã xuất bản</div>
+            <div className="text-3xl font-bold text-green-500">
+              {lessons.filter(l => l.is_published).length}
+            </div>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="text-sm text-gray-400">Nháp</div>
+            <div className="text-3xl font-bold text-yellow-500">
+              {lessons.filter(l => !l.is_published).length}
+            </div>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="text-sm text-gray-400">Tổng hoạt động</div>
+            <div className="text-3xl font-bold text-purple-500">
+              {lessons.reduce((sum, l) => sum + (l.nodes?.length || 0), 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Lessons List with Drag & Drop */}
+        {lessons.length === 0 ? (
+          <div className="text-center py-16">
+            <FiBook className="text-6xl text-gray-600 mx-auto mb-4" />
+            <h3 className="text-2xl font-semibold text-gray-400 mb-2">
+              Chưa có bài học nào
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Hãy tạo bài học đầu tiên cho chủ đề này!
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 mx-auto"
+            >
+              <FiPlus />
+              Tạo Bài Học Đầu Tiên
+            </button>
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="lessons">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-3"
+                >
+                  {lessons.map((lesson, index) => (
+                    <Draggable
+                      key={lesson._id}
+                      draggableId={lesson._id}
+                      index={index}
+                    >
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`bg-gray-800 rounded-lg border-2 transition-all ${
+                            snapshot.isDragging
+                              ? 'border-blue-500 shadow-lg shadow-blue-500/50'
+                              : 'border-gray-700'
+                          }`}
+                        >
+                          <div className="p-4 flex items-center gap-4">
+                            {/* Drag Handle */}
+                            <div
+                              {...provided.dragHandleProps}
+                              className="text-gray-500 hover:text-white cursor-grab active:cursor-grabbing"
+                            >
+                              <FiMove className="text-2xl" />
+                            </div>
+
+                            {/* Order Number */}
+                            <div className="shrink-0 w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
+                              <span className="text-xl font-bold text-blue-400">
+                                {index + 1}
+                              </span>
+                            </div>
+
+                            {/* Lesson Info */}
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-white mb-1">
+                                {lesson.title}
+                              </h3>
+                              {lesson.description && (
+                                <p className="text-sm text-gray-400 line-clamp-1">
+                                  {lesson.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <FiClock className="text-blue-400" />
+                                  {lesson.duration || 15} phút
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <FiGrid className="text-purple-400" />
+                                  {lesson.nodes?.length || 0} hoạt động
+                                </span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  lesson.level === 'beginner' ? 'bg-green-900 text-green-300' :
+                                  lesson.level === 'intermediate' ? 'bg-yellow-900 text-yellow-300' :
+                                  'bg-red-900 text-red-300'
+                                }`}>
+                                  {lesson.level === 'beginner' ? 'Cơ bản' :
+                                   lesson.level === 'intermediate' ? 'Trung bình' :
+                                   'Nâng cao'}
+                                </span>
+                                {lesson.is_published ? (
+                                  <span className="flex items-center gap-1 text-green-400">
+                                    <FiCheckCircle />
+                                    Đã xuất bản
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-yellow-400">
+                                    <FiXCircle />
+                                    Nháp
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleOpenBuilder(lesson._id)}
+                                className="px-4 py-2 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-all duration-200 hover:opacity-90"
+                                style={{ background: 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)' }}
+                                title="Mở Builder"
+                              >
+                                <FiEdit2 />
+                                Builder
+                              </button>
+                              <button
+                                onClick={() => handleTogglePublish(lesson._id, lesson.is_published)}
+                                className="px-4 py-2 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-all duration-200 hover:opacity-90"
+                                style={{ 
+                                  background: lesson.is_published 
+                                    ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' 
+                                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                }}
+                                title={lesson.is_published ? 'Gỡ xuất bản' : 'Xuất bản'}
+                              >
+                                <FiCheckCircle />
+                                {lesson.is_published ? 'Unpublish' : 'Publish'}
+                              </button>
+                              <button
+                                onClick={() => alert(`Preview: ${lesson.title}`)}
+                                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                                title="Preview"
+                              >
+                                <FiEye />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteLesson(lesson._id)}
+                                className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-2xl font-bold mb-4">Tạo Bài Học Mới</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tên bài học *</label>
+                  <input
+                    type="text"
+                    value={newLesson.title}
+                    onChange={(e) => setNewLesson({ ...newLesson, title: e.target.value })}
+                    placeholder="VD: Check-in tại sân bay"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Mô tả</label>
+                  <textarea
+                    value={newLesson.description}
+                    onChange={(e) => setNewLesson({ ...newLesson, description: e.target.value })}
+                    placeholder="Mô tả ngắn về bài học"
+                    rows={3}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Thời lượng (phút)</label>
+                    <input
+                      type="number"
+                      value={newLesson.duration}
+                      onChange={(e) => setNewLesson({ ...newLesson, duration: parseInt(e.target.value) || 15 })}
+                      min="1"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Cấp độ</label>
+                    <select
+                      value={newLesson.level}
+                      onChange={(e) => setNewLesson({ ...newLesson, level: e.target.value })}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="beginner">Cơ bản</option>
+                      <option value="intermediate">Trung bình</option>
+                      <option value="advanced">Nâng cao</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleCreateLesson}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+                >
+                  Tạo Bài Học
+                </button>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
