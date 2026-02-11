@@ -1,782 +1,760 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import catAnimation from '../assets/cat.json';
-
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  FaPlay,
+  FaCheck,
+  FaStar,
+  FaMicrophone,
+  FaPenFancy,
+  FaGamepad,
+  FaArrowRight,
+  FaGlobe,
+  FaEnvelope,
+  FaUniversity,
+  FaRobot,
+  FaRocket,
   FaGraduationCap,
   FaBrain,
-  FaGamepad,
-  FaUsers,
-  FaTrophy,
-  FaCertificate,
-  FaCheckCircle,
-  FaStar,
-  FaArrowRight,
-  FaAward,
-  FaHeadphones,
-  FaChartLine
-} from 'react-icons/fa';
+} from "react-icons/fa";
+
+import { HiSparkles } from "react-icons/hi2";
+import { BsSoundwave } from "react-icons/bs";
+import ThemeToggle from "../components/ThemeToggle";
 
 const Landingpage = () => {
   const navigate = useNavigate();
-  const lottieRef = useRef(null);
-  const [hoveredFeature, setHoveredFeature] = useState(null);
+  const [scrolled, setScrolled] = useState(false);
 
-  // Simple Lottie player using canvas
+  // Handle scroll effect for navbar
   useEffect(() => {
-    if (lottieRef.current && catAnimation) {
-      // For now, we'll use a simple cat emoji instead of complex Lottie setup
-      // This ensures the page renders immediately
-    }
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Smooth scroll handler
-  const handleSmoothScroll = (e, targetId) => {
-    e.preventDefault();
-    const element = document.getElementById(targetId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const courses = [
-    {
-      level: 'A1 Beginner',
-      icon: '🌱',
-      color: 'bg-green-50 border-green-200',
-      buttonColor: 'bg-green-500 hover:bg-green-600',
-      description: 'Mới bắt đầu học',
-      features: ['Dạy theo chủ đề', 'Từ vựng căn bản', 'Ngữ pháp cơ bản']
-    },
-    {
-      level: 'A2 Elementary',
-      icon: '💡',
-      color: 'bg-blue-50 border-blue-200',
-      buttonColor: 'bg-blue-500 hover:bg-blue-600',
-      description: 'Nâng cao từ cơ bản',
-      features: ['Hội thoại hàng ngày', 'Từ vựng mở rộng', 'Giao tiếp cơ bản']
-    },
-    {
-      level: 'B1 Intermediate',
-      icon: '⚡',
-      color: 'bg-purple-50 border-purple-200',
-      buttonColor: 'bg-purple-500 hover:bg-purple-600',
-      description: 'Trung cấp tiếng Anh',
-      features: ['Học từ chủ đề', 'Từ vựng nâng cao', 'Giao tiếp tự tin']
-    },
-    {
-      level: 'B2+ Advanced',
-      icon: '👑',
-      color: 'bg-orange-50 border-orange-200',
-      buttonColor: 'bg-orange-500 hover:bg-orange-600',
-      description: 'Thành thạo tiếng Anh',
-      features: ['Các chủ đề phức tạp', 'Business English', 'Chuẩn bị IELTS']
-    }
-  ];
-
-  const benefits = [
-    {
-      icon: <FaGraduationCap className="text-4xl text-blue-500" />,
-      title: 'Giáo viên bản xứ',
-      description: 'Học trực tiếp với giáo viên bản xứ kèm cặp tận tâm và nhiệt huyết 5+ năm'
-    },
-    {
-      icon: <FaBrain className="text-4xl text-purple-500" />,
-      title: 'AI thông minh',
-      description: 'Thực hành luyện nói với AI dễ dàng, nhận phản hồi ngay lập tức, tạo lộ trình riêng'
-    },
-    {
-      icon: <FaGamepad className="text-4xl text-green-500" />,
-      title: 'Học vui vẻ',
-      description: 'Gamification và bé thông minh thú cưỡng, vui vẻ và tương tác học tập'
-    },
-    {
-      icon: <FaUsers className="text-4xl text-pink-500" />,
-      title: 'Cộng đồng',
-      description: 'Kết nối với 7 triệu học viên trên thế giới'
-    },
-    {
-      icon: <FaTrophy className="text-4xl text-yellow-500" />,
-      title: 'Linh hoạt',
-      description: 'Học tập tùy chỉnh, linh hoạt thời gian tùy theo nhu cầu của bạn'
-    },
-    {
-      icon: <FaCertificate className="text-4xl text-red-500" />,
-      title: 'Chứng chỉ',
-      description: 'Nhận chứng chỉ quốc tế, hệ thống chính thức và đánh giá nghiêm khắc'
-    }
-  ];
-
-  const features = [
-    {
-      icon: '🔍',
-      title: 'Bài kiểm tra đầu vào',
-      description: 'Bài kiểm tra đánh giá vào trình độ và xác định lộ trình học phù hợp với từng bạn'
-    },
-    {
-      icon: '🤖',
-      title: 'Nhân phân hỏi từ AI',
-      description: 'Nhận phản hồi học thi từ AI về ngữ pháp, từ vựng và cấu trúc câu'
-    },
-    {
-      icon: '🐾',
-      title: 'Nuôi thú cưng, chơi ăn, nâng cấp và mua vật phẩm bằng Gold & XP',
-      description: 'Nuôi thú cưng, cho ăn, nâng cấp và mua các vật phẩm bằng Gold & XP'
-    },
-    {
-      icon: '🎥',
-      title: 'Tham gia lớp học trực tuyến với giáo viên qua Google Meet',
-      description: 'Tham gia các lớp học trực tuyến với giáo viên qua Google Meet'
-    },
-    {
-      icon: '🎵',
-      title: 'Giáo viên dễ dàng tạo, quản lý lớp và giao bài tập cho học viên',
-      description: 'Cho phép giáo viên dễ dàng tạo, quản lý lớp và giao bài tập cho học viên'
-    },
-    {
-      icon: '📊',
-      title: 'Xem tiến độ, điểm số và phân tích học tập chi tiết',
-      description: 'Xem tiến độ, điểm số và phân tích học tập chi tiết'
-    }
-  ];
-
-  const userTypes = [
-    {
-      icon: '🎓',
-      title: 'Học viên',
-      subtitle: 'Students',
-      color: 'bg-blue-500',
-      features: [
-        'Học trực và kính tự phân',
-        'Nhận feedback từ AI',
-        'Nuôi thú ảo và nhắc việc nhắc nhở',
-        'Tham gia lớp học trực tuyến',
-        'Xem bài viết bài tập'
-      ]
-    },
-    {
-      icon: '👨‍🏫',
-      title: 'Giáo viên',
-      subtitle: 'Teachers',
-      color: 'bg-green-500',
-      features: [
-        'Tạo và quản lý lớp học',
-        'Giao bài tập và kiếm tra',
-        'Tổ chức lớp học qua Google Meet',
-        'Điểm đánh học viên',
-        'Đánh giá kết quả học tập'
-      ]
-    },
-    {
-      icon: '👑',
-      title: 'Quản trị viên',
-      subtitle: 'Administrators',
-      color: 'bg-purple-500',
-      features: [
-        'Quản lý tài khoản người dùng',
-        'Quản lý nội dung học',
-        'Cài đặt hệ thống',
-        'Phản quỹ và thống kê',
-        'Xem báo cáo hệ thống'
-      ]
-    }
-  ];
-
-  const pricingPlans = [
-    {
-      name: 'Miễn phí',
-      subtitle: 'Bắt đầu học tiếng Anh',
-      price: '0₫',
-      period: '/tháng',
-      buttonText: 'Bắt đầu miễn phí',
-      buttonColor: 'bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50',
-      features: ['3 bài học/ngày', 'AI feedback cơ bản', 'Gamification', 'Làm bài tập A-1', 'Chứng chỉ'],
-      highlight: false
-    },
-    {
-      name: 'Pro',
-      subtitle: 'Học chuyên nghiệp',
-      price: '99.000₫',
-      period: '/tháng',
-      buttonText: 'Nâng cấp',
-      buttonColor: 'bg-white text-blue-600 hover:bg-blue-50',
-      badge: 'PHỔ BIẾN',
-      features: [
-        'Bài học không giới hạn',
-        'AI feedback nâng cao',
-        'Lớp học 1-1 (2 buổi/tháng)',
-        'Giải đáp nhanh với AI',
-        'Chứng chỉ'
-      ],
-      highlight: true
-    },
-    {
-      name: 'Premium',
-      subtitle: 'Học tận cá nhân hóa',
-      price: '299.000₫',
-      period: '/tháng',
-      buttonText: 'Nâng cấp',
-      buttonColor: 'bg-white text-purple-600 hover:bg-purple-50',
-      features: [
-        'Tất cả ở Pro +',
-        'Lớp học 1-1 (5 buổi/tháng)',
-        'Lộ trình học cá nhân',
-        'Ưu tiên hỗ trợ 24/7',
-        'Kiểm tra IELTS miễn phí'
-      ],
-      highlight: false
-    }
-  ];
-
-  const teachers = [
-    {
-      name: 'Sarah Johnson',
-      title: 'Giáo viên từ Anh',
-      description: 'Tốt nghiệp ngành chuyên ngữ tiếng Anh, chuyên IELTS',
-      tags: ['IELTS', 'Advanced'],
-      color: 'bg-blue-400',
-      image: '👨'
-    },
-    {
-      name: 'Michael Brown',
-      title: 'Giáo viên từ Mỹ',
-      description: '8 năm kinh nghiệm, chuyên dạy Business English',
-      tags: ['Business', 'Conversation'],
-      color: 'bg-purple-400',
-      image: '👨'
-    },
-    {
-      name: 'Emily White',
-      title: 'Giáo viên từ Canada',
-      description: '6 năm kinh nghiệm, chuyên dạy cơ bản và tối ưu từ vựng',
-      tags: ['Kids', 'Beginner'],
-      color: 'bg-pink-400',
-      image: '👨'
-    }
-  ];
-
-  const testimonials = [
-    {
-      name: 'Nguyễn Hà',
-      time: 'Học viết 2 tháng',
-      text: '"English tốt thực sự giúp cải thiện rất nhiều và tôi đã ra vào mức tốt đã hỗ trợ giúp chính mình học tiếng Anh từ A1 feedback rất hay too!"',
-      rating: 5,
-      avatar: '👤',
-      color: 'bg-blue-500'
-    },
-    {
-      name: 'Trần Minh',
-      time: 'Học viết 3 tháng',
-      text: '"Phương pháp giảng dạy rất hiệu quả và thú vị. Tôi đã đạt điểm IELTS 7.5 trong 3 tháng. Cảm ơn những giáo viên tận tuyệt vời!"',
-      rating: 5,
-      avatar: '👤',
-      color: 'bg-purple-500'
-    },
-    {
-      name: 'Lê Anh',
-      time: 'Học viết 1 tháng',
-      text: '"Tôi rất thích gamification, vui học và có việc hơn. Tôi đã nuôi thú thi và XP hết giải thưởng này còn dẫn thêm!"',
-      rating: 5,
-      avatar: '👤',
-      color: 'bg-pink-500'
-    }
-  ];
-
-  const techStack = {
-    frontend: [
-      { name: 'React.js', description: 'Web Application', icon: '⚛️' },
-      { name: 'React Native', description: 'Mobile App (iOS & Android)', icon: '📱' },
-      { name: 'Redux', description: 'State Management', icon: '🔄' }
+  // Generate deterministic random-looking data for visualizations
+  const waveHeights1 = useMemo(
+    () => [
+      40, 70, 30, 80, 50, 90, 20, 60, 45, 75, 35, 85, 55, 95, 25, 65, 40, 70,
+      30, 80, 50, 90, 20, 60, 45,
     ],
-    backend: [
-      { name: 'Node.js + Express', description: 'RESTful APIs', icon: '🟢' },
-      { name: 'MongoDB', description: 'Database', icon: '🍃' },
-      { name: 'JWT', description: 'Authentication', icon: '🔐' }
+    [],
+  );
+  const waveHeights2 = useMemo(
+    () => [
+      50, 30, 60, 40, 70, 50, 80, 60, 90, 70, 40, 60, 30, 50, 20, 40, 30, 60,
+      40, 70, 50, 80, 60, 90, 70,
     ],
-    ai: [
-      { name: 'TensorFlow.js', description: 'AI Feedback Engine', icon: '🧠' },
-      { name: 'Google Meet API', description: 'Live Classes', icon: '📹' },
-      { name: 'Gamification Engine', description: 'Pet System & Rewards', icon: '🎮' }
+    [],
+  );
+  const waveHeights3 = useMemo(
+    () => [
+      30, 20, 40, 25, 35, 30, 45, 35, 50, 40, 25, 35, 20, 30, 15, 25, 20, 40,
+      25, 45, 35, 50, 40, 55, 45, 25, 35, 20, 30, 15, 25, 20, 40, 25, 45, 35,
+      50, 40, 55, 45,
     ],
-    deployment: [
-      { name: 'AWS / Heroku', description: 'Web Hosting', icon: '☁️' },
-      { name: 'App Store / Google Play', description: 'Mobile Distribution', icon: '📲' },
-      { name: 'Git / CI-CD', description: 'Version Control & Automation', icon: '⚙️' }
-    ]
-  };
-
-  const timeline = [
-    { week: 'Tuần 1-2', phase: 'Phân tích & Thiết kế', description: 'Phân tích yêu cầu, thiết kế hệ thống và lộ trình học tập' },
-    { week: 'Tuần 3-4', phase: 'Frontend Development', description: 'Phát triển giao diện Web và Mobile App' },
-    { week: 'Tuần 5-6', phase: 'Backend & Database', description: 'Phát triển APIs, xác thực JWT, và cấu hình MongoDB' },
-    { week: 'Tuần 7-8', phase: 'AI & Gamification', description: 'Tích hợp AI chatbot đánh giá và hệ thống vật nuôi' },
-    { week: 'Tuần 9-10', phase: 'Google Meet & Testing', description: 'Tích hợp Google Meet và kiểm thử chức năng' },
-    { week: 'Tuần 11-12', phase: 'Kiểm thử & Triển khai', description: 'Kiểm thử, Tối ưu hóa và triển khai lên production' }
-  ];
+    [],
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {/* LOGO (Cat emoji as temporary replacement for Lottie) */}
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg overflow-hidden flex items-center justify-center">
-                <span ref={lottieRef} className="text-2xl">🐱</span>
-              </div>
-
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                HIDAY ENGLISH
-              </span>
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0A0118] text-gray-900 dark:text-white font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden transition-colors duration-300">
+      {/* ================= HEADER ================= */}
+      <header
+        className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? "bg-white/90 dark:bg-[#0A0118]/90 backdrop-blur-md border-b border-gray-200 dark:border-white/5" : "bg-transparent"}`}
+      >
+        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
+          {/* Logo */}
+          <div
+            className="flex items-center space-x-2 cursor-pointer"
+            onClick={() => navigate("/")}
+          >
+            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+              <FaGraduationCap />
             </div>
+            <span className="text-xl font-bold tracking-tight">
+              HIDAY ENGLISH
+            </span>
+          </div>
 
-            <nav className="hidden md:flex items-center space-x-8">
-              <a href="#features" onClick={(e) => handleSmoothScroll(e, 'features')} className="text-gray-700 hover:text-blue-600 transition cursor-pointer">Tính năng</a>
-              <a href="#courses" onClick={(e) => handleSmoothScroll(e, 'courses')} className="text-gray-700 hover:text-blue-600 transition cursor-pointer">Các khóa học</a>
-              <a href="#pricing" onClick={(e) => handleSmoothScroll(e, 'pricing')} className="text-gray-700 hover:text-blue-600 transition cursor-pointer">Công nghệ</a>
-              <a href="#about" onClick={(e) => handleSmoothScroll(e, 'about')} className="text-gray-700 hover:text-blue-600 transition cursor-pointer">Liên hệ</a>
-            </nav>
+          {/* Nav Links */}
+          <nav className="hidden md:flex items-center space-x-8">
+            {[
+              { name: "Khóa học", id: "khoa-hoc" },
+              { name: "Tính năng", id: "tinh-nang" },
+              { name: "Bảng giá", id: "bang-gia" },
+            ].map((item) => (
+              <a
+                key={item.name}
+                href={`#${item.id}`}
+                className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-white transition-colors"
+              >
+                {item.name}
+              </a>
+            ))}
+          </nav>
 
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/login')}
-                className="px-4 py-2 text-blue-600 hover:text-blue-700 transition font-medium"
-              >
-                🔐 Đăng nhập
-              </button>
-              <button
-                onClick={() => navigate('/register')}
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition transform hover:scale-105 font-medium"
-              >
-                📝 Đăng ký
-              </button>
+          {/* Auth Buttons */}
+          <div className="flex items-center space-x-4">
+            <div className="scale-75">
+              <ThemeToggle />
             </div>
+            <button
+              onClick={() => navigate("/login")}
+              className="hidden sm:block text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+            >
+              Đăng nhập
+            </button>
+            <button
+              onClick={() => navigate("/register")}
+              className="px-5 py-2.5 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-purple-500/20 transform hover:-translate-y-0.5"
+            >
+              Đăng ký
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-6">
-            🎓 Học tiếng Anh toàn câu
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            Học tiếng Anh{' '}
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              hiệu quả
-            </span>{' '}
-            &{' '}
-            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              vui vẻ
-            </span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Học tiếng Anh với AI, giáo viên bản xứ, và công nghệ toàn câu. Từ
-            <br />
-            A1 đến C2, chúng tôi đồng hành cùng bạn.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <button
-              onClick={() => navigate('/register')}
-              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:shadow-xl transition transform hover:scale-105 font-medium text-lg"
-            >
-              🚀 Bắt đầu miễn phí
-            </button>
-            <button className="px-8 py-4 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition font-medium text-lg">
-              📱 Xem bài học mẫu
-            </button>
-          </div>
-          <div className="mt-8 flex items-center justify-center space-x-8 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <FaCheckCircle className="text-green-500" />
-              <span>Không cần thẻ tín dụng</span>
+      {/* ================= HERO SECTION ================= */}
+      <section className="pt-32 pb-20 relative overflow-hidden">
+        {/* Background Gradients */}
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-1/2 h-full bg-pink-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+            {/* Left Content */}
+            <div className="lg:w-1/2 space-y-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Phiên bản 2.0 đã ra mắt
+              </div>
+
+              <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
+                Chinh Phục Tiếng Anh Với <br />
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-pink-400">
+                  Trí Tuệ Nhân Tạo
+                </span>
+              </h1>
+
+              <p className="text-lg text-gray-600 dark:text-gray-400 max-w-xl leading-relaxed">
+                Lộ trình cá nhân hóa, sửa lỗi tức thì và hệ thống thú cưng giúp
+                bạn duy trì động lực mỗi ngày. Học thông minh hơn, không vất vả
+                hơn.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={() => navigate("/register")}
+                  className="px-8 py-4 bg-linear-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all flex items-center justify-center gap-2 group"
+                >
+                  Học Thử Miễn Phí
+                  <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
+                </button>
+                <button className="px-8 py-4 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-purple-500 hover:text-purple-600 dark:bg-white/5 dark:border-white/10 dark:hover:bg-purple-500/10 dark:hover:border-purple-500 dark:hover:text-purple-300 dark:text-white font-bold rounded-lg transition-all flex items-center justify-center gap-3 backdrop-blur-sm shadow-lg dark:shadow-none">
+                  <div className="w-6 h-6 rounded-full bg-purple-600 text-white dark:bg-white dark:text-black flex items-center justify-center text-xs group-hover:bg-purple-400">
+                    <FaPlay className="ml-0.5" />
+                  </div>
+                  Xem Demo
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
+                    <FaCheck />
+                  </div>
+                  Không cần thẻ tín dụng
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
+                    <FaCheck />
+                  </div>
+                  Hủy bất kỳ lúc nào
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <FaCheckCircle className="text-green-500" />
-              <span>Trải nghiệm lớn học miễn phí</span>
+
+            {/* Right Content - Visual Mockup */}
+            <div className="lg:w-1/2 w-full">
+              <div className="relative rounded-2xl bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/10 p-6 shadow-2xl dark:shadow-none overflow-hidden group hover:border-purple-500/30 transition-colors">
+                {/* Header of Mockup Card */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white text-lg">
+                      A
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-900 dark:text-white">
+                        Daily Challenge
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Speaking & Grammar
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-2 py-1 rounded bg-green-500/20 text-green-600 dark:text-green-400 text-xs font-bold">
+                    Active
+                  </span>
+                </div>
+
+                {/* Waveform Visualization */}
+                <div className="h-32 bg-gray-50 dark:bg-[#0A0118] rounded-xl mb-6 flex items-center justify-center relative border border-gray-200 dark:border-white/5">
+                  <FaMicrophone className="absolute left-4 text-gray-400 dark:text-gray-500" />
+                  <div className="flex items-center justify-center gap-1 h-12">
+                    {waveHeights1.map((height, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-purple-500 rounded-full animate-pulse"
+                        style={{
+                          height: `${height}%`,
+                          animationDelay: `${i * 0.05}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Analysis Mockup */}
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-purple-400">
+                    <span>AI Analysis</span>
+                    <span>98/100</span>
+                  </div>
+                  <div className="text-sm text-gray-300 bg-white/5 p-4 rounded-lg border-l-2 border-purple-500 leading-relaxed">
+                    "Your pronunciation of{" "}
+                    <span className="text-green-400 font-bold border-b border-green-400/30">
+                      schedule
+                    </span>{" "}
+                    was perfect. Try emphasizing the second syllable in{" "}
+                    <span className="text-yellow-400 font-bold border-b border-yellow-400/30">
+                      development
+                    </span>
+                    ."
+                  </div>
+                </div>
+
+                <button className="w-full mt-6 py-3 bg-[#2A1B45] hover:bg-[#342255] text-purple-300 font-bold rounded-lg transition-colors border border-purple-500/20 text-sm">
+                  Bắt đầu bài học tiếp theo
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Course Levels */}
-      <section id="courses" className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Khóa học tiếng Anh</h2>
-          <p className="text-gray-600">Từ mức độ beginner đến advanced</p>
+      {/* ================= PARTNERS SECTION ================= */}
+      <section className="py-10 border-y border-white/5 bg-black/20">
+        <div className="container mx-auto px-6 text-center">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-8">
+            Được tin dùng bởi hơn 10,000 học viên
+          </p>
+          <div className="flex flex-wrap justify-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FaUniversity /> University
+            </div>
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FaGlobe /> GlobalSpeak
+            </div>
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FaGraduationCap /> EdTech
+            </div>
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FaBrain /> MindSet
+            </div>
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FaRocket /> FutureLearn
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {courses.map((course, index) => (
-            <div
-              key={index}
-              className={`${course.color} border-2 rounded-2xl p-6 hover:shadow-xl transition transform hover:scale-105`}
+      </section>
+
+      {/* ================= COURSES SECTION ================= */}
+      <section id="khoa-hoc" className="py-24 relative">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <span className="text-purple-400 font-bold tracking-wider text-sm uppercase">
+              Lộ Trình Học Tập
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-4">
+              Khóa Học Chuyên Sâu
+            </h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Thiết kế lộ trình riêng biệt cho từng mục tiêu, từ mất gốc đến
+              chinh phục chứng chỉ quốc tế.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: "IELTS Intensive",
+                desc: "Chinh phục Band 7.0+ với lộ trình 3 tháng chuyên sâu 4 kỹ năng.",
+                icon: <FaGlobe />,
+                files: "45 bài học",
+                students: "2.5k học viên",
+                color: "from-blue-600 to-cyan-500",
+              },
+              {
+                title: "Giao Tiếp Phản Xạ",
+                desc: "Tự tin nói chuyện với người nước ngoài chỉ sau 60 ngày thực chiến.",
+                icon: <BsSoundwave />,
+                files: "30 chủ đề",
+                students: "5k học viên",
+                color: "from-purple-600 to-pink-500",
+              },
+              {
+                title: "TOEIC Master",
+                desc: "Đạt 800+ TOEIC cho người đi làm và sinh viên cần ra trường.",
+                icon: <FaCheck />,
+                files: "20 đề test",
+                students: "3k học viên",
+                color: "from-orange-500 to-red-500",
+              },
+              {
+                title: "Tiếng Anh IT",
+                desc: "Từ vựng chuyên ngành cho Developer, đọc tài liệu như tiếng mẹ đẻ.",
+                icon: <FaRocket />,
+                files: "15 module",
+                students: "1.2k học viên",
+                color: "from-green-500 to-emerald-500",
+              },
+            ].map((course, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/5 rounded-2xl p-6 hover:border-purple-500/30 transition-all hover:-translate-y-1 group shadow-lg dark:shadow-none"
+              >
+                <div
+                  className={`w-12 h-12 rounded-lg bg-linear-to-br ${course.color} flex items-center justify-center text-white text-xl mb-6 shadow-lg`}
+                >
+                  {course.icon}
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">
+                  {course.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 leading-relaxed">
+                  {course.desc}
+                </p>
+                <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-200 dark:border-white/5 pt-4">
+                  <div className="flex items-center gap-1">
+                    <FaStar className="text-yellow-500" /> 4.9/5
+                  </div>
+                  <div>{course.students}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FEATURES OVERVIEW ================= */}
+      <section
+        id="tinh-nang"
+        className="py-24 bg-white/5 border-y border-white/5"
+      >
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
+            <div className="md:w-2/3">
+              <span className="text-pink-400 font-bold tracking-wider text-sm uppercase">
+                Công Nghệ Lõi
+              </span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                Hệ Sinh Thái AI Toàn Diện
+              </h2>
+              <p className="text-gray-400 mt-4 max-w-xl">
+                Không chỉ là học, đây là trải nghiệm công nghệ giáo dục tiên
+                tiến nhất giúp bạn đi đường tắt đến sự thành thạo.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/register")}
+              className="text-white border-b border-purple-500 pb-1 hover:text-purple-400 transition-colors"
             >
-              <div className="text-5xl mb-4">{course.icon}</div>
-              <h3 className="text-xl font-bold mb-2">{course.level}</h3>
-              <p className="text-gray-600 mb-4">{course.description}</p>
-              <ul className="space-y-2 mb-6">
-                {course.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start space-x-2 text-sm text-gray-700">
-                    <span className="text-green-500 mt-1">✓</span>
-                    <span>{feature}</span>
+              Khám phá tất cả tính năng
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                icon: <FaRobot />,
+                label: "AI Tutor 1-1",
+                desc: "Hỏi đáp 24/7",
+              },
+              {
+                icon: <BsSoundwave />,
+                label: "Smart Audio",
+                desc: "Luyện nghe thụ động",
+              },
+              {
+                icon: <FaBrain />,
+                label: "Flashcards",
+                desc: "Ghi nhớ từ vựng lâu",
+              },
+              {
+                icon: <FaGamepad />,
+                label: "Gamification",
+                desc: "Học mà chơi",
+              },
+              {
+                icon: <FaPenFancy />,
+                label: "Sửa lỗi Writing",
+                desc: "Chi tiết từng lỗi",
+              },
+              {
+                icon: <FaMicrophone />,
+                label: "Nhận diện giọng nói",
+                desc: "Chính xác 99%",
+              },
+              {
+                icon: <FaUniversity />,
+                label: "Thư viện đề thi",
+                desc: "Cập nhật mới nhất",
+              },
+              {
+                icon: <FaRocket />,
+                label: "Lộ trình cá nhân",
+                desc: "Tối ưu thời gian",
+              },
+            ].map((feat, i) => (
+              <div
+                key={i}
+                className="p-6 bg-[#0A0118] border border-white/5 rounded-xl hover:bg-white/5 transition-colors flex flex-col items-center text-center gap-3 group"
+              >
+                <div className="text-3xl text-gray-600 group-hover:text-white transition-colors duration-300">
+                  {feat.icon}
+                </div>
+                <div>
+                  <div className="font-bold text-gray-200">{feat.label}</div>
+                  <div className="text-xs text-gray-500 mt-1">{feat.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FEATURE 1: WRITING ================= */}
+      <section className="py-24 relative">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col lg:flex-row items-center gap-16">
+            {/* Left Text */}
+            <div className="lg:w-1/2 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase">
+                <FaPenFancy /> Viết & Ngữ Pháp
+              </div>
+              <h2 className="text-4xl font-bold leading-tight text-gray-900 dark:text-white">
+                Chấm Chữa Bài Viết <br />
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400">
+                  Tự Động & Chi Tiết
+                </span>
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                Hệ thống AI phân tích ngữ pháp và từ vựng của bạn ngay lập tức.
+                Không chỉ chỉ ra lỗi sai, chúng tôi giải thích "tại sao" và đề
+                xuất cách diễn đạt tự nhiên hơn như người bản xứ.
+              </p>
+
+              <ul className="space-y-4">
+                {[
+                  "Phát hiện lỗi ngữ pháp phức tạp",
+                  "Gợi ý từ vựng nâng cao (C1/C2)",
+                  "Chấm điểm IELTS Writing dự đoán",
+                ].map((item, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-600 dark:text-green-500 text-xs">
+                      <FaCheck />
+                    </div>
+                    {item}
                   </li>
                 ))}
               </ul>
-              <button className={`w-full ${course.buttonColor} text-white py-3 rounded-lg font-medium transition`}>
-                Bắt đầu
+            </div>
+
+            {/* Right Visual */}
+            <div className="lg:w-1/2 w-full">
+              <div className="relative bg-white dark:bg-[#1A1A1A] rounded-xl border border-gray-200 dark:border-white/10 p-4 md:p-8 transform rotate-1 hover:rotate-0 transition-transform duration-500 shadow-2xl dark:shadow-none">
+                {/* Top Bar */}
+                <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-white/5 pb-4">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  <div className="text-xs text-gray-500 ml-2">
+                    essay_draft_v2.doc
+                  </div>
+                </div>
+
+                {/* Document Content */}
+                <div className="font-mono text-sm leading-relaxed text-gray-600 dark:text-gray-300 space-y-4 relative">
+                  <p>
+                    Nowadays, environmental pollution is a{" "}
+                    <span className="bg-red-500/20 text-red-600 dark:text-red-400 underline decoration-wavy cursor-pointer">
+                      serius
+                    </span>{" "}
+                    problem facing many countries.{" "}
+                    <span className="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-500 cursor-pointer">
+                      In my opinion
+                    </span>
+                    , governments should take strong actions to protect nature.
+                  </p>
+
+                  {/* AI Suggestion Tooltip Positioned */}
+                  <div className="mt-4 md:absolute md:top-12 md:right-0 md:translate-x-4 md:w-64 bg-gray-50 dark:bg-[#2A1B45] border border-purple-500/30 rounded-lg p-3 z-10 shadow-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 text-purple-600 dark:text-purple-400">
+                        <HiSparkles />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-purple-600 dark:text-purple-400 mb-1 uppercase">
+                          AI Suggestion
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-300">
+                          Consider using{" "}
+                          <span className="text-gray-900 dark:text-white font-semibold">
+                            "From my perspective"
+                          </span>{" "}
+                          instead of "In my opinion" for a more academic tone in
+                          IELTS Writing Task 2.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FEATURE 2: SPEAKING ================= */}
+      <section className="py-24 relative bg-gray-50 dark:bg-white/5 transition-colors duration-300">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col lg:flex-row-reverse items-center gap-16">
+            {/* Right Text */}
+            <div className="lg:w-1/2 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase">
+                <BsSoundwave /> Luyện Nói & Phát Âm
+              </div>
+              <h2 className="text-4xl font-bold leading-tight text-gray-900 dark:text-white">
+                Phương Pháp Shadowing <br />
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-400">
+                  Chuẩn Giọng Bản Xứ
+                </span>
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                Cải thiện ngữ điệu bằng cách nhại lại giọng người bản xứ. Công
+                nghệ nhận diện giọng nói so sánh biểu đồ sóng âm của bạn để chỉ
+                ra chính xác chỗ cần nhấn nhá.
+              </p>
+
+              <button className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2 hover:gap-4 transition-all group">
+                Thử tính năng nói <FaArrowRight />
               </button>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Benefits */}
-      <section className="bg-white py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Tại sao chọn EnglishLab?</h2>
-            <p className="text-gray-600">Những lợi ích mà bạn sẽ nhận được</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {benefits.map((benefit, index) => (
-              <div
-                key={index}
-                className="bg-gray-50 rounded-2xl p-8 hover:shadow-xl transition transform hover:scale-105"
-              >
-                <div className="mb-4">{benefit.icon}</div>
-                <h3 className="text-xl font-bold mb-3">{benefit.title}</h3>
-                <p className="text-gray-600">{benefit.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Tính năng chính</h2>
-          <p className="text-gray-600">Đủ</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition transform hover:scale-105"
-            >
-              <div className="text-5xl mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Các hoạt động</h2>
-            <p className="text-blue-100">Ba bước đơn giản để bắt đầu học tập</p>
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-12 max-w-5xl mx-auto">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold text-blue-600">
-                1
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Đăng ký tài khoản</h3>
-              <p className="text-blue-100">
-                Tạo tài khoản để email và xác thỏa điều trên. Lựa chọn
-                <br />
-                và học tập hoàn toàn miễn phí hoặc giao được nhiều hơn nữa
-              </p>
-            </div>
-            <div className="text-white text-4xl hidden md:block">→</div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold text-purple-600">
-                2
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Làm bài kiểm tra</h3>
-              <p className="text-blue-100">
-                Hoàn thành bài kiểm tra yêu cầu để xác định trình độ và tùy
-                <br />
-                chỉnh học cho phù hợp
-              </p>
-            </div>
-            <div className="text-white text-4xl hidden md:block">→</div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold text-pink-600">
-                3
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Bắt đầu học</h3>
-              <p className="text-blue-100">
-                Học các bài học, luyện tập viết, nói và tích cực học với
-                <br />
-                thú cưỡng
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* User Types */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Cho tất cả người dùng</h2>
-          <p className="text-gray-600">Một vài tới cớ các chức năng nổi bật</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {userTypes.map((type, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition transform hover:scale-105"
-            >
-              <div className={`${type.color} h-32 flex items-center justify-center`}>
-                <div className="text-6xl text-white">{type.icon}</div>
-              </div>
-              <div className="p-6">
-                <h3 className="text-2xl font-bold mb-1">{type.title}</h3>
-                <p className="text-gray-500 mb-4">{type.subtitle}</p>
-                <ul className="space-y-2">
-                  {type.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start space-x-2 text-sm text-gray-700">
-                      <FaCheckCircle className="text-green-500 mt-1 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="bg-white py-20">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Bảng giá</h2>
-            <p className="text-gray-600">Chọn gói học phù hợp với nhu cầu của bạn</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {pricingPlans.map((plan, index) => (
-              <div
-                key={index}
-                className={`rounded-2xl p-8 ${
-                  plan.highlight
-                    ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-2xl transform scale-105'
-                    : 'bg-gray-50 border-2 border-gray-200'
-                } transition hover:shadow-xl`}
-              >
-                {plan.badge && (
-                  <div className="inline-block px-3 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-bold mb-4">
-                    {plan.badge}
+            {/* Left Visual */}
+            <div className="lg:w-1/2 w-full">
+              <div className="bg-white dark:bg-[#0A0118] border border-gray-200 dark:border-white/10 rounded-2xl p-6 md:p-10 shadow-2xl dark:shadow-none relative overflow-hidden transition-colors">
+                {/* Native Speaker Wave */}
+                <div className="mb-8">
+                  <div className="flex justify-between text-xs text-gray-500 mb-2 font-bold uppercase">
+                    <span>Native Speaker</span>
+                    <FaMicrophone size={12} />
                   </div>
-                )}
-                <h3 className={`text-2xl font-bold mb-2 ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>
-                  {plan.name}
-                </h3>
-                <p className={`mb-6 ${plan.highlight ? 'text-blue-100' : 'text-gray-600'}`}>
-                  {plan.subtitle}
-                </p>
-                <div className="mb-6">
-                  <span className={`text-4xl font-bold ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>
-                    {plan.price}
-                  </span>
-                  <span className={plan.highlight ? 'text-blue-100' : 'text-gray-600'}>{plan.period}</span>
+                  <div className="h-16 flex items-center gap-1 opacity-80">
+                    {waveHeights2.map((height, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-blue-500 rounded-full"
+                        style={{ height: `${height}%` }}
+                      ></div>
+                    ))}
+                  </div>
                 </div>
-                <button className={`w-full py-3 rounded-lg font-medium transition ${plan.buttonColor} mb-6`}>
-                  {plan.buttonText}
-                </button>
-                <ul className="space-y-3">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start space-x-2">
-                      <FaCheckCircle className={`mt-1 flex-shrink-0 ${plan.highlight ? 'text-blue-200' : 'text-green-500'}`} />
-                      <span className={`text-sm ${plan.highlight ? 'text-blue-100' : 'text-gray-700'}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Teachers */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Giáo viên của chúng tôi</h2>
-          <p className="text-gray-600">Những giáo viên tiếng Anh giỏi kinh nghiệm để hỗ trợ nơi</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {teachers.map((teacher, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition transform hover:scale-105"
-            >
-              <div className={`${teacher.color} h-48 flex items-center justify-center`}>
-                <div className="text-8xl text-white">{teacher.image}</div>
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-1">{teacher.name}</h3>
-                <p className="text-blue-600 font-medium mb-3">{teacher.title}</p>
-                <p className="text-gray-600 mb-4">{teacher.description}</p>
-                <div className="flex space-x-2">
-                  {teacher.tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 rounded-full text-xs font-medium"
-                    >
-                      {tag}
+                {/* User Wave */}
+                <div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-2 font-bold uppercase">
+                    <span>Your Recording</span>
+                    <span className="text-red-500 dark:text-red-400">
+                      Low Intonation
                     </span>
-                  ))}
+                  </div>
+                  <div className="h-16 flex items-center gap-1 opacity-60">
+                    {waveHeights3.map((height, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-gray-400 dark:bg-gray-600 rounded-full"
+                        style={{ height: `${height}%` }}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Record Button */}
+                <div className="flex justify-center mt-8">
+                  <button className="w-16 h-16 rounded-full !bg-red-500 shadow-lg shadow-red-500/30 flex items-center justify-center !text-white text-2xl hover:scale-110 transition-transform">
+                    <FaMicrophone />
+                  </button>
                 </div>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-gradient-to-br from-blue-50 to-purple-50 py-20">
+      {/* ================= FEATURE 3: GAMIFICATION ================= */}
+      <section className="py-24 relative">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Học viên nói gì</h2>
-            <p className="text-gray-600">Những câu chuyện thành công từ học viên thực tế</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
-                <div className="flex mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <FaStar key={i} className="text-yellow-400" />
-                  ))}
+          <div className="flex flex-col lg:flex-row items-center gap-16">
+            {/* Left Text */}
+            <div className="lg:w-1/2 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase">
+                <FaGamepad /> Gamification
+              </div>
+              <h2 className="text-4xl font-bold leading-tight text-gray-900 dark:text-white">
+                Hệ Thống Pet <br />
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-pink-600 to-orange-500 dark:from-pink-400 dark:to-orange-400">
+                  Tiến Hóa Cùng Bạn
+                </span>
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                Biến việc học thành trò chơi thú vị. Nuôi dưỡng thú cưng ảo của
+                bạn lớn lên từng ngày qua mỗi bài học hoàn thành. Động lực học
+                tập chưa bao giờ mạnh mẽ đến thế.
+              </p>
+
+              <div className="flex gap-4">
+                <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-600 dark:text-yellow-400 text-sm font-bold flex items-center gap-2">
+                  <FaStar /> Daily Rewards
                 </div>
-                <p className="text-gray-700 mb-6 italic">{testimonial.text}</p>
-                <div className="flex items-center space-x-3">
-                  <div className={`w-12 h-12 ${testimonial.color} rounded-full flex items-center justify-center text-white text-xl`}>
-                    {testimonial.avatar}
+                <div className="px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-lg text-pink-600 dark:text-pink-400 text-sm font-bold flex items-center gap-2">
+                  <span className="text-lg">❤️</span> Pet Care
+                </div>
+              </div>
+            </div>
+
+            {/* Right Visual - Evolution */}
+            <div className="lg:w-1/2 w-full">
+              <div className="bg-white dark:bg-[#150a25] rounded-3xl p-8 border border-gray-200 dark:border-white/5 relative overflow-hidden group shadow-2xl dark:shadow-none transition-colors">
+                <div className="absolute inset-0 bg-linear-to-br from-pink-500/5 to-purple-500/5 rounded-3xl"></div>
+
+                <div className="flex items-center justify-between relative z-10 px-2 lg:px-4">
+                  {/* Level 1 */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-[#201035] flex items-center justify-center text-3xl border border-gray-200 dark:border-white/10 grayscale opacity-50 group-hover:grayscale-0 transition-all duration-500">
+                      🥚
+                    </div>
+                    <div className="text-xs font-bold text-gray-500">
+                      LEVEL 1
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold">{testimonial.name}</p>
-                    <p className="text-sm text-gray-600">{testimonial.time}</p>
+
+                  {/* Connector Line */}
+                  <div className="flex-1 h-0.5 bg-gray-300 dark:bg-gray-700 mx-2 lg:mx-4 relative overflow-hidden">
+                    <div className="absolute left-0 top-0 h-full bg-linear-to-r from-purple-500 to-pink-500 w-full -translate-x-full group-hover:translate-x-0 transition-transform duration-1000"></div>
+                  </div>
+
+                  {/* Current Level */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-24 h-24 rounded-full bg-linear-to-br from-purple-600 to-pink-600 p-1 shadow-[0_0_30px_rgba(168,85,247,0.4)] relative scale-110">
+                      <div className="w-full h-full rounded-full bg-white dark:bg-[#150a25] flex items-center justify-center text-5xl animate-bounce">
+                        🐲
+                      </div>
+                      <div className="absolute -bottom-2 px-2 py-0.5 bg-gray-900 text-white text-[10px] font-bold rounded-full left-1/2 transform -translate-x-1/2 uppercase tracking-wide">
+                        Current
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                      LEVEL 25
+                    </div>
+                  </div>
+
+                  {/* Connector Line */}
+                  <div className="flex-1 h-0.5 bg-gray-300 dark:bg-gray-700 mx-2 lg:mx-4"></div>
+
+                  {/* Max Level */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-[#201035] flex items-center justify-center text-3xl border border-gray-200 dark:border-white/10 grayscale opacity-50">
+                      🦄
+                    </div>
+                    <div className="text-xs font-bold text-gray-500">
+                      LEVEL 50
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Tech Stack */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Công nghệ hiện đại</h2>
-          <p className="text-gray-600">Stack công nghệ mạnh mẽ và tin cậy</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2">
-              <span className="text-3xl">💻</span>
-              <span>Frontend</span>
-            </h3>
-            <div className="space-y-4">
-              {techStack.frontend.map((tech, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
-                  <span className="text-2xl">{tech.icon}</span>
-                  <div>
-                    <p className="font-bold text-gray-900">{tech.name}</p>
-                    <p className="text-sm text-gray-600">{tech.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2">
-              <span className="text-3xl">🔧</span>
-              <span>Backend</span>
-            </h3>
-            <div className="space-y-4">
-              {techStack.backend.map((tech, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                  <span className="text-2xl">{tech.icon}</span>
-                  <div>
-                    <p className="font-bold text-gray-900">{tech.name}</p>
-                    <p className="text-sm text-gray-600">{tech.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2">
-              <span className="text-3xl">🤖</span>
-              <span>AI & Tích hợp</span>
-            </h3>
-            <div className="space-y-4">
-              {techStack.ai.map((tech, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
-                  <span className="text-2xl">{tech.icon}</span>
-                  <div>
-                    <p className="font-bold text-gray-900">{tech.name}</p>
-                    <p className="text-sm text-gray-600">{tech.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2">
-              <span className="text-3xl">🚀</span>
-              <span>Triển khai</span>
-            </h3>
-            <div className="space-y-4">
-              {techStack.deployment.map((tech, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg">
-                  <span className="text-2xl">{tech.icon}</span>
-                  <div>
-                    <p className="font-bold text-gray-900">{tech.name}</p>
-                    <p className="text-sm text-gray-600">{tech.description}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Timeline */}
-      <section className="bg-white py-20">
+      {/* ================= TESTIMONIALS ================= */}
+      <section className="py-24 bg-gray-50 dark:bg-[#080214] transition-colors duration-300">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Lịch triển khai (12 tuần)</h2>
-            <p className="text-gray-600">Từ khởi niệm đến triển khai</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white">
+              Học Viên Nói Gì Về Chúng Tôi
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Cộng đồng hơn 10,000 người học tiếng Anh thành công
+            </p>
           </div>
-          <div className="max-w-4xl mx-auto">
-            {timeline.map((item, index) => (
-              <div key={index} className="flex items-start mb-8">
-                <div className="flex-shrink-0 w-32 text-right pr-8">
-                  <p className="font-bold text-blue-600">{item.week}</p>
-                  <p className="text-sm text-gray-600">{item.phase}</p>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Minh Anh",
+                role: "IELTS 7.5",
+                quote:
+                  "Tính năng sửa lỗi Writing thực sự cứu cánh cho mình. IELTS Writing của mình tăng từ 5.5 lên 7.0 chỉ sau 3 tháng.",
+                color: "bg-pink-500",
+              },
+              {
+                name: "Tuấn Hoàng",
+                role: "Học sinh THPT",
+                quote:
+                  "Con pet của mình siêu dễ thương! Nó giúp mình có động lực vào app học mỗi ngày để cho nó ăn. Rất nghiện!",
+                color: "bg-blue-500",
+              },
+              {
+                name: "Lan Chi",
+                role: "Nhân viên văn phòng",
+                quote:
+                  "Shadowing giúp mình tự tin hơn hẳn khi giao tiếp với sếp người nước ngoài. Công nghệ nhận diện giọng nói rất nhạy.",
+                color: "bg-green-500",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-[#13062D] p-8 rounded-2xl border border-gray-200 dark:border-white/5 hover:-translate-y-2 transition-transform duration-300 shadow-lg dark:shadow-none"
+              >
+                <div className="flex gap-1 text-yellow-500 mb-6">
+                  {[...Array(5)].map((_, j) => (
+                    <FaStar key={j} />
+                  ))}
                 </div>
-                <div className="relative">
+                <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed h-24">
+                  "{item.quote}"
+                </p>
+                <div className="flex items-center gap-4">
                   <div
-                    className={`w-4 h-4 rounded-full ${
-                      index % 3 === 0 ? 'bg-blue-600' : index % 3 === 1 ? 'bg-purple-600' : 'bg-pink-600'
-                    }`}
-                  ></div>
-                  {index < timeline.length - 1 && <div className="absolute top-4 left-2 w-0.5 h-16 bg-gray-300"></div>}
-                </div>
-                <div className="flex-1 pl-8">
-                  <p className="text-gray-700">{item.description}</p>
+                    className={`w-10 h-10 rounded-full ${item.color} flex items-center justify-center text-white font-bold`}
+                  >
+                    {item.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-gray-500">{item.role}</div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -784,95 +762,286 @@ const Landingpage = () => {
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 py-16">
+      {/* ================= PRICING SECTION ================= */}
+      <section
+        id="bang-gia"
+        className="py-24 relative border-t border-gray-200 dark:border-white/5"
+      >
         <div className="container mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <p className="text-5xl font-bold text-white mb-2">3</p>
-              <p className="text-blue-100">Loại người dùng</p>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white">
+              Bảng Giá Linh Hoạt
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Chọn lộ trình phù hợp với mục tiêu của bạn
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Basic Plan */}
+            <div className="bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/5 rounded-2xl p-8 hover:border-purple-500/30 transition-all flex flex-col group shadow-lg dark:shadow-none">
+              <div className="mb-4">
+                <span className="text-gray-500 dark:text-gray-400 font-bold tracking-wider text-sm group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  MIỄN PHÍ
+                </span>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  0đ
+                </span>
+                <span className="text-gray-500">/tháng</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  "3 bài học mỗi ngày",
+                  "AI chấm điểm cơ bản",
+                  "Truy cập cộng đồng",
+                  "Nuôi Pet cấp độ 1-10",
+                ].map((feature, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-gray-600 dark:text-gray-300 text-sm"
+                  >
+                    <FaCheck className="text-purple-500 shrink-0" /> {feature}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 dark:!bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold rounded-lg transition-colors border border-transparent dark:border-white/10 dark:hover:border-purple-500/50">
+                Bắt Đầu Ngay
+              </button>
             </div>
-            <div>
-              <p className="text-5xl font-bold text-white mb-2">6+</p>
-              <p className="text-blue-100">Tính năng chính</p>
+
+            {/* Pro Plan */}
+            <div className="bg-white dark:bg-[#2A1B45] border border-purple-500 rounded-2xl p-8 transform md:-translate-y-4 shadow-2xl shadow-purple-900/20 relative flex flex-col">
+              <div className="absolute top-0 right-0 bg-linear-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
+                PHỔ BIẾN NHẤT
+              </div>
+              <div className="mb-4">
+                <span className="text-purple-600 dark:text-purple-300 font-bold tracking-wider text-sm">
+                  PRO MEMBER
+                </span>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  199k
+                </span>
+                <span className="text-gray-500 dark:text-gray-400">/tháng</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  "Không giới hạn bài học",
+                  "AI sửa lỗi chi tiết",
+                  "Lộ trình cá nhân hóa",
+                  "Mở khóa tất cả Pet & Skin",
+                  "Chứng chỉ hoàn thành",
+                ].map((feature, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-gray-700 dark:text-gray-200 text-sm"
+                  >
+                    <FaCheck className="text-pink-500 dark:text-pink-400 shrink-0" />{" "}
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold rounded-lg transition-all shadow-lg shadow-blue-500/20">
+                Đăng Ký Gói Pro
+              </button>
             </div>
-            <div>
-              <p className="text-5xl font-bold text-white mb-2">2</p>
-              <p className="text-blue-100">Nền tảng (Web & Mobile)</p>
-            </div>
-            <div>
-              <p className="text-5xl font-bold text-white mb-2">12</p>
-              <p className="text-blue-100">Tuần phát triển</p>
+
+            {/* Lifetime Plan */}
+            <div className="bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/5 rounded-2xl p-8 hover:border-purple-500/30 transition-all flex flex-col group shadow-lg dark:shadow-none">
+              <div className="mb-4">
+                <span className="text-gray-500 dark:text-gray-400 font-bold tracking-wider text-sm group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  TRỌN ĐỜI
+                </span>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  1.999k
+                </span>
+                <span className="text-gray-500">/lần duy nhất</span>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  "Toàn quyền truy cập trọn đời",
+                  "Tất cả tính năng của gói Pro",
+                  "Mentor hỗ trợ 1-1",
+                  "Quyền truy cập sớm tính năng mới",
+                ].map((feature, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-gray-600 dark:text-gray-300 text-sm"
+                  >
+                    <FaCheck className="text-purple-500 shrink-0" /> {feature}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 dark:!bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold rounded-lg transition-colors border border-transparent dark:border-white/10 dark:hover:border-purple-500/50">
+                Sở Hữu Trọn Đời
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-12 text-center">
-          <h2 className="text-4xl font-bold text-white mb-4">Sẵn sàng bắt đầu?</h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Tham gia Hiday English ngay hôm nay và bắt đầu hành trình học tiếng Anh của bạn
+      {/* ================= CTA SECTION ================= */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-linear-to-b from-transparent to-purple-900/10 dark:to-purple-900/20 pointer-events-none"></div>
+        <div className="container mx-auto px-6 text-center relative z-10">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white">
+            Sẵn sàng bứt phá tiếng Anh?
+          </h2>
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-10 max-w-2xl mx-auto">
+            Tham gia cùng hàng ngàn người học khác ngay hôm nay. Bắt đầu hành
+            trình chinh phục ngôn ngữ với sự hỗ trợ của AI.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button
-              onClick={() => navigate('/register')}
-              className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:shadow-xl transition transform hover:scale-105 font-medium text-lg"
+              onClick={() => navigate("/register")}
+              className="px-8 py-4 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-lg shadow-lg hover:shadow-purple-500/40 transition-all text-lg"
             >
-              🎓 Đăng ký miễn phí
+              Đăng Ký Ngay
             </button>
-            <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg hover:bg-white hover:text-blue-600 transition font-medium text-lg">
-              📞 Liên hệ chúng tôi
+            <button className="px-8 py-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 dark:bg-white/5 dark:border-white/10 dark:hover:bg-purple-500/10 dark:hover:border-purple-500 dark:hover:text-purple-300 dark:text-white font-bold rounded-lg transition-all text-lg backdrop-blur-sm shadow-sm dark:shadow-none">
+              Liên Hệ Tư Vấn
             </button>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer id="about" className="bg-gray-900 text-white py-12">
+      {/* ================= FOOTER ================= */}
+      <footer className="bg-gray-50 dark:bg-[#05010a] pt-20 pb-10 border-t border-gray-200 dark:border-white/5 transition-colors duration-300">
         <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4">Hiday English</h3>
-              <p className="text-gray-400 text-sm">
-                Nền tảng học tiếng Anh trực tuyến với AI và giáo viên bản xứ, giúp bạn học tiếng Anh hiệu quả
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                  <FaGraduationCap />
+                </div>
+                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                  English AI
+                </span>
+              </div>
+              <p className="text-gray-600 dark:text-gray-500 text-sm leading-relaxed">
+                Nền tảng học tiếng Anh thông minh số 1 Việt Nam. Ứng dụng công
+                nghệ AI tiên tiến giúp người Việt tự tin giao tiếp toàn cầu.
               </p>
             </div>
+
             <div>
-              <h4 className="font-bold mb-4">Chức năng</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition">Lớ trình học</a></li>
-                <li><a href="#" className="hover:text-white transition">AI Feedback</a></li>
-                <li><a href="#" className="hover:text-white transition">Gamification</a></li>
-                <li><a href="#" className="hover:text-white transition">Lớp học trực tuyến</a></li>
+              <h4 className="font-bold text-gray-900 dark:text-white mb-6">
+                Sản Phẩm
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-500">
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Khóa học
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Tính năng
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Bảng giá
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Doanh nghiệp
+                  </a>
+                </li>
               </ul>
             </div>
+
             <div>
-              <h4 className="font-bold mb-4">Công ty</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition">Về chúng tôi</a></li>
-                <li><a href="#" className="hover:text-white transition">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition">Tuyển dụng</a></li>
-                <li><a href="#" className="hover:text-white transition">Điều khoản sử dụng</a></li>
+              <h4 className="font-bold text-gray-900 dark:text-white mb-6">
+                Tài Nguyên
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-500">
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Cộng đồng
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Tài liệu miễn phí
+                  </a>
+                </li>
               </ul>
             </div>
+
             <div>
-              <h4 className="font-bold mb-4">Liên hệ</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li>Email: contact@hidayenglish.com</li>
-                <li>Phone: +84 123 456 789</li>
-                <li className="flex space-x-4 pt-2">
-                  <a href="#" className="hover:text-white transition">📘</a>
-                  <a href="#" className="hover:text-white transition">🐦</a>
-                  <a href="#" className="hover:text-white transition">📷</a>
-                  <a href="#" className="hover:text-white transition">💼</a>
+              <h4 className="font-bold text-gray-900 dark:text-white mb-6">
+                Hỗ Trợ
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-500">
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Trung tâm trợ giúp
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Điều khoản
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#"
+                    className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  >
+                    Chính sách bảo mật
+                  </a>
                 </li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-            <p>© 2026 Hiday English. Tất cả các quyền được bảo vệ.</p>
+
+          <div className="pt-8 border-t border-gray-200 dark:border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-gray-500 dark:text-gray-600">
+              © 2026 English AI. All rights reserved.
+            </div>
+            <div className="flex gap-4 text-gray-500">
+              <FaGlobe className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition-colors" />
+              <FaEnvelope className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition-colors" />
+            </div>
           </div>
         </div>
       </footer>
