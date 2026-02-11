@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  const API_URL = 'http://localhost:5000/api/auth'; // Changed to port 5000
+  const API_URL = 'http://localhost:3001/api/auth'; // Node server on port 3001
 
   // Configure axios defaults and fetch user on mount
   useEffect(() => {

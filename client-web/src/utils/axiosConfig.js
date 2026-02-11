@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api'; // Changed port to 5000
+const API_URL = 'http://localhost:3001/api'; // Node server on port 3001
 
 // Create axios instance
 const axiosInstance = axios.create({

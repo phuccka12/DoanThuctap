@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:3001/api';
 
 /**
  * Admin Service - Handle all admin API calls
@@ -72,6 +72,25 @@ export const importVocabularyCSV = (csvData) => adminAxios.post('/admin/vocab/im
 export const exportVocabularyCSV = () => adminAxios.get('/admin/vocab/export');
 export const getVocabularyStats = () => adminAxios.get('/admin/vocab/stats');
 
+// ============ READING PASSAGES BANK ============
+export const getReadingPassages = (params) => adminAxios.get('/admin/reading-passages', { params });
+export const getReadingPassageById = (id) => adminAxios.get(`/admin/reading-passages/${id}`);
+export const createReadingPassage = (data) => adminAxios.post('/admin/reading-passages', data);
+export const updateReadingPassage = (id, data) => adminAxios.put(`/admin/reading-passages/${id}`, data);
+export const deleteReadingPassage = (id) => adminAxios.delete(`/admin/reading-passages/${id}`);
+export const bulkDeleteReadingPassages = (ids) => adminAxios.post('/admin/reading-passages/bulk-delete', { ids });
+export const importReadingPassagesCSV = (formData) => adminAxios.post('/admin/reading-passages/import', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const exportReadingPassagesCSV = () => adminAxios.get('/admin/reading-passages/export');
+export const getReadingPassageStats = () => adminAxios.get('/admin/reading-passages/stats');
+// AI Features
+export const generatePassageWithAI = (data) => adminAxios.post('/admin/reading-passages/generate-ai', data);
+export const agenticGeneratePassage = (data) => adminAxios.post('/admin/reading-passages/agentic-generate', data);
+export const scanAndLinkVocabulary = (id) => adminAxios.post(`/admin/reading-passages/${id}/scan-vocabulary`);
+export const trackPassageUsage = (id) => adminAxios.post(`/admin/reading-passages/${id}/track-usage`);
+export const getPassagesForLessonBuilder = (params) => adminAxios.get('/admin/reading-passages/for-lesson-builder', { params });
+
 export default {
   // Topics
   getTopics,
@@ -119,4 +138,19 @@ export default {
   importVocabularyCSV,
   exportVocabularyCSV,
   getVocabularyStats,
+  // Reading Passages Bank
+  getReadingPassages,
+  getReadingPassageById,
+  createReadingPassage,
+  updateReadingPassage,
+  deleteReadingPassage,
+  bulkDeleteReadingPassages,
+  importReadingPassagesCSV,
+  exportReadingPassagesCSV,
+  getReadingPassageStats,
+  generatePassageWithAI,
+  agenticGeneratePassage,
+  scanAndLinkVocabulary,
+  trackPassageUsage,
+  getPassagesForLessonBuilder,
 };

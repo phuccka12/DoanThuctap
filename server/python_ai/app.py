@@ -24,12 +24,41 @@ api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("❌ Lỗi: Chưa có GEMINI_API_KEY trong .env")
 
+print("🔑 Đang dùng Key:", os.getenv("GEMINI_API_KEY")[:10] + "...")
 # Khởi tạo client với API key
 client = genai.Client(api_key=api_key)
 
 # ⚠️ CHỌN MODEL (Nếu 2.5 lỗi thì đổi về 1.5-flash)
-MODEL_NAME = 'gemini-2.5-flash'
+MODEL_NAME = 'gemini-2.0-flash-lite'
 print(f"🧠 Đang kích hoạt bộ não: {MODEL_NAME}")
+
+# --- Helper: GenAI call with retries/backoff for quota handling ---
+def genai_generate_with_backoff(model, contents, max_retries=4, initial_delay=5, backoff=2):
+    """Call client.models.generate_content with exponential backoff on quota/rate errors.
+    Returns the response object on success or raises the last exception on failure.
+    """
+    delay = initial_delay
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=contents
+            )
+            return resp
+        except Exception as e:
+            err_s = str(e)
+            # Heuristic detection for quota/rate errors
+            if ('RESOURCE_EXHAUSTED' in err_s) or ('429' in err_s) or ('quota' in err_s.lower()) or ('rate limit' in err_s.lower()):
+                print(f"⚠️ GenAI quota/rate error (attempt {attempt}/{max_retries}): {err_s}")
+                if attempt == max_retries:
+                    print("❌ Max retries reached for GenAI call. Raising error.")
+                    raise
+                print(f"⏳ Backing off {delay}s before retrying GenAI call...")
+                time.sleep(delay)
+                delay *= backoff
+                continue
+            # Non-rate error: re-raise immediately
+            raise
 
 # --- 2. KHỞI ĐỘNG CÁC ENGINE (QUAN TRỌNG: PHẢI TẢI HẾT Ở ĐÂY) ---
 
@@ -153,11 +182,8 @@ def check_writing():
         }}
         """
 
-        # Gọi API Gemini với client mới
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt
-        )
+        # Gọi API Gemini với client mới (với backoff để tránh quota errors)
+        response = genai_generate_with_backoff(MODEL_NAME, prompt)
         return response.text.replace('```json', '').replace('```', '').strip(), 200
 
     except Exception as e:
@@ -243,10 +269,7 @@ def check_speaking():
 
         # Upload file và gọi API
         uploaded_file = client.files.upload(path=tmp_path)
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[prompt, uploaded_file]
-        )
+        response = genai_generate_with_backoff(MODEL_NAME, [prompt, uploaded_file])
         
         # Dọn dẹp
         os.remove(tmp_path)
@@ -312,10 +335,7 @@ def conversation():
         }}
         """
         
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt
-        )
+        response = genai_generate_with_backoff(MODEL_NAME, prompt)
         response_json = response.text.replace('```json', '').replace('```', '').strip()
         
         # 4. Xử lý JSON & Tạo Audio
@@ -357,6 +377,315 @@ def conversation():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# 🤖 API 4: AGENTIC CONTENT ENGINE
+# Multi-Agent System: Architect → Author → Critic → Self-Correction
+# ==========================================
+
+# CEFR to Flesch Reading Ease mapping
+CEFR_FLESCH_MAP = {
+    'A1': {'min': 70, 'max': 100, 'grade': 'Very Easy'},
+    'A2': {'min': 60, 'max': 80, 'grade': 'Easy'},
+    'B1': {'min': 50, 'max': 65, 'grade': 'Fairly Easy'},
+    'B2': {'min': 40, 'max': 55, 'grade': 'Standard'},
+    'C1': {'min': 30, 'max': 45, 'grade': 'Fairly Difficult'},
+    'C2': {'min': 0, 'max': 40, 'grade': 'Difficult'}
+}
+
+def critic_audit(passage, title, cefr_level, target_word_count):
+    """
+    AGENT 3: The Critic - Symbolic AI Auditor
+    Returns: (passed: bool, report: dict, errors: list)
+    """
+    errors = []
+    report = {}
+    
+    # 1. Word Count Check
+    words = passage.split()
+    actual_count = len(words)
+    report['word_count'] = actual_count
+    tolerance = int(target_word_count * 0.25)  # ±25%
+    if abs(actual_count - target_word_count) > tolerance:
+        errors.append(f"Word count {actual_count} out of range ({target_word_count} ±{tolerance})")
+    
+    # 2. Readability Check (Flesch)
+    try:
+        flesch_score = textstat.flesch_reading_ease(passage)
+        report['flesch_score'] = round(flesch_score, 2)
+        
+        target_range = CEFR_FLESCH_MAP.get(cefr_level, {'min': 40, 'max': 60})
+        if flesch_score < target_range['min'] or flesch_score > target_range['max']:
+            errors.append(f"Readability score {flesch_score} outside {cefr_level} range ({target_range['min']}-{target_range['max']})")
+    except:
+        report['flesch_score'] = None
+        errors.append("Could not calculate readability score")
+    
+    # 3. Lexical Diversity Check
+    doc = nlp(passage.lower())
+    tokens = [token.text for token in doc if token.is_alpha]
+    if len(tokens) > 0:
+        unique_tokens = len(set(tokens))
+        diversity_ratio = unique_tokens / len(tokens)
+        report['lexical_diversity'] = round(diversity_ratio, 3)
+        
+        if diversity_ratio < 0.40:  # Too repetitive
+            errors.append(f"Low lexical diversity ({diversity_ratio:.2%}), too many repeated words")
+        
+        # Check for overused words
+        from collections import Counter
+        word_freq = Counter(tokens)
+        most_common = word_freq.most_common(1)[0] if word_freq else None
+        if most_common and most_common[1] / len(tokens) > 0.08:
+            errors.append(f"Word '{most_common[0]}' repeated {most_common[1]} times (overused)")
+    
+    # 4. Grammar Check (if tool available)
+    if tool:
+        try:
+            matches = tool.check(passage)
+            major_errors = [m for m in matches if m.category in ['GRAMMAR', 'TYPOS']]
+            report['grammar_errors'] = len(major_errors)
+            if len(major_errors) > 5:
+                errors.append(f"Too many grammar errors ({len(major_errors)})")
+        except:
+            report['grammar_errors'] = None
+    
+    # 5. Structure Check
+    if not title or len(title) < 5:
+        errors.append("Title too short or missing")
+    
+    if len(passage) < 100:
+        errors.append("Passage too short (< 100 characters)")
+    
+    passed = len(errors) == 0
+    return passed, report, errors
+
+@app.route('/api/agentic/generate-reading', methods=['POST'])
+def agentic_generate_reading():
+    """
+    🧠 AGENTIC CONTENT ENGINE
+    Multi-Agent System với Self-Correction Loop
+    """
+    try:
+        data = request.json
+        topic = data.get('topic', 'General Topic')
+        cefr_level = data.get('cefr_level', 'B1')
+        word_count = data.get('wordCount', 150)
+        tone = data.get('tone', 'neutral')
+        topic_hints = data.get('topicHints', '')
+        core_vocab = data.get('core_vocab', [])
+        max_retries = data.get('maxRetries', 3)
+        
+        print(f"\n{'='*60}")
+        print(f"🎯 AGENTIC GENERATION START")
+        print(f"   Topic: {topic}")
+        print(f"   CEFR: {cefr_level} | Words: {word_count}")
+        print(f"{'='*60}\n")
+        
+        attempts = 0
+        final_result = None
+        all_attempts = []
+        
+        # === PHASE 1: ARCHITECT (Planning) ===
+        print("🏗️  AGENT 1 (ARCHITECT): Creating outline...")
+        architect_prompt = f"""
+You are "The Architect" - a pedagogical planner for IELTS reading materials.
+
+INPUT:
+- Topic: {topic}
+- CEFR Level: {cefr_level}
+- Target Word Count: {word_count}
+- Tone: {tone}
+{f"- Topic Hints: {topic_hints}" if topic_hints else ""}
+
+TASK: Create a structured outline for a reading passage.
+
+OUTPUT (JSON only, no markdown):
+{{
+  "title_suggestion": "Engaging title here",
+  "learning_objectives": ["objective 1", "objective 2"],
+  "sections": [
+    {{"name": "Introduction", "instructions": "Set context in 1-2 sentences"}},
+    {{"name": "Body Part 1", "instructions": "Main idea development"}},
+    {{"name": "Body Part 2", "instructions": "Supporting details or contrast"}},
+    {{"name": "Conclusion", "instructions": "Brief closing thought"}}
+  ],
+  "recommended_vocab": ["word1", "word2", "word3"]
+}}
+"""
+        
+        try:
+            arch_response = genai_generate_with_backoff(MODEL_NAME, architect_prompt)
+            outline_text = arch_response.text.replace('```json', '').replace('```', '').strip()
+            outline = json.loads(outline_text)
+            print(f"✅ Outline created: {outline.get('title_suggestion', 'N/A')}")
+        except Exception as e:
+            err_s = str(e)
+            print(f"❌ Architect failed: {err_s}")
+            # If it's a quota/rate error, return 429 with friendly message
+            if ('RESOURCE_EXHAUSTED' in err_s) or ('429' in err_s) or ('quota' in err_s.lower()) or ('rate limit' in err_s.lower()):
+                return jsonify({
+                    "error": "Architect failed due to API quota/rate limits. Please check your Gemini quota/billing or try again later.",
+                    "details": err_s
+                }), 429
+            return jsonify({"error": f"Architect failed: {err_s}"}), 500
+        
+        # Merge vocab
+        all_vocab = list(set(core_vocab + outline.get('recommended_vocab', [])))
+        time.sleep(15)
+        # === PHASE 2-4: AUTHOR + CRITIC LOOP ===
+        while attempts < max_retries:
+            attempts += 1
+            print(f"\n📝 AGENT 2 (AUTHOR): Attempt {attempts}/{max_retries}")
+            
+            # 💤 DELAY để tránh rate limit (Free tier: 15 req/min = 1 req/4s)
+            if attempts > 1:  # Skip delay for first attempt
+                print(f"⏳ Waiting 5 seconds before attempt {attempts} (Free API rate limit protection)...")
+                time.sleep(5)  # 5s delay = safe for Free tier
+            
+            # Build Author prompt
+            if attempts == 1:
+                # Get readability guidance
+                flesch_range = CEFR_FLESCH_MAP.get(cefr_level, {'min': 40, 'max': 60, 'grade': 'Standard'})
+                
+                author_prompt = f"""
+You are "The Author" - an expert writer of IELTS reading materials.
+
+OUTLINE (follow this structure):
+{json.dumps(outline, indent=2)}
+
+REQUIREMENTS:
+- Write exactly {word_count} words (±10%)
+- CEFR Level: {cefr_level} - {flesch_range['grade']} 
+- Tone: {tone}
+- MUST include these vocabulary words naturally: {', '.join(all_vocab[:10]) if all_vocab else 'none'}
+
+READABILITY RULES FOR {cefr_level}:
+- Target Flesch Reading Ease Score: {flesch_range['min']}-{flesch_range['max']}
+- Use {'VERY SHORT sentences (5-8 words). SIMPLE vocabulary only.' if cefr_level in ['A1', 'A2'] else 'short-to-medium sentences (8-15 words). Clear, common vocabulary.' if cefr_level == 'B1' else 'medium sentences (12-18 words). Some complex words OK.' if cefr_level == 'B2' else 'longer sentences (15-25 words). Advanced vocabulary encouraged.' if cefr_level in ['C1', 'C2'] else 'medium sentences'}
+- Avoid: {'complex grammar, subordinate clauses, advanced idioms' if cefr_level in ['A1', 'A2', 'B1'] else 'overly academic jargon only' if cefr_level == 'B2' else 'only extremely rare words'}
+
+OUTPUT (JSON only, no markdown):
+{{
+  "title": "Your final title",
+  "passage": "Full passage text here. Multiple paragraphs separated by double newlines."
+}}
+"""
+            else:
+                # Self-Correction prompt
+                prev_errors = all_attempts[-1]['errors']
+                prev_flesch = all_attempts[-1]['audit_report'].get('flesch_score', 0)
+                flesch_range = CEFR_FLESCH_MAP.get(cefr_level, {'min': 40, 'max': 60})
+                
+                author_prompt = f"""
+You are "The Author". Your previous draft was REJECTED by the Critic.
+
+REASONS FOR REJECTION:
+{chr(10).join(f"- {err}" for err in prev_errors)}
+
+PREVIOUS FLESCH SCORE: {prev_flesch} (Target: {flesch_range['min']}-{flesch_range['max']})
+
+OUTLINE (follow this):
+{json.dumps(outline, indent=2)}
+
+CORRECTIVE ACTIONS REQUIRED:
+{'- INCREASE readability: Use MUCH SIMPLER words, SHORTER sentences (8-12 words max)' if prev_flesch < flesch_range['min'] else '- DECREASE readability: Use more complex vocabulary and longer sentences' if prev_flesch > flesch_range['max'] else '- Maintain current complexity'}
+- Reduce word repetition: use synonyms and varied expressions
+- Fix grammar issues if any
+- Adjust word count to: {word_count} ±10%
+- Keep these vocabulary words: {', '.join(all_vocab[:10]) if all_vocab else 'none'}
+
+SPECIFIC TIPS FOR {cefr_level}:
+{'- Use present simple tense mostly' if cefr_level in ['A1', 'A2'] else '- Mix simple and continuous tenses' if cefr_level == 'B1' else '- Use varied tenses including perfect forms'}
+{'- Avoid phrasal verbs and idioms' if cefr_level in ['A1', 'A2'] else '- Use common phrasal verbs sparingly' if cefr_level == 'B1' else '- Phrasal verbs and idioms OK'}
+- Average sentence length: {8 if cefr_level in ['A1', 'A2'] else 12 if cefr_level == 'B1' else 15 if cefr_level == 'B2' else 18} words
+
+OUTPUT (JSON only, no markdown):
+{{
+  "title": "Improved title",
+  "passage": "Rewritten passage text."
+}}
+"""
+            
+            try:
+                print(f"🖊️  AGENT 2 (AUTHOR): Writing attempt {attempts}...")
+                author_response = genai_generate_with_backoff(MODEL_NAME, author_prompt)
+                draft_text = author_response.text.replace('```json', '').replace('```', '').strip()
+                draft = json.loads(draft_text)
+                title = draft.get('title', '')
+                passage = draft.get('passage', '')
+                
+                print(f"   Generated: {len(passage.split())} words")
+                
+            except Exception as e:
+                print(f"❌ Author failed: {e}")
+                all_attempts.append({
+                    'attempt': attempts,
+                    'status': 'author_failed',
+                    'error': str(e)
+                })
+                continue
+            
+            # === PHASE 3: CRITIC AUDIT ===
+            print(f"🔍 AGENT 3 (CRITIC): Auditing draft {attempts}...")
+            passed, report, errors = critic_audit(passage, title, cefr_level, word_count)
+            
+            attempt_record = {
+                'attempt': attempts,
+                'title': title,
+                'word_count': len(passage.split()),
+                'audit_report': report,
+                'errors': errors,
+                'status': 'accepted' if passed else 'rejected'
+            }
+            all_attempts.append(attempt_record)
+            
+            if passed:
+                print(f"✅ ACCEPTED! (Flesch: {report.get('flesch_score', 'N/A')}, Diversity: {report.get('lexical_diversity', 'N/A')})")
+                final_result = {
+                    'status': 'success',
+                    'attempts': attempts,
+                    'title': title,
+                    'passage': passage,
+                    'outline': outline,
+                    'audit_report': report,
+                    'cefr_level': cefr_level,
+                    'word_count': len(passage.split()),
+                    'all_attempts': all_attempts
+                }
+                break
+            else:
+                print(f"❌ REJECTED: {errors}")
+                if attempts >= max_retries:
+                    print(f"⚠️  Max retries reached. Returning best attempt.")
+                    final_result = {
+                        'status': 'max_retries_reached',
+                        'attempts': attempts,
+                        'title': title,
+                        'passage': passage,
+                        'outline': outline,
+                        'audit_report': report,
+                        'errors': errors,
+                        'all_attempts': all_attempts,
+                        'warning': 'Generated content did not pass all audits after max retries'
+                    }
+        
+        if not final_result:
+            return jsonify({"error": "Generation failed after all attempts"}), 500
+        
+        print(f"\n{'='*60}")
+        print(f"🎉 GENERATION COMPLETE: {final_result['status']}")
+        print(f"{'='*60}\n")
+        
+        return jsonify(final_result), 200
+        
+    except Exception as e:
+        print(f"❌ System Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)

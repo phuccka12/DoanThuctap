@@ -1,0 +1,52 @@
+/* Smart Passage Editor - Dark Theme for Quill */
+
+.quill-editor-wrapper .ql-toolbar {
+  background: #374151;
+  border: 1px solid #4B5563;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.quill-editor-wrapper .ql-container {
+  background: #374151;
+  border: 1px solid #4B5563;
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-size: 14px;
+  min-height: 300px;
+}
+
+.quill-editor-wrapper .ql-editor {
+  color: white;
+  min-height: 300px;
+}
+
+.quill-editor-wrapper .ql-editor.ql-blank::before {
+  color: #9CA3AF;
+}
+
+.quill-editor-wrapper .ql-stroke {
+  stroke: #9CA3AF;
+}
+
+.quill-editor-wrapper .ql-fill {
+  fill: #9CA3AF;
+}
+
+.quill-editor-wrapper .ql-picker-label {
+  color: #9CA3AF;
+}
+
+.quill-editor-wrapper .ql-toolbar button:hover,
+.quill-editor-wrapper .ql-toolbar button.ql-active {
+  color: #60A5FA;
+}
+
+.quill-editor-wrapper .ql-toolbar button:hover .ql-stroke,
+.quill-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #60A5FA;
+}
+
+.quill-editor-wrapper .ql-toolbar button:hover .ql-fill,
+.quill-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
+  fill: #60A5FA;
+}

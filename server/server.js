@@ -27,6 +27,7 @@ const adminStatsRoutes = require('./src/routes/Admin/AdminStats');
 const adminUsersRoutes = require('./src/routes/Admin/AdminUsers');
 const adminLessonsRoutes = require('./src/routes/Admin/AdminLessons');
 const adminVocabularyRoutes = require('./src/routes/Admin/AdminVocabulary');
+const adminReadingPassageRoutes = require('./src/routes/readingPassage');
 const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
 const { startPetDecayJob } = require('./src/jobs/petDecay');
@@ -88,6 +89,7 @@ app.use('/api/admin/stats', adminStatsRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminLessonsRoutes); // Lessons routes (includes /topics/:id/lessons)
 app.use('/api/admin/vocab', adminVocabularyRoutes); // Vocabulary Bank
+app.use('/api/admin/reading-passages', adminReadingPassageRoutes); // Reading Passages Bank
 
 // Pet feature
 app.use('/api/pet', petRoutes);

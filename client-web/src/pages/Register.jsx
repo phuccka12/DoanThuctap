@@ -30,7 +30,7 @@ export default function Register() {
   }, [searchParams]);
 
   const handleGoogleRegister = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google/register';
+    window.location.href = 'http://localhost:3001/api/auth/google/register';
   };
 
   const handleChange = (e) => {
