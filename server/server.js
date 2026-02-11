@@ -18,6 +18,7 @@ const onboardingRoutes = require('./src/routes/onboardingRoutes');
 const topicRoutes = require('./src/routes/Public/PublicTopics');
 const writingPromptRoutes = require('./src/routes/Public/PublicWritingPrompts');
 const speakingQuestionRoutes = require('./src/routes/Public/PublicSpeakingQuestions');
+const publicVocabularyRoutes = require('./src/routes/Public/PublicVocabulary');
 
 // Import CMS admin routes
 const adminTopicRoutes = require('./src/routes/Admin/AdminTopics');
@@ -73,6 +74,7 @@ app.use(
 // Routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/vocabularies', publicVocabularyRoutes); // Public Vocabulary routes (moved up)
 app.use('/api', dashboardRoutes); // Dashboard routes
 app.use('/api/onboarding', onboardingRoutes); // Onboarding routes
 
@@ -80,6 +82,7 @@ app.use('/api/onboarding', onboardingRoutes); // Onboarding routes
 app.use('/api/topics', topicRoutes);
 app.use('/api/writing-prompts', writingPromptRoutes);
 app.use('/api/speaking-questions', speakingQuestionRoutes);
+// app.use('/api/vocabularies', vocabularyRoutes); // Moved up
 
 // Admin CMS routes
 app.use('/api/admin/topics', adminTopicRoutes);
