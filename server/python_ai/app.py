@@ -10,6 +10,7 @@ import json
 import edge_tts
 import asyncio
 import uuid
+import html  # For decoding HTML entities
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -29,7 +30,7 @@ print("🔑 Đang dùng Key:", os.getenv("GEMINI_API_KEY")[:10] + "...")
 client = genai.Client(api_key=api_key)
 
 # ⚠️ CHỌN MODEL (Nếu 2.5 lỗi thì đổi về 1.5-flash)
-MODEL_NAME = 'gemini-2.0-flash-lite'
+MODEL_NAME = 'gemini-2.5-flash'
 print(f"🧠 Đang kích hoạt bộ não: {MODEL_NAME}")
 
 # --- Helper: GenAI call with retries/backoff for quota handling ---
@@ -519,6 +520,11 @@ OUTPUT (JSON only, no markdown):
             arch_response = genai_generate_with_backoff(MODEL_NAME, architect_prompt)
             outline_text = arch_response.text.replace('```json', '').replace('```', '').strip()
             outline = json.loads(outline_text)
+            
+            # Decode HTML entities in outline fields
+            if 'title_suggestion' in outline:
+                outline['title_suggestion'] = html.unescape(outline['title_suggestion'])
+            
             print(f"✅ Outline created: {outline.get('title_suggestion', 'N/A')}")
         except Exception as e:
             err_s = str(e)
@@ -566,6 +572,8 @@ READABILITY RULES FOR {cefr_level}:
 - Use {'VERY SHORT sentences (5-8 words). SIMPLE vocabulary only.' if cefr_level in ['A1', 'A2'] else 'short-to-medium sentences (8-15 words). Clear, common vocabulary.' if cefr_level == 'B1' else 'medium sentences (12-18 words). Some complex words OK.' if cefr_level == 'B2' else 'longer sentences (15-25 words). Advanced vocabulary encouraged.' if cefr_level in ['C1', 'C2'] else 'medium sentences'}
 - Avoid: {'complex grammar, subordinate clauses, advanced idioms' if cefr_level in ['A1', 'A2', 'B1'] else 'overly academic jargon only' if cefr_level == 'B2' else 'only extremely rare words'}
 
+IMPORTANT: Write PLAIN TEXT only. Do NOT use HTML tags, HTML entities (&nbsp;, &lt;, etc.), or any markup. Use normal spaces and punctuation.
+
 OUTPUT (JSON only, no markdown):
 {{
   "title": "Your final title",
@@ -601,6 +609,8 @@ SPECIFIC TIPS FOR {cefr_level}:
 {'- Avoid phrasal verbs and idioms' if cefr_level in ['A1', 'A2'] else '- Use common phrasal verbs sparingly' if cefr_level == 'B1' else '- Phrasal verbs and idioms OK'}
 - Average sentence length: {8 if cefr_level in ['A1', 'A2'] else 12 if cefr_level == 'B1' else 15 if cefr_level == 'B2' else 18} words
 
+IMPORTANT: Write PLAIN TEXT only. Do NOT use HTML tags, HTML entities (&nbsp;, &lt;, etc.), or any markup. Use normal spaces and punctuation.
+
 OUTPUT (JSON only, no markdown):
 {{
   "title": "Improved title",
@@ -615,6 +625,10 @@ OUTPUT (JSON only, no markdown):
                 draft = json.loads(draft_text)
                 title = draft.get('title', '')
                 passage = draft.get('passage', '')
+                
+                # Decode HTML entities (e.g., &nbsp; → space, &lt; → <)
+                title = html.unescape(title)
+                passage = html.unescape(passage)
                 
                 print(f"   Generated: {len(passage.split())} words")
                 

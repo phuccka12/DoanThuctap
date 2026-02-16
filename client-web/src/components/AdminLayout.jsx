@@ -21,6 +21,7 @@ function AdminLayout({ children }) {
     { icon: FiBook, label: 'Topic', path: '/admin/topics' },
     { icon: FiBookOpen, label: 'Vocabulary', path: '/admin/vocabulary' },
     { icon: FiFileText, label: 'Reading Passages', path: '/admin/reading-passages' },
+    { icon: FiEdit3, label: 'Writing Scenarios', path: '/admin/writing-scenarios' },
     { icon: FiHeadphones, label: 'Speaking Questions', path: '/admin/speaking-questions' },
     { icon: FiEdit3, label: 'Writing Prompts', path: '/admin/writing-prompts' },
   ];

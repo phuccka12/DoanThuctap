@@ -110,6 +110,11 @@ exports.createReadingPassage = async (req, res) => {
       created_by: req.userId || req.user?._id
     };
     
+    // Calculate word_count if passage is provided (since pre-save hook is disabled)
+    if (passageData.passage && !passageData.word_count) {
+      passageData.word_count = passageData.passage.trim().split(/\s+/).length;
+    }
+    
     const passage = await ReadingPassage.create(passageData);
     const populatedPassage = await ReadingPassage.findById(passage._id)
       .populate('topics', 'name level icon_image_url')
@@ -139,6 +144,11 @@ exports.createReadingPassage = async (req, res) => {
 exports.updateReadingPassage = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Calculate word_count if passage is modified (since pre-save hook is disabled)
+    if (req.body.passage && !req.body.word_count) {
+      req.body.word_count = req.body.passage.trim().split(/\s+/).length;
+    }
     
     const passage = await ReadingPassage.findByIdAndUpdate(
       id,

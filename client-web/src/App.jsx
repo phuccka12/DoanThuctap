@@ -29,6 +29,7 @@ import AdminSpeakingQuestions from './pages/Admin/AdminSpeakingQuestions';
 import AdminWritingPrompts from './pages/Admin/AdminWritingPrompts';
 import AdminVocabulary from './pages/Admin/AdminVocabulary';
 import AdminReadingPassages from './pages/Admin/AdminReadingPassages';
+import AdminWritingScenarios from './pages/Admin/AdminWritingScenarios';
 
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
@@ -149,6 +150,13 @@ function App() {
             <AdminRoute>
               <AdminLayout>
                 <AdminReadingPassages />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/writing-scenarios" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminWritingScenarios />
               </AdminLayout>
             </AdminRoute>
           } />

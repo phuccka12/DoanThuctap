@@ -196,12 +196,13 @@ readingPassageSchema.index({ created_at: -1 });
 readingPassageSchema.index({ usage_count: -1 });
 
 // Middleware: Calculate word count before save
-readingPassageSchema.pre('save', function(next) {
-  if (this.isModified('passage')) {
-    this.word_count = this.passage.trim().split(/\s+/).length;
-  }
-  next();
-});
+// DISABLED temporarily due to "next is not a function" error
+// readingPassageSchema.pre('save', function(next) {
+//   if (this.isModified('passage')) {
+//     this.word_count = this.passage.trim().split(/\s+/).length;
+//   }
+//   next();
+// });
 
 // Virtual: Question count
 readingPassageSchema.virtual('question_count').get(function() {

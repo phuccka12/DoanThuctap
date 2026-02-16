@@ -13,6 +13,27 @@ import { FiZap, FiLink, FiRefreshCw } from 'react-icons/fi';
  * - Word count display
  */
 
+// Helper: Clean AI-generated text (remove unwanted HTML tags/entities)
+const cleanAIText = (text) => {
+  if (!text) return '';
+  
+  // Decode HTML entities
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  let cleaned = textarea.value;
+  
+  // Remove <p> and </p> tags (AI sometimes adds these)
+  cleaned = cleaned.replace(/<\/?p>/gi, '');
+  
+  // Replace multiple spaces with single space
+  cleaned = cleaned.replace(/\s+/g, ' ');
+  
+  // Trim
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+};
+
 const modules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
@@ -47,7 +68,9 @@ function SmartPassageEditor({
   useEffect(() => {
     console.log('🔄 SmartPassageEditor received new value:', value?.substring(0, 100));
     if (value !== editorValue) {
-      setEditorValue(value || '');
+      // Clean AI-generated text before setting
+      const cleanedValue = cleanAIText(value || '');
+      setEditorValue(cleanedValue);
     }
   }, [value]);
 

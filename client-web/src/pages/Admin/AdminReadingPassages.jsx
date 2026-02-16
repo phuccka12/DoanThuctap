@@ -112,6 +112,8 @@ function AdminReadingPassages() {
       };
       
       const res = await adminService.getReadingPassages(params);
+      console.log('📦 API Response passages:', res.data.data.passages);
+      console.log('🏷️ First passage topics:', res.data.data.passages[0]?.topics);
       setPassages(res.data.data.passages);
       setTotalPages(res.data.data.totalPages);
       setTotal(res.data.data.total);
@@ -181,6 +183,20 @@ function AdminReadingPassages() {
         console.log('✅ AI Result:', result);
         alert(`✅ AI Generation Successful!\n\nAttempts: ${result.attempts}\nFlesch Score: ${result.audit_report?.flesch_score || 'N/A'}\nWord Count: ${result.word_count}`);
         
+        // Auto-match topics based on generated content topic keyword
+        const matchedTopics = [];
+        if (options.topic && allTopics.length > 0) {
+          const topicKeyword = options.topic.toLowerCase();
+          const matched = allTopics.filter(t => 
+            t.name.toLowerCase().includes(topicKeyword) || 
+            topicKeyword.includes(t.name.toLowerCase())
+          );
+          if (matched.length > 0) {
+            matchedTopics.push(...matched.map(t => t._id));
+            console.log('🏷️ Auto-matched topics:', matched.map(t => t.name));
+          }
+        }
+        
         // Create a passage object to pass to CreateModal
         const aiGeneratedPassage = {
           title: result.title,
@@ -190,7 +206,7 @@ function AdminReadingPassages() {
           ai_generated: true,
           level: 'intermediate', // default
           content_type: 'article', // default
-          topics: [],
+          topics: matchedTopics, // Auto-matched topics
           questions: []
         };
         
@@ -505,7 +521,17 @@ function AdminReadingPassages() {
                     <td className="px-4 py-3">
                       <div className="max-w-md">
                         <p className="font-medium text-white">{passage.title}</p>
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{passage.passage?.substring(0, 100)}...</p>
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          {(() => {
+                            // Clean HTML entities and tags for preview
+                            const textarea = document.createElement('textarea');
+                            textarea.innerHTML = passage.passage || '';
+                            let cleaned = textarea.value;
+                            cleaned = cleaned.replace(/<\/?[^>]+(>|$)/g, ''); // Remove all HTML tags
+                            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+                            return cleaned.substring(0, 100) + '...';
+                          })()}
+                        </p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -693,9 +719,20 @@ function CreateEditModal({ passage, allTopics, onClose, onSuccess }) {
   useEffect(() => {
     console.log('🔍 CreateEditModal received passage:', passage);
     if (passage) {
+      // Helper: Clean HTML entities and tags from old data
+      const cleanText = (text) => {
+        if (!text) return '';
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        let cleaned = textarea.value;
+        cleaned = cleaned.replace(/<\/?p>/gi, '');
+        cleaned = cleaned.replace(/\s+/g, ' ');
+        return cleaned.trim();
+      };
+      
       const newFormData = {
-        title: passage.title || '',
-        passage: passage.passage || '',
+        title: cleanText(passage.title) || '',
+        passage: cleanText(passage.passage) || '',
         level: passage.level || 'beginner',
         cefr_level: passage.cefr_level || 'A2',
         content_type: passage.content_type || 'article',
@@ -727,7 +764,8 @@ function CreateEditModal({ passage, allTopics, onClose, onSuccess }) {
     try {
       setSaving(true);
       
-      if (passage) {
+      // If passage exists and has a valid _id => update, otherwise create new
+      if (passage && passage._id) {
         await adminService.updateReadingPassage(passage._id, formData);
         alert('✅ Đã cập nhật bài đọc');
       } else {
@@ -1245,7 +1283,17 @@ function ViewPassageModal({ passage, onClose }) {
           <div>
             <h3 className="text-lg font-semibold text-white mb-3">Nội dung:</h3>
             <div className="bg-gray-700/30 p-4 rounded-lg">
-              <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{passage.passage}</p>
+              <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                {(() => {
+                  // Clean HTML entities and tags for display
+                  const textarea = document.createElement('textarea');
+                  textarea.innerHTML = passage.passage || '';
+                  let cleaned = textarea.value;
+                  cleaned = cleaned.replace(/<\/?p>/gi, ''); // Remove <p> tags
+                  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+                  return cleaned;
+                })()}
+              </p>
             </div>
           </div>
 
