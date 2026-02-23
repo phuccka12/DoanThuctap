@@ -8,7 +8,11 @@ const {
   resetPassword,
   updateUserStatus,
   deleteUser,
-  getUserStats
+  getUserStats,
+  getUserProfile,
+  manualUpgradeUser,
+  cancelUserSubscription,
+  toggleAIBlock,
 } = require('../../controllers/AdminUsers');
 const { protect } = require('../../middlewares/authMiddleware');
 const requireAdmin = require('../../middlewares/requireAdmin');
@@ -27,6 +31,18 @@ router.get('/', getAllUsers);
 
 // GET /api/admin/users/:id - Get user by ID
 router.get('/:id', getUserById);
+
+// GET /api/admin/users/:id/profile - Full user profile (3 tabs)
+router.get('/:id/profile', getUserProfile);
+
+// POST /api/admin/users/:id/upgrade - Manual subscription upgrade
+router.post('/:id/upgrade', manualUpgradeUser);
+
+// POST /api/admin/users/:id/cancel-subscription
+router.post('/:id/cancel-subscription', cancelUserSubscription);
+
+// PATCH /api/admin/users/:id/ai-block
+router.patch('/:id/ai-block', toggleAIBlock);
 
 // PUT /api/admin/users/:id - Update user
 router.put('/:id', updateUser);

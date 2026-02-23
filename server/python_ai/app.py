@@ -701,5 +701,79 @@ OUTPUT (JSON only, no markdown):
         return jsonify({"error": str(e)}), 500
 
 
+# ==========================================
+# 🎙️ API: SPEAKING - GENERATE SAMPLE ANSWER
+# ==========================================
+@app.route('/api/speaking/generate-sample', methods=['POST'])
+def generate_speaking_sample():
+    """Generate a band 7-8 sample answer for an IELTS speaking question."""
+    try:
+        data = request.json
+        question    = data.get('question', '')
+        part        = data.get('part', 'p1')         # free / p1 / p2 / p3
+        cefr_level  = data.get('cefr_level', 'B2')
+        difficulty  = data.get('difficulty', 'medium')
+        keywords    = data.get('keywords', [])
+        follow_ups  = data.get('follow_up_questions', [])
+
+        if not question:
+            return jsonify({"error": "Thiếu câu hỏi"}), 400
+
+        part_label_map = {'free': 'Free Speaking', 'p1': 'Part 1 (Interview)', 'p2': 'Part 2 (Long Turn)', 'p3': 'Part 3 (Discussion)'}
+        part_label = part_label_map.get(part, part)
+
+        # Word-count guideline per part
+        word_guide = {
+            'free': '60-100 words',
+            'p1':   '50-80 words',
+            'p2':   '150-220 words (2-minute monologue)',
+            'p3':   '100-160 words (analytical response)',
+        }.get(part, '80-120 words')
+
+        kw_hint = f"\nTry to naturally incorporate these keywords: {', '.join(keywords)}" if keywords else ""
+        fup_hint = f"\nAlso briefly address these follow-up angles if relevant: {'; '.join(follow_ups)}" if follow_ups else ""
+
+        prompt = f"""
+You are an experienced IELTS Speaking examiner writing a model answer for teaching purposes.
+
+## TASK
+Write a natural, fluent Band 7-8 model spoken answer for the following IELTS {part_label} question.
+
+## QUESTION
+"{question}"
+
+## CONSTRAINTS
+- CEFR target level: {cefr_level}
+- Difficulty: {difficulty}
+- Target length: {word_guide}
+- The answer must sound SPOKEN (natural fillers like "Well,", "To be honest,", "I mean," are fine)
+- Use a variety of vocabulary and grammar structures appropriate for the CEFR level
+- Do NOT use overly academic or written-style language — it must sound like real speech{kw_hint}{fup_hint}
+
+## OUTPUT FORMAT
+Return ONLY a JSON object (no markdown) with this exact structure:
+{{
+  "sample_answer": "The full spoken answer text here.",
+  "band_estimate": "7.0",
+  "highlights": ["notable vocab or structure used", "..."]
+}}
+"""
+        response = genai_generate_with_backoff(MODEL_NAME, prompt)
+        raw = response.text.strip().replace('```json', '').replace('```', '').strip()
+
+        try:
+            parsed = json.loads(raw)
+            return jsonify(parsed), 200
+        except Exception:
+            # If JSON parse fails, return the raw text as sample_answer
+            return jsonify({"sample_answer": raw, "band_estimate": "7.0", "highlights": []}), 200
+
+    except Exception as e:
+        print(f"❌ generate_speaking_sample error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(port=5000, debug=True)

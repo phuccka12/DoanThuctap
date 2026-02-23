@@ -30,6 +30,8 @@ import AdminWritingPrompts from './pages/Admin/AdminWritingPrompts';
 import AdminVocabulary from './pages/Admin/AdminVocabulary';
 import AdminReadingPassages from './pages/Admin/AdminReadingPassages';
 import AdminWritingScenarios from './pages/Admin/AdminWritingScenarios';
+import AdminBilling from './pages/Admin/AdminBilling';
+import AdminSystemConfig from './pages/Admin/AdminSystemConfig';
 
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
@@ -171,6 +173,20 @@ function App() {
             <AdminRoute>
               <AdminLayout>
                 <AdminWritingPrompts />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/billing" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminBilling />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/system-config" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminSystemConfig />
               </AdminLayout>
             </AdminRoute>
           } />

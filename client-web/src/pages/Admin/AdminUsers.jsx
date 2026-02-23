@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FiUsers, FiSearch, FiEdit2, FiTrash2, FiShield, FiLock, FiUnlock, FiX, FiCheck, FiPlus, FiBarChart2, FiEye, FiClock, FiTrendingUp, FiAward, FiActivity, FiDownload } from 'react-icons/fi';
+import { FiUsers, FiSearch, FiEdit2, FiTrash2, FiShield, FiLock, FiUnlock, FiX, FiCheck, FiPlus, FiBarChart2, FiEye, FiClock, FiTrendingUp, FiAward, FiActivity, FiDownload, FiCreditCard } from 'react-icons/fi';
 import adminService from '../../services/adminService';
 import * as XLSX from 'xlsx';
+import UserProfileDrawer from '../../components/UserProfileDrawer';
 function AdminUsers() {
   const [users, setUsers] = useState([]);
+  const [profileDrawerUserId, setProfileDrawerUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -214,6 +216,11 @@ function AdminUsers() {
   const handleViewDetails = (user) => {
     setSelectedUser(user);
     setShowDetailsModal(true);
+  };
+
+  // OPEN PROFILE DRAWER (Subscription / AI Usage / Learning)
+  const handleOpenProfileDrawer = (user) => {
+    setProfileDrawerUserId(user._id);
   };
 
   // EXPORT TO EXCEL
@@ -510,6 +517,13 @@ function AdminUsers() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenProfileDrawer(user)}
+                        className="p-2 hover:bg-gray-700 rounded transition text-emerald-400"
+                        title="Hồ sơ: Gói cước & AI Usage"
+                      >
+                        <FiCreditCard size={18} />
+                      </button>
                       <button
                         onClick={() => handleViewDetails(user)}
                         className="p-2 hover:bg-gray-700 rounded transition text-purple-400"
@@ -1155,6 +1169,15 @@ function AdminUsers() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* User Profile Drawer - Subscription / AI Usage / Learning */}
+      {profileDrawerUserId && (
+        <UserProfileDrawer
+          userId={profileDrawerUserId}
+          onClose={() => setProfileDrawerUserId(null)}
+          onUpdate={fetchUsers}
+        />
       )}
     </div>
   );

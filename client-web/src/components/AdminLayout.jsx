@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiMenu, FiX, FiLogOut, FiHome, FiBook, FiHeadphones, FiEdit3, FiUsers, FiBookOpen, FiFileText } from 'react-icons/fi';
+import { FiMenu, FiX, FiLogOut, FiHome, FiBook, FiHeadphones, FiEdit3, FiUsers, FiBookOpen, FiFileText, FiDollarSign, FiSettings } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -24,6 +24,8 @@ function AdminLayout({ children }) {
     { icon: FiEdit3, label: 'Writing Scenarios', path: '/admin/writing-scenarios' },
     { icon: FiHeadphones, label: 'Speaking Questions', path: '/admin/speaking-questions' },
     { icon: FiEdit3, label: 'Writing Prompts', path: '/admin/writing-prompts' },
+    { icon: FiDollarSign, label: 'Gói cước', path: '/admin/billing' },
+    { icon: FiSettings, label: 'Cài đặt', path: '/admin/system-config' },
   ];
 
   const handleLogout = async () => {
@@ -125,7 +127,7 @@ function AdminLayout({ children }) {
         {/* Professional Header */}
         <header className="h-20 bg-gray-900/80 backdrop-blur-xl border-b border-purple-500/20 flex items-center justify-between px-8 shadow-lg">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-linear-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               {menuItems.find(item => item.path === location.pathname)?.label || 'Quản trị viên'}
             </h1>
             <p className="text-sm text-gray-400 mt-0.5">
@@ -134,7 +136,7 @@ function AdminLayout({ children }) {
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="px-4 py-2 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl border border-purple-500/30">
+            <div className="px-4 py-2 bg-linear-to-r from-purple-600/20 to-blue-600/20 rounded-xl border border-purple-500/30">
               <p className="text-xs text-purple-300 font-medium">Vai trò</p>
               <p className="text-sm font-bold text-white">{user?.role?.toUpperCase()}</p>
             </div>
@@ -142,8 +144,8 @@ function AdminLayout({ children }) {
         </header>
 
         {/* Content Area with Beautiful Background */}
-        <main className="flex-1 overflow-auto bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-8">
-          <div className="max-w-[1600px] mx-auto">
+        <main className="flex-1 overflow-auto bg-linear-to-br from-gray-950 via-gray-900 to-gray-950 p-8">
+          <div className="max-w-400 mx-auto">
             {children}
           </div>
         </main>

@@ -28,6 +28,8 @@ const adminUsersRoutes = require('./src/routes/Admin/AdminUsers');
 const adminLessonsRoutes = require('./src/routes/Admin/AdminLessons');
 const adminVocabularyRoutes = require('./src/routes/Admin/AdminVocabulary');
 const adminReadingPassageRoutes = require('./src/routes/readingPassage');
+const adminBillingRoutes = require('./src/routes/Admin/AdminBilling');
+const adminSystemConfigRoutes = require('./src/routes/Admin/AdminSystemConfig');
 const writingScenarioRoutes = require('./src/routes/writingScenario');
 const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
@@ -91,6 +93,8 @@ app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminLessonsRoutes); // Lessons routes (includes /topics/:id/lessons)
 app.use('/api/admin/vocab', adminVocabularyRoutes); // Vocabulary Bank
 app.use('/api/admin/reading-passages', adminReadingPassageRoutes); // Reading Passages Bank
+app.use('/api/admin/billing', adminBillingRoutes); // Billing & Subscription
+app.use('/api/admin/system-config', adminSystemConfigRoutes); // System Config & AI Prompts
 app.use('/api', writingScenarioRoutes); // Writing Scenarios (Gamified Writing)
 
 // Pet feature

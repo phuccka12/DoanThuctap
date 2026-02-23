@@ -1,5 +1,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const Transaction = require('../models/Transaction');
+const SubscriptionPlan = require('../models/SubscriptionPlan');
+const AIUsage = require('../models/AIUsage');
 
 // Admin: Tạo user mới
 exports.createUser = async (req, res) => {
@@ -354,5 +357,145 @@ exports.getUserStats = async (req, res) => {
     res.status(500).json({
       message: 'Lỗi server khi lấy thống kê người dùng'
     });
+  }
+};
+
+// ─── Admin: User Detail Profile (3 tabs) ───────────────────────────────────────
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password_hash -failed_login_attempts -lock_until');
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+
+    // Tab 1: Subscription info
+    const latestSuccessTx = await Transaction.findOne({ user_id: user._id, status: 'success' })
+      .sort({ created_at: -1 })
+      .populate('plan_id', 'name slug color price_monthly quota');
+
+    // Tab 2: AI usage (last 7 days)
+    const today = new Date();
+    const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 6);
+    const dateRange = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgo); d.setDate(sevenDaysAgo.getDate() + i);
+      dateRange.push(d.toISOString().slice(0, 10));
+    }
+    const usageRecords = await AIUsage.find({ user_id: user._id, date: { $in: dateRange } });
+    const todayStr = today.toISOString().slice(0, 10);
+    const todayUsage = usageRecords.find(u => u.date === todayStr) || {};
+    const isAIBlocked = usageRecords.some(u => u.ai_blocked);
+
+    // Tab 3: Learning progress (transactions + gamification)
+    const allTransactions = await Transaction.find({ user_id: user._id })
+      .populate('plan_id', 'name slug color')
+      .sort({ created_at: -1 })
+      .limit(10);
+
+    res.json({
+      message: 'OK',
+      data: {
+        user,
+        subscription: {
+          current_plan: latestSuccessTx?.plan_id || null,
+          expires_at: user.vip_expire_at,
+          latest_tx: latestSuccessTx,
+        },
+        ai_usage: {
+          today: {
+            speaking_checks:      todayUsage.speaking_checks      || 0,
+            writing_checks:       todayUsage.writing_checks       || 0,
+            ai_chat_messages:     todayUsage.ai_chat_messages     || 0,
+            ai_roleplay_sessions: todayUsage.ai_roleplay_sessions || 0,
+          },
+          weekly: dateRange.map(date => {
+            const r = usageRecords.find(u => u.date === date) || {};
+            return {
+              date,
+              speaking_checks:  r.speaking_checks  || 0,
+              writing_checks:   r.writing_checks   || 0,
+              ai_chat_messages: r.ai_chat_messages || 0,
+            };
+          }),
+          is_blocked: isAIBlocked,
+          blocked_record: usageRecords.find(u => u.ai_blocked) || null,
+        },
+        learning: {
+          gamification: user.gamification_data,
+          preferences:  user.learning_preferences,
+          transactions: allTransactions,
+        },
+      }
+    });
+  } catch (e) {
+    console.error('getUserProfile error:', e);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// ─── Admin: Upgrade / Cancel subscription manually ────────────────────────────
+exports.manualUpgradeUser = async (req, res) => {
+  try {
+    const { plan_id, months = 1, notes } = req.body;
+    const plan = await SubscriptionPlan.findById(plan_id);
+    if (!plan) return res.status(404).json({ message: 'Không tìm thấy gói cước' });
+
+    const start = new Date();
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + Number(months));
+
+    // Create transaction record
+    await Transaction.create({
+      user_id: req.params.id,
+      plan_id,
+      amount: plan.price_monthly * months,
+      billing_cycle: 'monthly',
+      gateway: 'manual',
+      status: 'success',
+      subscription_start: start,
+      subscription_end: end,
+      notes: notes || `Admin nâng cấp thủ công (${months} tháng)`,
+      created_by_admin: true,
+    });
+
+    // Update user
+    await User.findByIdAndUpdate(req.params.id, {
+      role: plan.slug === 'free' ? 'standard' : 'vip',
+      vip_expire_at: plan.slug === 'free' ? null : end,
+    });
+
+    res.json({ message: `Đã nâng cấp lên gói ${plan.name} thành công` });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
+  }
+};
+
+exports.cancelUserSubscription = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.params.id, { role: 'standard', vip_expire_at: null });
+    res.json({ message: 'Đã hủy gói cước của người dùng' });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
+  }
+};
+
+// ─── Admin: Block/Unblock AI for a user ───────────────────────────────────────
+exports.toggleAIBlock = async (req, res) => {
+  try {
+    const { block, reason } = req.body;
+    const today = new Date().toISOString().slice(0, 10);
+
+    await AIUsage.findOneAndUpdate(
+      { user_id: req.params.id, date: today },
+      {
+        ai_blocked: block,
+        blocked_reason: block ? (reason || 'Admin blocked') : '',
+        blocked_by:  block ? req.user._id : null,
+        blocked_at:  block ? new Date() : null,
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: block ? 'Đã khóa AI cho người dùng' : 'Đã mở khóa AI cho người dùng' });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
   }
 };
