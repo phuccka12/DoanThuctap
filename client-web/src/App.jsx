@@ -16,6 +16,9 @@ import AIConversation from './pages/AIConversation';
 import Onboarding from './pages/Onboarding';
 import NotFound from './pages/NotFound';
 import Landingpage from './pages/Landingpage';
+import Pricing from './pages/Pricing';
+import MySubscription from './pages/MySubscription';
+import PaymentResult from './pages/PaymentResult';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -80,6 +83,11 @@ function App() {
             </ProtectedRoute>
           } />
           
+          {/* Public pricing page */}
+          <Route path="/pricing" element={<Pricing />} />
+          {/* VNPay return page (public — VNPay redirects here) */}
+          <Route path="/payment/result" element={<PaymentResult />} />
+
           {/* Protected Routes - Require onboarding completion */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
@@ -104,6 +112,11 @@ function App() {
           <Route path="/ai-conversation" element={
             <ProtectedRoute>
               <AIConversation />
+            </ProtectedRoute>
+          } />
+          <Route path="/my-subscription" element={
+            <ProtectedRoute>
+              <MySubscription />
             </ProtectedRoute>
           } />
           

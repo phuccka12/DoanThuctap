@@ -265,6 +265,27 @@ export default function Dashboard() {
               theme={dynamicTheme}
             />
 
+            {/* Upgrade Banner — chỉ hiện với user standard */}
+            {user?.role === 'standard' && (
+              <div
+                onClick={() => navigate('/pricing')}
+                className="cursor-pointer rounded-2xl bg-linear-to-r from-[#6C5CE7]/10 to-[#a855f7]/10 border border-[#6C5CE7]/30 p-4 flex items-center justify-between gap-4 hover:border-[#6C5CE7]/60 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#6C5CE7] to-[#a855f7] flex items-center justify-center text-white shrink-0">
+                    <FaStar />
+                  </div>
+                  <div>
+                    <p className={cn("font-bold text-sm", dynamicTheme.text)}>Nâng cấp để học không giới hạn ⚡</p>
+                    <p className={cn("text-xs", dynamicTheme.sub)}>Mở khóa AI Speaking, Writing không giới hạn · Toàn bộ Reading · AI Roleplay</p>
+                  </div>
+                </div>
+                <span className="shrink-0 px-4 py-2 rounded-xl bg-linear-to-r from-[#6C5CE7] to-[#a855f7] text-white text-xs font-bold group-hover:shadow-lg transition-all whitespace-nowrap">
+                  Xem gói →
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <Card theme={dynamicTheme}>
                 <CardHeader title="Today Practice" right={<SmallLink onClick={() => navigate('/practice')} theme={dynamicTheme}>View all</SmallLink>} theme={dynamicTheme} />
@@ -514,8 +535,29 @@ function Sidebar({ active, setActive, onLogout, theme: t }) {
         ))}
       </div>
 
+      {/* Upgrade Banner */}
+      <div className="mt-6 rounded-2xl bg-linear-to-br from-[#6C5CE7] to-[#a855f7] p-4 text-white shadow-lg">
+        <div className="flex items-center gap-2 mb-1.5">
+          <FaStar className="text-yellow-300" />
+          <span className="font-bold text-sm">Nâng cấp Premium</span>
+        </div>
+        <p className="text-xs text-white/80 mb-3 leading-relaxed">Mở khóa AI không giới hạn & toàn bộ nội dung</p>
+        <button
+          onClick={() => navigate('/pricing')}
+          className="w-full py-2 rounded-xl bg-white text-[#6C5CE7] font-bold text-xs hover:shadow-md transition-all active:scale-95"
+        >
+          ⚡ Xem gói cước
+        </button>
+        <button
+          onClick={() => navigate('/my-subscription')}
+          className="w-full pt-2 text-[10px] text-white/60 hover:text-white transition text-center"
+        >
+          Gói hiện tại của tôi →
+        </button>
+      </div>
+
       {/* Logout Button */}
-      <div className="mt-8 pt-6 border-t border-dashed border-purple-100">
+      <div className="mt-4 pt-4 border-t border-dashed border-purple-100">
         <button 
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors font-medium"

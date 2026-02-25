@@ -14,8 +14,11 @@ router.delete('/plans/:id', ctrl.deletePlan);
 
 // Transactions
 router.get('/transactions/stats', ctrl.getTransactionStats);
+router.get('/transactions/revenue', ctrl.getRevenueByMonth);
 router.get('/transactions', ctrl.getTransactions);
 router.post('/transactions', ctrl.createManualTransaction);
 router.patch('/transactions/:id/status', ctrl.updateTransactionStatus);
+router.delete('/transactions/bulk', ctrl.bulkDeleteTransactions);
+router.delete('/transactions/:id', ctrl.deleteTransaction);
 
 module.exports = router;

@@ -9,9 +9,12 @@ const billingService = {
 
   // ── Transactions ─────────────────────────────────────────────────────────
   getTransactionStats: () => api.get('/admin/billing/transactions/stats'),
+  getRevenueByMonth: (months = 6) => api.get('/admin/billing/transactions/revenue', { params: { months } }),
   getTransactions: (params) => api.get('/admin/billing/transactions', { params }),
   createManualTransaction: (data) => api.post('/admin/billing/transactions', data),
   updateTransactionStatus: (id, data) => api.patch(`/admin/billing/transactions/${id}/status`, data),
+  deleteTransaction: (id) => api.delete(`/admin/billing/transactions/${id}`),
+  bulkDeleteTransactions: (ids) => api.delete('/admin/billing/transactions/bulk', { data: { ids } }),
 };
 
 export default billingService;
