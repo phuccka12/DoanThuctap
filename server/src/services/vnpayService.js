@@ -130,4 +130,67 @@ const test=() => {
       console.log('[VNPay Return] isValid:', result.isValid, '| responseCode:', result.responseCode, '| txnRef:', result.txnRef);   
 };
 
+/**
+ * 5. QUERY TRANSACTION STATUS (VNPay querydr API)
+ * Dùng để Admin đồng bộ trạng thái giao dịch VNPay
+ */
+exports.queryTransaction = async ({ txnRef, transDate, ipAddr }) => {
+  const https  = require('https');
+  const VNPAY_TMN_CODE    = process.env.VNPAY_TMN_CODE;
+  const VNPAY_HASH_SECRET = process.env.VNPAY_HASH_SECRET;
+  const VNPAY_API_URL     = process.env.VNPAY_API_URL || 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
 
+  const requestTime = formatVnTime(new Date());
+  const txDate      = formatVnTime(new Date(transDate));
+
+  const params = {
+    vnp_RequestId:   `${Date.now()}`,
+    vnp_Version:     '2.1.0',
+    vnp_Command:     'querydr',
+    vnp_TmnCode:     VNPAY_TMN_CODE,
+    vnp_TxnRef:      String(txnRef),
+    vnp_OrderInfo:   `Query ${txnRef}`,
+    vnp_TransDate:   txDate,
+    vnp_CreateDate:  requestTime,
+    vnp_IpAddr:      ipAddr,
+  };
+
+  const signStr = [
+    params.vnp_RequestId, params.vnp_Version, params.vnp_Command,
+    params.vnp_TmnCode, params.vnp_TxnRef, params.vnp_TransDate,
+    params.vnp_CreateDate, params.vnp_IpAddr, params.vnp_OrderInfo,
+  ].join('|');
+
+  params.vnp_SecureHash = crypto
+    .createHmac('sha512', VNPAY_HASH_SECRET)
+    .update(Buffer.from(signStr, 'utf-8'))
+    .digest('hex');
+
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(params);
+    const url  = new URL(VNPAY_API_URL);
+    const options = {
+      hostname: url.hostname,
+      path:     url.pathname,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    };
+    const req = https.request(options, (res2) => {
+      let data = '';
+      res2.on('data', (c) => { data += c; });
+      res2.on('end', () => {
+        // Nếu VNPay trả về HTML (403/5xx gateway error) thay vì JSON
+        if (data.trim().startsWith('<')) {
+          const httpStatus = res2.statusCode;
+          reject(new Error(`VNPay Query API trả về HTTP ${httpStatus}. Tài khoản sandbox có thể chưa được cấp quyền Query API.`));
+          return;
+        }
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error('VNPay response không hợp lệ: ' + data.slice(0, 200))); }
+      });
+    });
+    req.on('error', (e) => reject(new Error('Không thể kết nối VNPay Query API: ' + e.message)));
+    req.write(body);
+    req.end();
+  });
+};

@@ -1,6 +1,7 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import axiosInstance from './utils/axiosConfig';
 
 // Pages
 import Login from './pages/Login';
@@ -19,6 +20,7 @@ import Landingpage from './pages/Landingpage';
 import Pricing from './pages/Pricing';
 import MySubscription from './pages/MySubscription';
 import PaymentResult from './pages/PaymentResult';
+import MaintenancePage from './pages/MaintenancePage';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -62,10 +64,74 @@ function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
   return children;
 }
 
+// MaintenanceGuard — checks maintenance status BEFORE rendering any protected route
+function MaintenanceGuard({ children }) {
+  const location = useLocation();
+  const [status, setStatus] = useState('checking'); // 'checking' | 'ok' | 'maintenance'
+
+  // Paths that should never be blocked (public / admin / maintenance page itself)
+  const SKIP_PATHS = [
+    '/maintenance',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/pricing',
+    '/payment/result',
+    '/auth/google/callback',
+  ];
+
+  const shouldSkip =
+    SKIP_PATHS.some(p => location.pathname.startsWith(p)) ||
+    location.pathname.startsWith('/admin');
+
+  useEffect(() => {
+    // Reset về checking mỗi khi path thay đổi (trừ skip paths)
+    if (shouldSkip) {
+      setStatus('ok');
+      return;
+    }
+
+    setStatus('checking');
+    let cancelled = false;
+    // Dùng /auth/me — route này đi qua maintenance middleware
+    // maintenance ON + standard/vip token → 503 → redirect /maintenance
+    // maintenance OFF hoặc admin token → 200 → render bình thường
+    axiosInstance.get('/auth/me')
+      .then(() => { if (!cancelled) setStatus('ok'); })
+      .catch(err => {
+        if (cancelled) return;
+        if (err.response?.status === 503 && err.response?.data?.maintenance) {
+          setStatus('maintenance');
+        } else {
+          // 401, network error, etc — don't block the user
+          setStatus('ok');
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [location.pathname]);
+
+  if (status === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  if (status === 'maintenance') {
+    return <Navigate to="/maintenance" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <MaintenanceGuard>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landingpage />} />
@@ -205,8 +271,10 @@ function App() {
           } />
           
           {/* 404 - Catch all undefined routes */}
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </MaintenanceGuard>
       </AuthProvider>
     </BrowserRouter>
   );

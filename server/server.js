@@ -35,6 +35,8 @@ const writingScenarioRoutes = require('./src/routes/writingScenario');
 const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
 const { startPetDecayJob } = require('./src/jobs/petDecay');
+const { startCancelStalePendingJob } = require('./src/jobs/cancelStalePending');
+const { maintenanceModeMiddleware } = require('./src/middlewares/maintenanceMode');
 
 // Khởi tạo app
 const app = express();
@@ -74,39 +76,41 @@ app.use(
   })
 );
 
+// ─── Maintenance Mode ─── đặt TRƯỚC tất cả routes để chặn sớm ──────────────
+app.use(maintenanceModeMiddleware);
+
+// Endpoint kiểm tra trạng thái bảo trì (dùng bởi MaintenancePage)
+// Nếu reach được đây → maintenance OFF (hoặc admin) → trả 200
+// Nếu maintenance ON + user thường → middleware trả 503 trước, không reach đây
+app.get('/api/maintenance/status', (req, res) => res.json({ maintenance: false }));
+
 // Routes
-app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api', dashboardRoutes); // Dashboard routes
-app.use('/api/onboarding', onboardingRoutes); // Onboarding routes
-
-// Public CMS routes
-app.use('/api/topics', topicRoutes);
-app.use('/api/writing-prompts', writingPromptRoutes);
-app.use('/api/speaking-questions', speakingQuestionRoutes);
-
-// Admin CMS routes
 app.use('/api/admin/topics', adminTopicRoutes);
 app.use('/api/admin/writing-prompts', adminWritingPromptRoutes);
 app.use('/api/admin/speaking-questions', adminSpeakingQuestionRoutes);
 app.use('/api/admin/stats', adminStatsRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
-app.use('/api/admin', adminLessonsRoutes); // Lessons routes (includes /topics/:id/lessons)
-app.use('/api/admin/vocab', adminVocabularyRoutes); // Vocabulary Bank
-app.use('/api/admin/reading-passages', adminReadingPassageRoutes); // Reading Passages Bank
-app.use('/api/admin/billing', adminBillingRoutes); // Billing & Subscription
-app.use('/api/admin/system-config', adminSystemConfigRoutes); // System Config & AI Prompts
-app.use('/api/billing', billingRoutes); // User-facing billing (plans, purchase, subscription)
-app.use('/api', writingScenarioRoutes); // Writing Scenarios (Gamified Writing)
+app.use('/api/admin', adminLessonsRoutes);
+app.use('/api/admin/vocab', adminVocabularyRoutes);
+app.use('/api/admin/reading-passages', adminReadingPassageRoutes);
+app.use('/api/admin/billing', adminBillingRoutes);
+app.use('/api/admin/system-config', adminSystemConfigRoutes);
 
-// Pet feature
+app.use('/api', dashboardRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/topics', topicRoutes);
+app.use('/api/writing-prompts', writingPromptRoutes);
+app.use('/api/speaking-questions', speakingQuestionRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api', writingScenarioRoutes);
 app.use('/api/pet', petRoutes);
-
-// Upload feature (Cloudinary)
 app.use('/api/upload', uploadRoutes);
+app.use('/api/ai', aiRoutes);
 
 // start background jobs
 startPetDecayJob();
+startCancelStalePendingJob();
 
 
 

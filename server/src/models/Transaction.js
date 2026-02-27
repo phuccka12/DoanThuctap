@@ -25,6 +25,7 @@ const transactionSchema = new mongoose.Schema({
   notes: { type: String, default: '' },   // Admin note for manual payments
   created_by_admin: { type: Boolean, default: false }, // true = manually added by admin
   refunded_at: { type: Date, default: null },
+  is_hidden: { type: Boolean, default: false }, // soft-delete: hidden from admin UI
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // Index for fast queries

@@ -6,7 +6,7 @@ const User = require("../models/User");
  */
 exports.saveOnboarding = async (req, res) => {
   try {
-    const userId = req.userId; // Changed from req.user._id to req.userId (set by protect middleware)
+    const userId = req.userId;
     const {
       goal,
       target_band,
@@ -22,6 +22,16 @@ exports.saveOnboarding = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Vui lòng cung cấp đầy đủ thông tin: goal và current_level",
+      });
+    }
+
+    // ── Guard: tài khoản đã làm onboarding rồi → không cho làm lại ──
+    const existingUser = await User.findById(userId).select('onboarding_completed');
+    if (existingUser?.onboarding_completed) {
+      return res.status(200).json({
+        success: true,
+        message: "Onboarding đã hoàn thành trước đó",
+        alreadyCompleted: true,
       });
     }
 

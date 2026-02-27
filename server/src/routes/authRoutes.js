@@ -23,6 +23,9 @@ const {
 const { googleCallback } = require("../controllers/googleAuthController");
 const User = require("../models/User");
 
+// Health check / ping (used by MaintenancePage auto-retry)
+router.get("/ping", (req, res) => res.json({ ok: true }));
+
 // Level 2
 router.post("/register", registerLimiter, validate(registerSchema), register);
 router.post("/login", loginLimiter, validate(loginSchema), login);

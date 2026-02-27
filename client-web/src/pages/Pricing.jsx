@@ -190,11 +190,14 @@ function PurchaseModal({ plan, onClose }) {
 }
 
 // ─── Plan Card ─────────────────────────────────────────────────────────────────
-function PlanCard({ plan, currentRole, onSelect, isPopular, billingCycle }) {
+function PlanCard({ plan, currentRole, currentPlanSlug, onSelect, isPopular, billingCycle }) {
   const theme = THEME[plan.color] || THEME.gray;
   const Icon  = ICONS[plan.color] || FiShield;
-  const isFree        = plan.slug === 'free';
-  const isCurrentPlan = (currentRole === 'vip' && !isFree) || (currentRole === 'standard' && isFree);
+  const isFree = plan.slug === 'free';
+  // Gói hiện tại: slug phải khớp chính xác với gói user đang dùng (còn hạn)
+  const isCurrentPlan = currentPlanSlug
+    ? plan.slug === currentPlanSlug
+    : (currentRole === 'vip' && !isFree) || (currentRole === 'standard' && isFree);
   const price   = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
   const savings = plan.price_monthly > 0 && plan.price_yearly > 0
     ? Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100) : 0;
@@ -313,7 +316,10 @@ function PlanCard({ plan, currentRole, onSelect, isPopular, billingCycle }) {
             onClick={() => onSelect(plan)}
             className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 ${theme.btn}`}
           >
-            Bắt đầu ngay <FiArrowRight size={14} />
+            {currentPlanSlug && currentPlanSlug !== plan.slug
+              ? <><FiArrowRight size={14} /> Đổi / Nâng cấp</>
+              : <>Bắt đầu ngay <FiArrowRight size={14} /></>
+            }
           </button>
         )}
       </div>
@@ -330,6 +336,7 @@ export default function Pricing() {
   const [selected, setSelected] = useState(null);
   const [faqOpen,  setFaqOpen]  = useState(null);
   const [cycle,    setCycle]    = useState('monthly');
+  const [currentPlanSlug, setCurrentPlanSlug] = useState(null);
 
   useEffect(() => {
     userBillingService.getPublicPlans()
@@ -337,6 +344,19 @@ export default function Pricing() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Fetch subscription hiện tại để biết đúng slug gói đang dùng
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    userBillingService.getMySubscription()
+      .then(r => {
+        const sub = r.data?.data;
+        if (sub?.isActive && sub?.currentPlan?.slug) {
+          setCurrentPlanSlug(sub.currentPlan.slug);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   const handleSelect = (plan) => {
     if (!isAuthenticated) { navigate('/login', { state: { from: '/pricing' } }); return; }
@@ -446,6 +466,7 @@ export default function Pricing() {
                 key={plan._id}
                 plan={plan}
                 currentRole={user?.role}
+                currentPlanSlug={currentPlanSlug}
                 onSelect={handleSelect}
                 billingCycle={cycle}
                 isPopular={plan.is_featured || (plans.length >= 2 && idx === Math.floor(plans.length / 2))}

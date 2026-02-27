@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../utils/axiosConfig';
@@ -13,99 +13,95 @@ export default function Onboarding() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitCalledRef = useRef(false); // useRef tránh stale closure
   const navigate = useNavigate();
   const { user, fetchUserInfo } = useAuth();
 
-  const totalSteps = 6; // 5 steps + 1 summary
+  const totalSteps = 6;
+
+  // ── Guard: nếu user đã hoàn thành onboarding rồi → vào thẳng dashboard ──
+  useEffect(() => {
+    if (user?.onboarding_completed) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user]);
 
   const handleNext = (data) => {
-    const newFormData = { ...formData, ...data };
-    setFormData(newFormData);
-    
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
-    }
+    setFormData(prev => ({ ...prev, ...data }));
+    if (currentStep < totalSteps) setCurrentStep(s => s + 1);
   };
 
   const handleSkip = (data) => {
-    // User skipped mini-game, go to summary
-    const newFormData = { ...formData, ...data };
-    setFormData(newFormData);
-    setCurrentStep(6); // Go to summary
+    setFormData(prev => ({ ...prev, ...data }));
+    setCurrentStep(6);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
+    if (currentStep > 1) setCurrentStep(s => s - 1);
   };
 
   const submitOnboarding = async (data) => {
-    if (isSubmitting) return;
-    
+    // useRef guard — không bị stale closure như useState
+    if (submitCalledRef.current) return;
+    submitCalledRef.current = true;
+
     setIsSubmitting(true);
     try {
-      // Map frontend data structure to backend expected format
       const payload = {
-        goal: data.goal,
-        current_level: data.background, // Map background -> current_level
-        focus_skills: data.painPoint ? [data.painPoint] : [], // Map painPoint -> focus_skills array
-        study_hours_per_week: data.timeCommitment ? parseInt(data.timeCommitment.split('-')[0]) : null, // Extract hours
-        target_band: null, // Optional
-        preferred_study_days: [], // Optional
-        exam_date: null, // Optional
+        goal: data.goal || 'other',
+        current_level: data.background || 'beginner',
+        focus_skills: data.painPoint ? [data.painPoint] : ['all'],
+        study_hours_per_week: data.timeCommitment
+          ? parseInt(data.timeCommitment.split('-')[0]) || null
+          : null,
+        target_band: null,
+        preferred_study_days: [],
+        exam_date: null,
       };
 
-      console.log('📤 Submitting onboarding:', payload);
-      const response = await axiosInstance.post('/onboarding', payload);
-      console.log('✅ Onboarding response:', response.data);
-      
-      console.log('🔄 Fetching updated user info...');
-      await fetchUserInfo(); // Reload user data to update onboarding status
-      console.log('✅ User info updated:', user);
-      
-      console.log('➡️ Navigating to dashboard...');
-      navigate('/dashboard', { replace: true });
+      await axiosInstance.post('/onboarding', payload);
+
+      // fetchUserInfo trả về user mới có onboarding_completed = true
+      await fetchUserInfo();
+
+      // setTimeout đảm bảo React đã flush setUser() trước khi navigate
+      setTimeout(() => navigate('/dashboard', { replace: true }), 50);
     } catch (error) {
-      console.error('❌ Error submitting onboarding:', error);
-      alert('Có lỗi xảy ra. Vui lòng thử lại!');
-    } finally {
+      console.error('❌ Onboarding submit error:', error);
+      // Reset ref để user có thể thử lại
+      submitCalledRef.current = false;
       setIsSubmitting(false);
+      alert('Có lỗi xảy ra. Vui lòng thử lại!');
     }
   };
+
+  // ── Trigger submit khi đến step 6 — KHÔNG gọi trong render ──
+  useEffect(() => {
+    if (currentStep === 6 && Object.keys(formData).length > 0) {
+      submitOnboarding(formData);
+    }
+  }, [currentStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderStep = () => {
     switch (currentStep) {
-      case 1:
-        return <OnboardingStep1 onNext={handleNext} />;
-      case 2:
-        return <OnboardingStep2 onNext={handleNext} onBack={handleBack} />;
-      case 3:
-        return <OnboardingStep3 onNext={handleNext} onBack={handleBack} />;
-      case 4:
-        return <OnboardingStep4 onNext={handleNext} onBack={handleBack} />;
-      case 5:
-        return <OnboardingStep5 onNext={handleNext} onBack={handleBack} onSkip={handleSkip} />;
-      case 6:
-        // Submit data when reaching summary
-        if (!isSubmitting && Object.keys(formData).length > 0) {
-          submitOnboarding(formData);
-        }
-        return <OnboardingSummary data={formData} userName={user?.username || 'bạn'} />;
-      default:
-        return <OnboardingStep1 onNext={handleNext} />;
+      case 1: return <OnboardingStep1 onNext={handleNext} />;
+      case 2: return <OnboardingStep2 onNext={handleNext} onBack={handleBack} />;
+      case 3: return <OnboardingStep3 onNext={handleNext} onBack={handleBack} />;
+      case 4: return <OnboardingStep4 onNext={handleNext} onBack={handleBack} />;
+      case 5: return <OnboardingStep5 onNext={handleNext} onBack={handleBack} onSkip={handleSkip} />;
+      case 6: return <OnboardingSummary data={formData} userName={user?.user_name || user?.username || 'bạn'} />;
+      default: return <OnboardingStep1 onNext={handleNext} />;
     }
   };
 
-  // Calculate progress percentage
   const progressPercent = (currentStep / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50">
+    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-violet-50">
       {/* Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-2 bg-purple-100 backdrop-blur-sm z-50 shadow-sm">
         <div
-          className="h-full bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] transition-all duration-500 ease-out"
+          className="h-full bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] transition-all duration-500 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

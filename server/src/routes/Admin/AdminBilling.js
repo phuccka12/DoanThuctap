@@ -17,8 +17,11 @@ router.get('/transactions/stats', ctrl.getTransactionStats);
 router.get('/transactions/revenue', ctrl.getRevenueByMonth);
 router.get('/transactions', ctrl.getTransactions);
 router.post('/transactions', ctrl.createManualTransaction);
+// ── Static sub-paths MUST come before /:id routes ──
+router.patch('/transactions/bulk-hide', ctrl.bulkHideTransactions);
+// ── Per-ID routes ──
 router.patch('/transactions/:id/status', ctrl.updateTransactionStatus);
-router.delete('/transactions/bulk', ctrl.bulkDeleteTransactions);
-router.delete('/transactions/:id', ctrl.deleteTransaction);
+router.post('/transactions/:id/sync-vnpay', ctrl.syncVnpayTransaction);
+router.patch('/transactions/:id/hide', ctrl.hideTransaction);
 
 module.exports = router;

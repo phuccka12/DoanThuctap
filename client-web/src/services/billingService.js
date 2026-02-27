@@ -13,8 +13,9 @@ const billingService = {
   getTransactions: (params) => api.get('/admin/billing/transactions', { params }),
   createManualTransaction: (data) => api.post('/admin/billing/transactions', data),
   updateTransactionStatus: (id, data) => api.patch(`/admin/billing/transactions/${id}/status`, data),
-  deleteTransaction: (id) => api.delete(`/admin/billing/transactions/${id}`),
-  bulkDeleteTransactions: (ids) => api.delete('/admin/billing/transactions/bulk', { data: { ids } }),
+  hideTransaction: (id) => api.patch(`/admin/billing/transactions/${id}/hide`),
+  bulkHideTransactions: (ids) => api.patch('/admin/billing/transactions/bulk-hide', { ids }),
+  syncVnpayTransaction: (id) => api.post(`/admin/billing/transactions/${id}/sync-vnpay`),
 };
 
 export default billingService;

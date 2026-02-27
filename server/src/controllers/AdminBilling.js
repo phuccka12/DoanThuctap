@@ -1,6 +1,7 @@
 ﻿const SubscriptionPlan = require('../models/SubscriptionPlan');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const vnpayService = require('../services/vnpayService');
 
 exports.getPlans = async (req, res) => {
   try {
@@ -32,9 +33,16 @@ exports.deletePlan = async (req, res) => {
 };
 exports.getTransactions = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, gateway, user_id, search, dateFrom, dateTo } = req.query;
-    const query = {};
-    if (status) query.status = status;
+    const { page = 1, limit = 20, status, gateway, user_id, search, dateFrom, dateTo, tab } = req.query;
+    const query = { is_hidden: false };
+    // Tab filter: 'active' = success+pending, 'archive' = cancelled+failed+refunded
+    if (tab === 'active') {
+      query.status = { $in: ['success', 'pending'] };
+    } else if (tab === 'archive') {
+      query.status = { $in: ['cancelled', 'failed', 'refunded'] };
+    } else if (status) {
+      query.status = status;
+    }
     if (gateway) query.gateway = gateway;
     if (user_id) query.user_id = user_id;
     if (dateFrom || dateTo) {
@@ -106,26 +114,110 @@ exports.createManualTransaction = async (req, res) => {
 };
 exports.updateTransactionStatus = async (req, res) => {
   try {
-    const { status, notes } = req.body;
-    const tx = await Transaction.findByIdAndUpdate(req.params.id, { status, notes, ...(status === 'refunded' ? { refunded_at: new Date() } : {}) }, { new: true }).populate('user_id','user_name email').populate('plan_id','name slug');
+    const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ message: 'Khong tim thay giao dich' });
-    res.json({ message: 'Cap nhat trang thai thanh cong', data: tx });
+    // VNPay transactions must be synced via API, not edited manually
+    if (tx.gateway === 'vnpay') return res.status(403).json({ message: 'Giao dich VNPay khong duoc sua thu cong. Dung chuc nang Dong bo.' });
+    const { status, notes } = req.body;
+    const updated = await Transaction.findByIdAndUpdate(
+      req.params.id,
+      { status, notes, ...(status === 'refunded' ? { refunded_at: new Date() } : {}) },
+      { new: true }
+    ).populate('user_id','user_name email').populate('plan_id','name slug');
+    res.json({ message: 'Cap nhat trang thai thanh cong', data: updated });
   } catch (e) { res.status(500).json({ message: 'Loi server', error: e.message }); }
 };
-exports.deleteTransaction = async (req, res) => {
+
+// Soft-hide a transaction (replaces hard delete — preserves financial records)
+exports.hideTransaction = async (req, res) => {
   try {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ message: 'Khong tim thay giao dich' });
-    if (!['cancelled', 'failed'].includes(tx.status)) return res.status(400).json({ message: 'Chi duoc xoa giao dich da huy hoac that bai' });
-    await Transaction.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Da xoa giao dich thanh cong' });
+    if (tx.status === 'success') return res.status(400).json({ message: 'Khong the an giao dich thanh cong' });
+    await Transaction.findByIdAndUpdate(req.params.id, { is_hidden: true });
+    res.json({ message: 'Da an giao dich khoi danh sach' });
   } catch (e) { res.status(500).json({ message: 'Loi server', error: e.message }); }
 };
-exports.bulkDeleteTransactions = async (req, res) => {
+
+// Bulk soft-hide (replaces bulk hard delete)
+exports.bulkHideTransactions = async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'Danh sach id khong hop le' });
-    const result = await Transaction.deleteMany({ _id: { $in: ids }, status: { $in: ['cancelled', 'failed'] } });
-    res.json({ message: `Da xoa ${result.deletedCount} giao dich`, deletedCount: result.deletedCount });
+    const result = await Transaction.updateMany(
+      { _id: { $in: ids }, status: { $in: ['cancelled', 'failed'] } },
+      { $set: { is_hidden: true } }
+    );
+    res.json({ message: `Da an ${result.modifiedCount} giao dich`, hiddenCount: result.modifiedCount });
   } catch (e) { res.status(500).json({ message: 'Loi server', error: e.message }); }
+};
+
+// Sync VNPay transaction status via Query API
+exports.syncVnpayTransaction = async (req, res) => {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ message: 'Khong tim thay giao dich' });
+    if (tx.gateway !== 'vnpay') return res.status(400).json({ message: 'Chi dong bo duoc giao dich VNPay' });
+    if (!tx.gateway_tx_id) return res.status(400).json({ message: 'Giao dich nay chua co ma tham chieu VNPay (gateway_tx_id trong)' });
+
+    // Call VNPay Query (querydr) API
+    let result = null;
+    let vnpayWarning = null;
+
+    try {
+      result = await vnpayService.queryTransaction({
+        txnRef: tx.gateway_tx_id,
+        transDate: tx.created_at,
+        ipAddr: req.ip || '127.0.0.1',
+      });
+    } catch (vnpayErr) {
+      // VNPay Query API không khả dụng (sandbox 403, network error, v.v.)
+      // Không crash toàn bộ request — trả về warning kèm dữ liệu hiện tại
+      vnpayWarning = vnpayErr.message;
+      console.warn('[syncVnpay] VNPay Query API lỗi:', vnpayErr.message);
+    }
+
+    // Nếu query thành công → cập nhật status theo kết quả VNPay
+    let newStatus = tx.status;
+    if (result) {
+      if (result.vnp_ResponseCode === '00' && result.vnp_TransactionStatus === '00') newStatus = 'success';
+      else if (['07','09','10','11','12','13','24','51','65','75','79'].includes(result.vnp_ResponseCode)) newStatus = 'failed';
+      else if (result.vnp_ResponseCode === '02') newStatus = 'pending'; // still processing
+      // Cũng kiểm tra field responseCode (tùy phiên bản VNPay trả về)
+      else if (result.responseCode === '00' && result.transactionStatus === '00') newStatus = 'success';
+      else if (['07','09','10','11','12','13','24','51','65','75','79'].includes(result.responseCode)) newStatus = 'failed';
+    }
+
+    const updated = await Transaction.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: newStatus,
+        gateway_payload: {
+          ...tx.gateway_payload,
+          sync_result: result || null,
+          sync_warning: vnpayWarning || undefined,
+          synced_at: new Date(),
+        },
+      },
+      { new: true }
+    ).populate('user_id', 'user_name email').populate('plan_id', 'name slug');
+
+    if (vnpayWarning) {
+      return res.status(200).json({
+        message: `Dong bo that bai: ${vnpayWarning}`,
+        warning: vnpayWarning,
+        data: updated,
+        vnpayResult: null,
+      });
+    }
+
+    res.json({
+      message: `Dong bo thanh cong. Trang thai: ${newStatus}`,
+      data: updated,
+      vnpayResult: result,
+    });
+  } catch (e) {
+    console.error('[syncVnpayTransaction]', e.message);
+    res.status(500).json({ message: 'Loi server', error: e.message });
+  }
 };

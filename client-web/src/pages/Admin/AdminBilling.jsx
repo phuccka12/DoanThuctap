@@ -4,7 +4,8 @@ import {
   FiRefreshCw, FiSearch, FiCheck, FiX, FiZap, FiStar, FiShield,
   FiAlertCircle, FiLoader, FiChevronLeft, FiChevronRight, FiSave,
   FiArrowRight, FiUsers, FiTrendingUp, FiDownload, FiCalendar,
-  FiBarChart2, FiFilter, FiEye, FiFileText, FiMinus,
+  FiBarChart2, FiFilter, FiEye, FiFileText, FiMinus, FiRefreshCcw,
+  FiArchive, FiActivity,
 } from 'react-icons/fi';
 import { FaCrown, FaRocket, FaGem } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
@@ -651,6 +652,7 @@ function MiniBarChart({ data, maxValue, color = '#a855f7' }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminBilling() {
   const [tab, setTab]               = useState('plans');
+  const [txTab, setTxTab]           = useState('active'); // 'active' | 'archive'
   const [plans, setPlans]           = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [txStats, setTxStats]       = useState(null);
@@ -662,11 +664,12 @@ export default function AdminBilling() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [planModal, setPlanModal]   = useState(null);
   const [statusModal, setStatusModal] = useState(null);
-  const [deleteModal, setDeleteModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
-  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [hideModal, setHideModal]   = useState(null);   // tx to soft-hide
+  const [bulkHideModal, setBulkHideModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkHiding, setBulkHiding] = useState(false);
+  const [syncing, setSyncing]       = useState(null);  // tx._id currently syncing
   const [exporting, setExporting]   = useState(false);
   const [toast, setToast]           = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -710,14 +713,16 @@ export default function AdminBilling() {
     setLoadingTx(true);
     setSelectedIds(new Set());
     try {
-      const params = { page: pagination.page, limit: 15, ...filters };
-      Object.keys(params).forEach(k => { if (!params[k]) delete params[k]; });
+      const params = { page: pagination.page, limit: 15, tab: txTab, ...filters };
+      // When in archive tab, don't send status filter (backend handles it via tab)
+      if (txTab !== 'all') delete params.status;
+      Object.keys(params).forEach(k => { if (params[k] === '' || params[k] == null) delete params[k]; });
       const res = await billingService.getTransactions(params);
       setTransactions(res.data?.data?.transactions || []);
       setPagination(p => ({ ...p, totalPages: res.data?.data?.totalPages || 1, total: res.data?.data?.total || 0 }));
     } catch { showToast('❌ Không tải được giao dịch'); }
     finally { setLoadingTx(false); }
-  }, [pagination.page, filters]);
+  }, [pagination.page, filters, txTab]);
 
   useEffect(() => { fetchPlans(); }, [fetchPlans]);
   useEffect(() => {
@@ -726,6 +731,11 @@ export default function AdminBilling() {
       fetchTransactions();
     }
   }, [tab, fetchTransactions]);
+
+  // Reset to page 1 when txTab changes
+  useEffect(() => {
+    setPagination(p => ({ ...p, page: 1 }));
+  }, [txTab]);
 
   // ── Plan handlers ─────────────────────────────────────────────────────────
   const handleDeletePlan = async (id) => {
@@ -754,35 +764,50 @@ export default function AdminBilling() {
       setStatusModal(null);
       fetchTransactions();
       fetchStats();
-    } catch { showToast('❌ Lỗi khi cập nhật'); }
+    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi khi cập nhật')); }
   };
 
-  const handleDeleteTx = async () => {
-    if (!deleteModal) return;
+  const handleHideTx = async () => {
+    if (!hideModal) return;
     try {
-      await billingService.deleteTransaction(deleteModal._id);
-      showToast('✅ Đã xóa giao dịch');
-      setDeleteModal(null);
+      await billingService.hideTransaction(hideModal._id);
+      showToast('✅ Đã ẩn giao dịch khỏi danh sách');
+      setHideModal(null);
       fetchTransactions();
-      fetchStats();
-    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi khi xóa')); setDeleteModal(null); }
+    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi khi ẩn')); setHideModal(null); }
   };
 
-  const handleBulkDelete = async () => {
-    const deletableIds = transactions
+  const handleBulkHide = async () => {
+    const hideableIds = transactions
       .filter(t => selectedIds.has(t._id) && ['cancelled', 'failed'].includes(t.status))
       .map(t => t._id);
-    if (!deletableIds.length) { showToast('⚠️ Không có giao dịch nào được phép xóa trong danh sách đã chọn'); setBulkDeleteModal(false); return; }
-    setBulkDeleting(true);
+    if (!hideableIds.length) { showToast('⚠️ Không có giao dịch nào được phép ẩn trong danh sách đã chọn'); setBulkHideModal(false); return; }
+    setBulkHiding(true);
     try {
-      await billingService.bulkDeleteTransactions(deletableIds);
-      showToast(`✅ Đã xóa ${deletableIds.length} giao dịch`);
-      setBulkDeleteModal(false);
+      await billingService.bulkHideTransactions(hideableIds);
+      showToast(`✅ Đã ẩn ${hideableIds.length} giao dịch`);
+      setBulkHideModal(false);
       setSelectedIds(new Set());
       fetchTransactions();
+    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi khi ẩn hàng loạt')); }
+    finally { setBulkHiding(false); }
+  };
+
+  const handleSyncVnpay = async (tx) => {
+    setSyncing(tx._id);
+    try {
+      const res = await billingService.syncVnpayTransaction(tx._id);
+      const data = res.data;
+      if (data?.warning) {
+        // VNPay Query API không khả dụng nhưng không crash — hiện warning
+        showToast(`⚠️ ${data.message}`);
+      } else {
+        showToast(`✅ Đồng bộ VNPay: ${data?.message}`);
+      }
+      fetchTransactions();
       fetchStats();
-    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi khi xóa hàng loạt')); }
-    finally { setBulkDeleting(false); }
+    } catch (e) { showToast('❌ ' + (e.response?.data?.message || 'Lỗi đồng bộ VNPay')); }
+    finally { setSyncing(null); }
   };
 
   // ── Checkbox helpers ──────────────────────────────────────────────────────
@@ -801,6 +826,7 @@ export default function AdminBilling() {
   };
 
   const deletableSelectedCount = transactions.filter(t => selectedIds.has(t._id) && ['cancelled', 'failed'].includes(t.status)).length;
+  const hideableSelectedCount  = deletableSelectedCount; // same rule: only cancelled/failed can be hidden
   const allPageSelected = transactions.length > 0 && transactions.every(t => selectedIds.has(t._id));
   const somePageSelected = transactions.some(t => selectedIds.has(t._id));
   const singleSelected = selectedIds.size === 1 ? transactions.find(t => selectedIds.has(t._id)) : null;
@@ -1100,6 +1126,36 @@ export default function AdminBilling() {
             </div>
           )}
 
+          {/* ── Sub-tabs: Active / Archive ── */}
+          <div className="flex gap-1 p-1 bg-gray-800/60 border border-gray-700/50 rounded-xl w-fit">
+            {[
+              { key: 'active',  label: 'Hoạt động',  icon: FiActivity,  desc: 'Thành công & Chờ xử lý' },
+              { key: 'archive', label: 'Lưu trữ',     icon: FiArchive,   desc: 'Đã hủy / Thất bại / Hoàn tiền' },
+            ].map(({ key, label, icon: Icon, desc }) => (
+              <button
+                key={key}
+                onClick={() => setTxTab(key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  txTab === key
+                    ? 'bg-gray-700 text-white shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+                title={desc}
+              >
+                <Icon size={14} />
+                {label}
+                {txTab === key && txStats && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    {key === 'active'
+                      ? (txStats.success || 0) + (txStats.pending || 0)
+                      : (txStats.cancelled || 0) + (txStats.failed || 0) + (txStats.refunded || 0)
+                    }
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
           {/* ── Toolbar ── */}
           <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 space-y-3">
             {/* Main row */}
@@ -1206,12 +1262,12 @@ export default function AdminBilling() {
                   <FiEye size={12} /> Xem chi tiết
                 </button>
               )}
-              {deletableSelectedCount > 0 && (
+              {hideableSelectedCount > 0 && (
                 <button
-                  onClick={() => setBulkDeleteModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 rounded-lg transition"
+                  onClick={() => setBulkHideModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-500/15 border border-gray-500/30 text-gray-400 hover:bg-gray-500/25 hover:text-gray-200 rounded-lg transition"
                 >
-                  <FiTrash2 size={12} /> Xóa {deletableSelectedCount} giao dịch
+                  <FiArchive size={12} /> Ẩn {hideableSelectedCount} giao dịch
                 </button>
               )}
               <button
@@ -1304,6 +1360,7 @@ export default function AdminBilling() {
                 <div className="text-xs text-gray-400">{fmtDate(tx.created_at)}</div>
                 {/* Actions */}
                 <div className="flex items-center justify-center gap-1">
+                  {/* Detail */}
                   <button
                     onClick={() => setDetailModal(tx)}
                     className="p-1.5 hover:bg-blue-500/15 rounded-lg text-gray-400 hover:text-blue-400 transition"
@@ -1311,20 +1368,35 @@ export default function AdminBilling() {
                   >
                     <FiEye size={13} />
                   </button>
-                  <button
-                    onClick={() => setStatusModal({ tx, newStatus: tx.status, notes: tx.notes || '' })}
-                    className="p-1.5 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-400 transition"
-                    title="Đổi trạng thái"
-                  >
-                    <FiEdit2 size={13} />
-                  </button>
-                  {['cancelled', 'failed'].includes(tx.status) ? (
+                  {/* VNPay: Sync button; Others: Edit button */}
+                  {tx.gateway === 'vnpay' ? (
                     <button
-                      onClick={() => setDeleteModal(tx)}
-                      className="p-1.5 hover:bg-rose-500/20 rounded-lg text-gray-500 hover:text-rose-400 transition"
-                      title="Xóa giao dịch"
+                      onClick={() => handleSyncVnpay(tx)}
+                      disabled={syncing === tx._id}
+                      className="p-1.5 hover:bg-purple-500/15 rounded-lg text-gray-400 hover:text-purple-400 transition disabled:opacity-50"
+                      title="Đồng bộ trạng thái từ VNPay"
                     >
-                      <FiTrash2 size={13} />
+                      {syncing === tx._id
+                        ? <FiLoader size={13} className="animate-spin text-purple-400" />
+                        : <FiRefreshCcw size={13} />}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setStatusModal({ tx, newStatus: tx.status, notes: tx.notes || '' })}
+                      className="p-1.5 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-400 transition"
+                      title="Đổi trạng thái thủ công"
+                    >
+                      <FiEdit2 size={13} />
+                    </button>
+                  )}
+                  {/* Soft-hide (archive tab only, cancelled/failed) */}
+                  {txTab === 'archive' && ['cancelled', 'failed'].includes(tx.status) ? (
+                    <button
+                      onClick={() => setHideModal(tx)}
+                      className="p-1.5 hover:bg-gray-600/30 rounded-lg text-gray-500 hover:text-gray-300 transition"
+                      title="Ẩn khỏi danh sách (không xóa dữ liệu)"
+                    >
+                      <FiArchive size={13} />
                     </button>
                   ) : (
                     <div className="p-1.5 w-7" />
@@ -1378,8 +1450,8 @@ export default function AdminBilling() {
         />
       )}
 
-      {/* ── Status Change Modal ── */}
-      {statusModal && (
+      {/* ── Status Change Modal ── (only for non-VNPay) */}
+      {statusModal && statusModal.tx.gateway !== 'vnpay' && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-96 shadow-2xl">
             <h3 className="font-bold text-white mb-1 text-base">✏️ Đổi trạng thái giao dịch</h3>
@@ -1390,6 +1462,9 @@ export default function AdminBilling() {
               </p>
               <p className="text-xs text-gray-500">
                 {statusModal.tx.plan_id?.name} · {fmtMoney(statusModal.tx.amount)}
+              </p>
+              <p className="text-xs text-emerald-600/80 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 mt-1">
+                Kênh: <strong>{GATEWAY_LABELS[statusModal.tx.gateway] || statusModal.tx.gateway}</strong> — chỉnh sửa thủ công được phép
               </p>
             </div>
             <div className="space-y-3">
@@ -1419,63 +1494,59 @@ export default function AdminBilling() {
         </div>
       )}
 
-      {/* ── Delete Transaction Confirm Modal ── */}
-      {deleteModal && (
+      {/* ── Single Soft-Hide Confirm ── */}
+      {hideModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-rose-500/30 rounded-2xl p-6 w-96 shadow-2xl">
+          <div className="bg-gray-900 border border-gray-600/40 rounded-2xl p-6 w-96 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0">
-                <FiTrash2 size={18} className="text-rose-400" />
+              <div className="w-10 h-10 rounded-xl bg-gray-600/20 border border-gray-600/30 flex items-center justify-center shrink-0">
+                <FiArchive size={18} className="text-gray-400" />
               </div>
               <div>
-                <h3 className="font-bold text-white">Xóa giao dịch?</h3>
-                <p className="text-xs text-gray-400">Hành động này không thể hoàn tác</p>
+                <h3 className="font-bold text-white">Ẩn giao dịch?</h3>
+                <p className="text-xs text-gray-400">Dữ liệu vẫn được lưu trữ trong database</p>
               </div>
             </div>
             <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 mb-4 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-400">Người dùng</span>
-                <span className="text-white">{deleteModal.user_id?.user_name || deleteModal.user_id?.email}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Gói</span>
-                <span className="text-white">{deleteModal.plan_id?.name}</span>
+                <span className="text-white">{hideModal.user_id?.user_name || hideModal.user_id?.email}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Số tiền</span>
-                <span className="text-emerald-400 font-mono">{fmtMoney(deleteModal.amount)}</span>
+                <span className="text-emerald-400 font-mono">{fmtMoney(hideModal.amount)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Trạng thái</span>
-                <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-semibold ${STATUS_CFG[deleteModal.status]?.cls}`}>
-                  {STATUS_CFG[deleteModal.status]?.label}
+                <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-semibold ${STATUS_CFG[hideModal.status]?.cls}`}>
+                  {STATUS_CFG[hideModal.status]?.label}
                 </span>
               </div>
             </div>
-            <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-4">
-              ⚠️ Chỉ giao dịch <strong>đã hủy</strong> hoặc <strong>thất bại</strong> mới có thể xóa để bảo toàn lịch sử tài chính.
+            <p className="text-xs text-blue-400/80 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 mb-4">
+              ℹ️ Giao dịch sẽ bị ẩn khỏi danh sách Admin nhưng <strong>không bị xóa</strong> khỏi database. Sổ sách kế toán không bị ảnh hưởng.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteModal(null)} className="flex-1 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl transition">Hủy</button>
-              <button onClick={handleDeleteTx} className="flex-1 py-2.5 text-sm bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold transition flex items-center justify-center gap-2">
-                <FiTrash2 size={13} /> Xóa giao dịch
+              <button onClick={() => setHideModal(null)} className="flex-1 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl transition">Hủy</button>
+              <button onClick={handleHideTx} className="flex-1 py-2.5 text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-semibold transition flex items-center justify-center gap-2">
+                <FiArchive size={13} /> Ẩn giao dịch
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Bulk Delete Confirm Modal ── */}
-      {bulkDeleteModal && (
+      {/* ── Bulk Soft-Hide Confirm ── */}
+      {bulkHideModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-rose-500/30 rounded-2xl p-6 w-105 shadow-2xl">
+          <div className="bg-gray-900 border border-gray-600/40 rounded-2xl p-6 w-105 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0">
-                <FiTrash2 size={18} className="text-rose-400" />
+              <div className="w-10 h-10 rounded-xl bg-gray-600/20 border border-gray-600/30 flex items-center justify-center shrink-0">
+                <FiArchive size={18} className="text-gray-400" />
               </div>
               <div>
-                <h3 className="font-bold text-white">Xóa hàng loạt giao dịch?</h3>
-                <p className="text-xs text-gray-400">Hành động này không thể hoàn tác</p>
+                <h3 className="font-bold text-white">Ẩn hàng loạt giao dịch?</h3>
+                <p className="text-xs text-gray-400">Dữ liệu vẫn an toàn trong database</p>
               </div>
             </div>
             <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 mb-4 space-y-1.5 text-sm">
@@ -1484,25 +1555,25 @@ export default function AdminBilling() {
                 <span className="text-white font-semibold">{selectedIds.size} giao dịch</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Được phép xóa (đã hủy / thất bại)</span>
-                <span className="text-rose-400 font-semibold">{deletableSelectedCount} giao dịch</span>
+                <span className="text-gray-400">Được phép ẩn (đã hủy / thất bại)</span>
+                <span className="text-gray-300 font-semibold">{hideableSelectedCount} giao dịch</span>
               </div>
-              {selectedIds.size - deletableSelectedCount > 0 && (
+              {selectedIds.size - hideableSelectedCount > 0 && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">Bỏ qua (không được xóa)</span>
-                  <span className="text-amber-400">{selectedIds.size - deletableSelectedCount} giao dịch</span>
+                  <span className="text-gray-400">Bỏ qua (thành công / chờ — không được ẩn)</span>
+                  <span className="text-amber-400">{selectedIds.size - hideableSelectedCount} giao dịch</span>
                 </div>
               )}
             </div>
-            <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-4">
-              ⚠️ Chỉ giao dịch <strong>đã hủy</strong> hoặc <strong>thất bại</strong> mới có thể xóa để bảo toàn lịch sử tài chính.
+            <p className="text-xs text-blue-400/80 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 mb-4">
+              ℹ️ Thao tác này chỉ ẩn giao dịch khỏi màn hình Admin, <strong>không xóa</strong> dữ liệu khỏi database.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setBulkDeleteModal(false)} className="flex-1 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl transition">Hủy</button>
-              <button onClick={handleBulkDelete} disabled={bulkDeleting || !deletableSelectedCount}
-                className="flex-1 py-2.5 text-sm bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl font-semibold transition flex items-center justify-center gap-2">
-                {bulkDeleting ? <FiLoader size={13} className="animate-spin" /> : <FiTrash2 size={13} />}
-                Xóa {deletableSelectedCount} giao dịch
+              <button onClick={() => setBulkHideModal(false)} className="flex-1 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl transition">Hủy</button>
+              <button onClick={handleBulkHide} disabled={bulkHiding || !hideableSelectedCount}
+                className="flex-1 py-2.5 text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-200 rounded-xl font-semibold transition flex items-center justify-center gap-2">
+                {bulkHiding ? <FiLoader size={13} className="animate-spin" /> : <FiArchive size={13} />}
+                Ẩn {hideableSelectedCount} giao dịch
               </button>
             </div>
           </div>
@@ -1536,6 +1607,14 @@ export default function AdminBilling() {
                 {STATUS_CFG[detailModal.status]?.label || detailModal.status}
                 {detailModal.notes && <span className="font-normal text-xs ml-auto opacity-75">"{detailModal.notes}"</span>}
               </div>
+
+              {/* VNPay sync info banner */}
+              {detailModal.gateway === 'vnpay' && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-500/25 bg-purple-500/10 text-xs text-purple-300">
+                  <FiRefreshCcw size={12} />
+                  <span>Giao dịch VNPay — dùng nút <strong>Đồng bộ</strong> để cập nhật trạng thái từ cổng</span>
+                </div>
+              )}
 
               {/* User */}
               <div className="bg-gray-800/50 border border-gray-700/40 rounded-xl p-3.5 space-y-2">
@@ -1581,18 +1660,27 @@ export default function AdminBilling() {
 
             {/* Footer actions */}
             <div className="flex gap-3 px-5 pb-5">
-              <button
-                onClick={() => { setDetailModal(null); setStatusModal({ tx: detailModal, newStatus: detailModal.status, notes: detailModal.notes || '' }); }}
-                className="flex-1 py-2.5 text-sm bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 rounded-xl transition font-medium flex items-center justify-center gap-2"
-              >
-                <FiEdit2 size={13} /> Đổi trạng thái
-              </button>
-              {['cancelled', 'failed'].includes(detailModal.status) && (
+              {detailModal.gateway === 'vnpay' ? (
                 <button
-                  onClick={() => { setDetailModal(null); setDeleteModal(detailModal); }}
-                  className="flex-1 py-2.5 text-sm bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 rounded-xl transition font-medium flex items-center justify-center gap-2"
+                  onClick={() => { handleSyncVnpay(detailModal); setDetailModal(null); }}
+                  className="flex-1 py-2.5 text-sm bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 rounded-xl transition font-medium flex items-center justify-center gap-2"
                 >
-                  <FiTrash2 size={13} /> Xóa giao dịch
+                  <FiRefreshCcw size={13} /> Đồng bộ VNPay
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setDetailModal(null); setStatusModal({ tx: detailModal, newStatus: detailModal.status, notes: detailModal.notes || '' }); }}
+                  className="flex-1 py-2.5 text-sm bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 rounded-xl transition font-medium flex items-center justify-center gap-2"
+                >
+                  <FiEdit2 size={13} /> Đổi trạng thái
+                </button>
+              )}
+              {txTab === 'archive' && ['cancelled', 'failed'].includes(detailModal.status) && (
+                <button
+                  onClick={() => { setDetailModal(null); setHideModal(detailModal); }}
+                  className="flex-1 py-2.5 text-sm bg-gray-700/40 border border-gray-600/40 text-gray-300 hover:bg-gray-700 rounded-xl transition font-medium flex items-center justify-center gap-2"
+                >
+                  <FiArchive size={13} /> Ẩn giao dịch
                 </button>
               )}
               <button onClick={() => setDetailModal(null)} className="px-4 py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded-xl transition">
@@ -1605,4 +1693,3 @@ export default function AdminBilling() {
     </div>
   );
 }
-

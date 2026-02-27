@@ -37,6 +37,9 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+// Flag to prevent multiple maintenance redirects
+let isRedirectingToMaintenance = false;
+
 // Response interceptor - Handle token expiration
 axiosInstance.interceptors.response.use(
   (response) => {
@@ -44,6 +47,23 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle 503 Maintenance Mode
+    if (error.response?.status === 503 && error.response?.data?.maintenance) {
+      const path = window.location.pathname;
+      const isPublicPath = ['/maintenance', '/login', '/register', '/forgot-password', '/reset-password', '/pricing']
+        .some(p => path.startsWith(p));
+      if (!isPublicPath && !path.startsWith('/admin')) {
+        if (!isRedirectingToMaintenance) {
+          isRedirectingToMaintenance = true;
+          window.location.href = '/maintenance';
+        }
+      } else {
+        // Đã ở public path hoặc admin — reset flag
+        isRedirectingToMaintenance = false;
+      }
+      return Promise.reject(error);
+    }
 
     // If error is not 401 or request has already been retried, reject
     if (error.response?.status !== 401 || originalRequest._retry) {
