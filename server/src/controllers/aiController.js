@@ -1,21 +1,26 @@
 // src/controllers/aiController.js
 const axios = require('axios');
+const { earnCoins, getNum } = require('../services/economyService');
 
 // Địa chỉ của Server Python (đang chạy ở cổng 5000)
-const AI_SERVICE_URL = 'http://127.0.0.1:5000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:5000';
 
 // 1. Chức năng Chấm bài Writing
 exports.checkWriting = async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, topic } = req.body;
 
         // Gọi sang Python
-        const response = await axios.post(`${AI_SERVICE_URL}/api/writing/check`, {
-            text: text
-        });
+        const response = await axios.post(`${AI_SERVICE_URL}/api/writing/check`, { text, topic });
 
-        // Python trả về gì thì gửi y nguyên cho Client
-        res.json(response.data);
+        // Cộng Coins sau khi nộp bài (nếu user đã đăng nhập)
+        let coinResult = null;
+        if (req.userId) {
+            const reward = await getNum('economy_reward_writing', 40);
+            coinResult = await earnCoins(req.userId, 'writing', reward);
+        }
+
+        res.json({ ...response.data, coinResult });
 
     } catch (error) {
         console.error("Lỗi gọi AI Writing:", error.message);
@@ -26,14 +31,31 @@ exports.checkWriting = async (req, res) => {
 // 2. Chức năng Chấm bài Speaking
 exports.checkSpeaking = async (req, res) => {
     try {
-        const { audioFile } = req.body; // hoặc req.file nếu upload file
+        let response;
+        if (req.file) {
+            // Upload file tới Python
+            const FormData = require('form-data');
+            const form = new FormData();
+            form.append('audio', req.file.buffer, {
+                filename:    req.file.originalname || 'audio.mp3',
+                contentType: req.file.mimetype || 'audio/mpeg',
+            });
+            response = await axios.post(`${AI_SERVICE_URL}/api/speaking/check`, form, {
+                headers: form.getHeaders(),
+                maxBodyLength: Infinity,
+            });
+        } else {
+            return res.status(400).json({ error: "Cần upload file audio." });
+        }
 
-        // Gọi sang Python (tạm thời trả về mock data)
-        // Sau này sẽ implement Whisper để transcribe audio
-        res.json({
-            message: "Speaking check endpoint - Coming soon!",
-            note: "Sẽ implement Whisper để chuyển audio thành text và chấm điểm"
-        });
+        // Cộng Coins sau khi nộp bài
+        let coinResult = null;
+        if (req.userId) {
+            const reward = await getNum('economy_reward_speaking', 50);
+            coinResult = await earnCoins(req.userId, 'speaking', reward);
+        }
+
+        res.json({ ...response.data, coinResult });
 
     } catch (error) {
         console.error("Lỗi gọi AI Speaking:", error.message);

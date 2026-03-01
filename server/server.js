@@ -18,6 +18,7 @@ const onboardingRoutes = require('./src/routes/onboardingRoutes');
 const topicRoutes = require('./src/routes/Public/PublicTopics');
 const writingPromptRoutes = require('./src/routes/Public/PublicWritingPrompts');
 const speakingQuestionRoutes = require('./src/routes/Public/PublicSpeakingQuestions');
+const listeningRoutes = require('./src/routes/Public/PublicListening');
 
 // Import CMS admin routes
 const adminTopicRoutes = require('./src/routes/Admin/AdminTopics');
@@ -30,10 +31,21 @@ const adminVocabularyRoutes = require('./src/routes/Admin/AdminVocabulary');
 const adminReadingPassageRoutes = require('./src/routes/readingPassage');
 const adminBillingRoutes = require('./src/routes/Admin/AdminBilling');
 const adminSystemConfigRoutes = require('./src/routes/Admin/AdminSystemConfig');
+const adminListeningRoutes = require('./src/routes/Admin/AdminListening');
+const adminPetsRoutes = require('./src/routes/Admin/AdminPets');
+// ── NEW: Shop, Economy, Pokedex, Anti-Cheat ──────────────────────────────────
+const adminShopRoutes      = require('./src/routes/Admin/AdminShop');
+const adminEconomyRoutes   = require('./src/routes/Admin/AdminEconomy');
+const adminPokedexRoutes   = require('./src/routes/Admin/AdminPokedex');
+const adminAntiCheatRoutes = require('./src/routes/Admin/AdminAntiCheat');
+// ─────────────────────────────────────────────────────────────────────────────
 const billingRoutes = require('./src/routes/billingRoutes');
 const writingScenarioRoutes = require('./src/routes/writingScenario');
 const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
+// ── NEW: Shop (user-side) ────────────────────────────────────────────────────
+const shopRoutes = require('./src/routes/shopRoutes');
+// ─────────────────────────────────────────────────────────────────────────────
 const { startPetDecayJob } = require('./src/jobs/petDecay');
 const { startCancelStalePendingJob } = require('./src/jobs/cancelStalePending');
 const { maintenanceModeMiddleware } = require('./src/middlewares/maintenanceMode');
@@ -96,17 +108,29 @@ app.use('/api/admin/vocab', adminVocabularyRoutes);
 app.use('/api/admin/reading-passages', adminReadingPassageRoutes);
 app.use('/api/admin/billing', adminBillingRoutes);
 app.use('/api/admin/system-config', adminSystemConfigRoutes);
+app.use('/api/admin/listening', adminListeningRoutes);
+app.use('/api/admin/pets', adminPetsRoutes);
+// ── NEW admin routes ─────────────────────────────────────────────────────────
+app.use('/api/admin/shop',        adminShopRoutes);
+app.use('/api/admin/economy',     adminEconomyRoutes);
+app.use('/api/admin/pokedex',     adminPokedexRoutes);
+app.use('/api/admin/anti-cheat',  adminAntiCheatRoutes);
+// ─────────────────────────────────────────────────────────────────────────────
 
 app.use('/api', dashboardRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/topics', topicRoutes);
 app.use('/api/writing-prompts', writingPromptRoutes);
 app.use('/api/speaking-questions', speakingQuestionRoutes);
+app.use('/api/listening', listeningRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api', writingScenarioRoutes);
 app.use('/api/pet', petRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
+// ── NEW user-side shop + ranking ─────────────────────────────────────────────
+app.use('/api/shop', shopRoutes);
+// ─────────────────────────────────────────────────────────────────────────────
 
 // start background jobs
 startPetDecayJob();

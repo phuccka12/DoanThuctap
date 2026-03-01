@@ -37,6 +37,13 @@ import AdminReadingPassages from './pages/Admin/AdminReadingPassages';
 import AdminWritingScenarios from './pages/Admin/AdminWritingScenarios';
 import AdminBilling from './pages/Admin/AdminBilling';
 import AdminSystemConfig from './pages/Admin/AdminSystemConfig';
+import AdminListening from './pages/Admin/AdminListening';
+import AdminGamification from './pages/Admin/AdminGamification';
+import AdminShop from './pages/Admin/AdminShop';
+import AdminEconomy from './pages/Admin/AdminEconomy';
+import AdminPokedex from './pages/Admin/AdminPokedex';
+import AdminAntiCheat from './pages/Admin/AdminAntiCheat';
+import AIListening from './pages/AIListening';
 
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
@@ -180,6 +187,11 @@ function App() {
               <AIConversation />
             </ProtectedRoute>
           } />
+          <Route path="/ai-listening" element={
+            <ProtectedRoute>
+              <AIListening />
+            </ProtectedRoute>
+          } />
           <Route path="/my-subscription" element={
             <ProtectedRoute>
               <MySubscription />
@@ -255,10 +267,52 @@ function App() {
               </AdminLayout>
             </AdminRoute>
           } />
+          <Route path="/admin/listening" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminListening />
+              </AdminLayout>
+            </AdminRoute>
+          } />
           <Route path="/admin/billing" element={
             <AdminRoute>
               <AdminLayout>
                 <AdminBilling />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/gamification" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminGamification />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/shop" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminShop />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/economy" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminEconomy />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/pokedex" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminPokedex />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/anti-cheat" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminAntiCheat />
               </AdminLayout>
             </AdminRoute>
           } />

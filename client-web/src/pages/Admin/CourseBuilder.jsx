@@ -1034,66 +1034,296 @@ function GrammarEditor({ data, onChange }) {
 
 // 6. Listening Editor
 function ListeningEditor({ data, onChange }) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handlePickPassage = (passage) => {
+    onChange({
+      passage_id: passage._id,
+      passage_title: passage.title,
+      audioUrl: passage.audio_url,
+      transcript: passage.transcript || '',
+      level: passage.level,
+      section: passage.section,
+      questions: passage.questions || [],
+    });
+    setShowPicker(false);
+  };
+
+  const handleClearPassage = () => {
+    onChange({
+      passage_id: null,
+      passage_title: '',
+      audioUrl: '',
+      transcript: '',
+      level: '',
+      section: '',
+      questions: [],
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-semibold text-gray-400 mb-2">
-          🎧 File Audio (MP3, WAV, M4A)
-        </label>
-        <FileUploader
-          accept="audio/*"
-          folder="ielts-app/audio"
-          onUploadSuccess={(uploadData) => {
-            onChange({ audioUrl: uploadData.url });
-          }}
-          maxSize={20}
-          placeholder="Kéo thả file audio vào đây hoặc nhấn để chọn"
-        />
-        {data.audioUrl && (
-          <div className="mt-3">
-            <p className="text-xs text-gray-500 mb-1">URL hiện tại:</p>
-            <input
-              type="text"
-              value={data.audioUrl}
-              onChange={(e) => onChange({ audioUrl: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
-              placeholder="hoặc paste URL trực tiếp"
-            />
-            {/* Audio Preview */}
-            <div className="mt-2 p-3 bg-gray-800 rounded-lg">
-              <audio controls className="w-full">
-                <source src={data.audioUrl} />
-                Trình duyệt không hỗ trợ phát audio.
-              </audio>
+      {/* Nút chọn từ kho */}
+      <button
+        type="button"
+        onClick={() => setShowPicker(true)}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
+      >
+        🗂️ Chọn từ kho Listening
+      </button>
+
+      {/* Hiển thị bài đã chọn */}
+      {data.passage_id && (
+        <div className="flex items-start justify-between p-3 bg-purple-900/40 border border-purple-600 rounded-lg">
+          <div>
+            <p className="text-xs text-purple-300 mb-1">Bài đã chọn từ kho:</p>
+            <p className="text-white font-semibold">{data.passage_title}</p>
+            <div className="flex gap-2 mt-1">
+              {data.level && (
+                <span className="text-xs px-2 py-0.5 bg-purple-700 rounded-full text-purple-200">
+                  {data.level === 'beginner' ? 'Sơ cấp' : data.level === 'intermediate' ? 'Trung cấp' : 'Nâng cao'}
+                </span>
+              )}
+              {data.section && (
+                <span className="text-xs px-2 py-0.5 bg-gray-700 rounded-full text-gray-300">
+                  {data.section}
+                </span>
+              )}
+              {data.questions?.length > 0 && (
+                <span className="text-xs px-2 py-0.5 bg-gray-700 rounded-full text-gray-300">
+                  {data.questions.length} câu hỏi
+                </span>
+              )}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={handleClearPassage}
+            className="text-gray-400 hover:text-red-400 p-1"
+            title="Bỏ chọn"
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+      )}
+
+      <div className="border-t border-gray-700 pt-4">
+        <p className="text-xs text-gray-500 mb-3">— hoặc upload audio thủ công —</p>
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            🎧 File Audio (MP3, WAV, M4A)
+          </label>
+          <FileUploader
+            accept="audio/*"
+            folder="ielts-app/audio"
+            onUploadSuccess={(uploadData) => {
+              onChange({ audioUrl: uploadData.url, passage_id: null, passage_title: '' });
+            }}
+            maxSize={20}
+            placeholder="Kéo thả file audio vào đây hoặc nhấn để chọn"
+          />
+          {data.audioUrl && (
+            <div className="mt-3">
+              <p className="text-xs text-gray-500 mb-1">URL hiện tại:</p>
+              <input
+                type="text"
+                value={data.audioUrl}
+                onChange={(e) => onChange({ audioUrl: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                placeholder="hoặc paste URL trực tiếp"
+              />
+              <div className="mt-2 p-3 bg-gray-800 rounded-lg">
+                <audio controls className="w-full">
+                  <source src={data.audioUrl} />
+                  Trình duyệt không hỗ trợ phát audio.
+                </audio>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            📝 Transcript (Phụ đề tương tác)
+          </label>
+          <textarea
+            value={data.transcript || ''}
+            onChange={(e) => onChange({ transcript: e.target.value })}
+            placeholder="Nhập nội dung transcript..."
+            rows={6}
+            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+          />
+        </div>
+
+        <div className="flex items-center space-x-3 mt-3">
+          <input
+            type="checkbox"
+            id="dictation"
+            checked={data.dictationMode || false}
+            onChange={(e) => onChange({ dictationMode: e.target.checked })}
+            className="w-5 h-5 text-purple-500 rounded focus:ring-2 focus:ring-purple-500"
+          />
+          <label htmlFor="dictation" className="text-white font-semibold">
+            🎯 Dictation Mode (Ẩn transcript, bắt người dùng nghe và gõ)
+          </label>
+        </div>
+      </div>
+
+      {showPicker && (
+        <ListeningPickerModal
+          onClose={() => setShowPicker(false)}
+          onPick={handlePickPassage}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============ Listening Picker Modal ============
+function ListeningPickerModal({ onClose, onPick }) {
+  const [passages, setPassages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [level, setLevel] = useState('');
+  const [section, setSection] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const LEVEL_LABELS = { beginner: 'Sơ cấp', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
+  const LEVEL_COLORS = { beginner: 'bg-green-700 text-green-200', intermediate: 'bg-yellow-700 text-yellow-200', advanced: 'bg-red-700 text-red-200' };
+
+  useEffect(() => {
+    fetchPassages();
+  }, [page, search, level, section]);
+
+  const fetchPassages = async () => {
+    setLoading(true);
+    try {
+      const res = await adminService.getListeningPassages({ page, limit: 8, search: search.trim(), level, section, is_active: true });
+      setPassages(res.data.data?.passages || res.data.data || []);
+      setTotalPages(res.data.totalPages || 1);
+    } catch (err) {
+      console.error('Lỗi tải kho listening:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-700 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-700">
+          <h2 className="text-lg font-bold text-white">🗂️ Kho Bài Nghe Listening</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1"><FiX size={22} /></button>
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 border-b border-gray-700 flex flex-wrap gap-3">
+          <div className="flex-1 min-w-48 relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Tìm tiêu đề bài nghe..."
+              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          <select
+            value={level}
+            onChange={(e) => { setLevel(e.target.value); setPage(1); }}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="">Tất cả cấp độ</option>
+            <option value="beginner">Sơ cấp</option>
+            <option value="intermediate">Trung cấp</option>
+            <option value="advanced">Nâng cao</option>
+          </select>
+          <select
+            value={section}
+            onChange={(e) => { setSection(e.target.value); setPage(1); }}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="">Tất cả phần</option>
+            {['section1','section2','section3','section4','general'].map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {loading ? (
+            <div className="flex justify-center items-center py-16">
+              <FiLoader className="animate-spin text-purple-400" size={32} />
+            </div>
+          ) : passages.length === 0 ? (
+            <div className="text-center text-gray-500 py-16">Không tìm thấy bài nghe nào</div>
+          ) : (
+            passages.map((p) => (
+              <div
+                key={p._id}
+                onClick={() => onPick(p)}
+                className="flex items-center gap-4 p-4 bg-gray-800 hover:bg-purple-900/40 border border-gray-700 hover:border-purple-500 rounded-xl cursor-pointer transition-colors"
+              >
+                <div className="w-11 h-11 rounded-full bg-purple-700 flex items-center justify-center shrink-0">
+                  <FaHeadphones className="text-white" size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold truncate">{p.title}</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {p.level && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${LEVEL_COLORS[p.level]}`}>
+                        {LEVEL_LABELS[p.level]}
+                      </span>
+                    )}
+                    {p.section && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">{p.section}</span>
+                    )}
+                    {p.duration_sec > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
+                        {Math.floor(p.duration_sec / 60)}:{String(p.duration_sec % 60).padStart(2, '0')}
+                      </span>
+                    )}
+                    {p.questions?.length > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-800 text-blue-200">{p.questions.length} câu hỏi</span>
+                    )}
+                  </div>
+                </div>
+                {p.audio_url && (
+                  <audio
+                    src={p.audio_url}
+                    controls
+                    className="h-8 w-40 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 p-4 border-t border-gray-700">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+              className="px-4 py-1.5 rounded-lg bg-gray-700 text-white text-sm disabled:opacity-40 hover:bg-gray-600"
+            >
+              ← Trước
+            </button>
+            <span className="px-4 py-1.5 text-gray-400 text-sm">{page} / {totalPages}</span>
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage(p => p + 1)}
+              className="px-4 py-1.5 rounded-lg bg-gray-700 text-white text-sm disabled:opacity-40 hover:bg-gray-600"
+            >
+              Tiếp →
+            </button>
+          </div>
         )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-400 mb-2">
-          📝 Transcript (Phụ đề tương tác)
-        </label>
-        <textarea
-          value={data.transcript || ''}
-          onChange={(e) => onChange({ transcript: e.target.value })}
-          placeholder="Nhập nội dung transcript..."
-          rows={8}
-          className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
-        />
-      </div>
-
-      <div className="flex items-center space-x-3">
-        <input
-          type="checkbox"
-          id="dictation"
-          checked={data.dictationMode || false}
-          onChange={(e) => onChange({ dictationMode: e.target.checked })}
-          className="w-5 h-5 text-purple-500 rounded focus:ring-2 focus:ring-purple-500"
-        />
-        <label htmlFor="dictation" className="text-white font-semibold">
-          🎯 Dictation Mode (Hide transcript, make user type what they hear)
-        </label>
       </div>
     </div>
   );
@@ -1197,7 +1427,7 @@ function VocabularyPickerModal({ onClose, onImport }) {
             <select
               value={topic}
               onChange={(e) => { setTopic(e.target.value); setPage(1); }}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-45"
             >
               <option value="">📚 Tất cả Topics</option>
               {allTopics.map(t => (
@@ -1282,7 +1512,7 @@ function VocabularyPickerModal({ onClose, onImport }) {
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-1 ${
                       selectedIds.includes(vocab._id)
                         ? 'bg-blue-600 border-blue-600'
                         : 'border-gray-500'

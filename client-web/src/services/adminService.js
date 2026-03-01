@@ -91,6 +91,57 @@ export const scanAndLinkVocabulary = (id) => adminAxios.post(`/admin/reading-pas
 export const trackPassageUsage = (id) => adminAxios.post(`/admin/reading-passages/${id}/track-usage`);
 export const getPassagesForLessonBuilder = (params) => adminAxios.get('/admin/reading-passages/for-lesson-builder', { params });
 
+// ============ LISTENING PASSAGES ============
+export const getListeningPassages  = (params) => adminAxios.get('/admin/listening',           { params });
+export const getListeningById      = (id)      => adminAxios.get(`/admin/listening/${id}`);
+export const getListeningStats     = ()        => adminAxios.get('/admin/listening/stats');
+export const createListeningPassage = (data)  => adminAxios.post('/admin/listening',           data);
+export const updateListeningPassage = (id, data) => adminAxios.put(`/admin/listening/${id}`,   data);
+export const toggleListeningActive  = (id)    => adminAxios.patch(`/admin/listening/${id}/toggle`);
+export const deleteListeningPassage = (id)    => adminAxios.delete(`/admin/listening/${id}`);
+
+// ============ BILLING / REVENUE ============
+export const getTransactionStats   = ()               => adminAxios.get('/admin/billing/transactions/stats');
+export const getRevenueByMonth     = (months = 12)    => adminAxios.get('/admin/billing/transactions/revenue', { params: { months } });
+
+// ============ SPEAKING STATS ============
+export const getSpeakingStats      = ()               => adminAxios.get('/admin/speaking-questions/stats');
+
+// ============ GAMIFICATION / PETS ============
+export const getPetStats     = ()              => adminAxios.get('/admin/pets/stats');
+export const getAllPets       = (params)        => adminAxios.get('/admin/pets', { params });
+export const getPetById      = (id)            => adminAxios.get(`/admin/pets/${id}`);
+export const updatePet       = (id, data)      => adminAxios.patch(`/admin/pets/${id}`, data);
+export const grantPetCoins   = (id, amount)    => adminAxios.post(`/admin/pets/${id}/grant-coins`, { amount });
+export const deletePet       = (id)            => adminAxios.delete(`/admin/pets/${id}`);
+
+// ============ SHOP ITEMS ============
+export const getShopItems    = (params)        => adminAxios.get('/admin/shop', { params });
+export const getShopItem     = (id)            => adminAxios.get(`/admin/shop/${id}`);
+export const createShopItem  = (formData)      => adminAxios.post('/admin/shop', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const updateShopItem  = (id, formData)  => adminAxios.patch(`/admin/shop/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const deleteShopItem  = (id)            => adminAxios.delete(`/admin/shop/${id}`);
+export const hardDeleteShopItem = (id)         => adminAxios.delete(`/admin/shop/${id}/hard`);
+
+// ============ ECONOMY SETTINGS ============
+export const getEconomySettings    = ()        => adminAxios.get('/admin/economy');
+export const updateEconomySettings = (configs) => adminAxios.post('/admin/economy', { configs });
+
+// ============ PET POKEDEX ============
+export const getPokedex      = (params)        => adminAxios.get('/admin/pokedex', { params });
+export const getSpecies      = (id)            => adminAxios.get(`/admin/pokedex/${id}`);
+export const createSpecies   = (formData)      => adminAxios.post('/admin/pokedex', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const updateSpecies   = (id, formData)  => adminAxios.patch(`/admin/pokedex/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const addEvolution    = (id, formData)  => adminAxios.post(`/admin/pokedex/${id}/evolution`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const deleteSpecies   = (id)            => adminAxios.delete(`/admin/pokedex/${id}`);
+
+// ============ ANTI-CHEAT / COIN LOGS ============
+export const getCoinLogs          = (params)   => adminAxios.get('/admin/anti-cheat/logs', { params });
+export const getSuspiciousUsers   = ()         => adminAxios.get('/admin/anti-cheat/suspicious');
+export const getAntiCheatUserDetail = (userId) => adminAxios.get(`/admin/anti-cheat/user/${userId}`);
+export const adjustCoins          = (userId, amount, reason) => adminAxios.post(`/admin/anti-cheat/user/${userId}/coins`, { amount, reason });
+export const resetPetAdmin        = (petId)    => adminAxios.post(`/admin/anti-cheat/pet/${petId}/reset`);
+
 export default {
   // Topics
   getTopics,
@@ -153,4 +204,49 @@ export default {
   scanAndLinkVocabulary,
   trackPassageUsage,
   getPassagesForLessonBuilder,
+  // Listening Passages
+  getListeningPassages,
+  getListeningById,
+  getListeningStats,
+  createListeningPassage,
+  updateListeningPassage,
+  toggleListeningActive,
+  deleteListeningPassage,
+  // Billing / Revenue
+  getTransactionStats,
+  getRevenueByMonth,
+  // Speaking Stats
+  getSpeakingStats,
+  // Gamification / Pets
+  getPetStats,
+  getAllPets,
+  getPetById,
+  updatePet,
+  grantPetCoins,
+  deletePet,
+  // Shop Items
+  getShopItems,
+  getShopItem,
+  createShopItem,
+  updateShopItem,
+  deleteShopItem,
+  hardDeleteShopItem,
+  // Economy Settings
+  getEconomySettings,
+  updateEconomySettings,
+  // Pet Pokedex
+  getPokedex,
+  getSpecies,
+  createSpecies,
+  updateSpecies,
+  addEvolution,
+  deleteSpecies,
+  // Anti-Cheat
+  getCoinLogs,
+  getSuspiciousUsers,
+  getAntiCheatUserDetail,
+  adjustCoins,
+  resetPetAdmin,
+  // Raw axios instance (for custom calls)
+  adminAxios,
 };
