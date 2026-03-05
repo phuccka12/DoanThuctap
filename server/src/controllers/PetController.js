@@ -56,8 +56,12 @@ exports.getStatus = async (req, res) => {
       pet = await Pet.create({ user: userId });
     }
 
+    // Lấy gold của user để frontend biết nút nào disabled
+    const user = await User.findById(userId).select('gamification_data');
+    const userGold = user?.gamification_data?.gold ?? 0;
+
     const petData = await buildPetResponse(pet);
-    return res.json({ success: true, pet: petData });
+    return res.json({ success: true, pet: petData, userGold });
   } catch (err) {
     console.error('Pet getStatus error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -157,6 +161,59 @@ exports.feed = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/pet/feed-direct
+ * Cho pet ăn trực tiếp bằng coins (không cần inventory item).
+ * Chi phí: FEED_COST coins. Giảm hunger 30 điểm.
+ */
+const FEED_COST = 50;
+const PLAY_COST = 20;
+
+exports.feedDirect = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    // Kiểm tra số dư
+    const user = await User.findById(userId).select('gamification_data');
+    const currentGold = user?.gamification_data?.gold ?? 0;
+    if (currentGold < FEED_COST) {
+      return res.status(400).json({
+        success: false,
+        message: `Không đủ coins! Cần ${FEED_COST} 🪙, bạn có ${currentGold} 🪙`,
+        required: FEED_COST,
+        current: currentGold,
+      });
+    }
+
+    const pet = await Pet.findOne({ user: userId });
+    if (!pet) return res.status(404).json({ success: false, message: 'Chưa có thú cưng' });
+
+    // Trừ coins, giảm hunger
+    await User.findByIdAndUpdate(userId, {
+      $inc: { 'gamification_data.gold': -FEED_COST },
+    });
+    pet.hunger    = Math.max(0, pet.hunger - 30);
+    pet.happiness = Math.min(100, pet.happiness + 5);
+    await pet.save();
+
+    const updatedUser = await User.findById(userId).select('gamification_data');
+    const userGold = updatedUser?.gamification_data?.gold ?? 0;
+
+    const petData = await buildPetResponse(pet);
+    return res.json({
+      success:   true,
+      message:   `Đã cho ăn! -${FEED_COST} 🪙`,
+      costPaid:  FEED_COST,
+      userGold,
+      pet:       petData,
+    });
+  } catch (err) {
+    console.error('feedDirect error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // POST /api/pet/play - play with pet (cooldown enforced)
 exports.play = async (req, res) => {
   try {
@@ -195,6 +252,132 @@ exports.play = async (req, res) => {
     return res.json({ success: true, message: 'Đã chơi với pet!', coinsEarned: earned, pet: petData });
   } catch (err) {
     console.error('Pet play error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * PATCH /api/pet/rename
+ * Đổi nickname cho pet. Body: { nickname: string }
+ */
+exports.rename = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const { nickname } = req.body || {};
+    if (!nickname || typeof nickname !== 'string') {
+      return res.status(400).json({ success: false, message: 'nickname không hợp lệ' });
+    }
+    const trimmed = nickname.trim().slice(0, 20);
+    if (!trimmed) return res.status(400).json({ success: false, message: 'nickname không được để trống' });
+
+    const pet = await Pet.findOne({ user: userId });
+    if (!pet) return res.status(404).json({ success: false, message: 'Chưa có thú cưng' });
+
+    pet.nickname = trimmed;
+    await pet.save();
+
+    return res.json({ success: true, nickname: pet.nickname });
+  } catch (err) {
+    console.error('rename error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// ── EGG / HATCH SYSTEM ───────────────────────────────────────────────────────
+
+// Map trứng → petType khi nở
+const EGG_TO_PET = {
+  fire:    'dragon',  // Trứng Lửa → Rồng (Dino đỏ GIF)
+  ice:     'frog',    // Trứng Băng → Ếch Băng (pixel sprite)
+  leaf:    'pig',     // Trứng Lá  → Heo Lá (pixel sprite)
+  default: 'slime',   // Default (skip)  → Slime
+};
+
+const EGG_NAMES = {
+  fire:    'Rồng Lửa',
+  ice:     'Mèo Băng',
+  leaf:    'Corgi Lá',
+  default: 'Slime',
+};
+
+/**
+ * POST /api/pet/choose-egg
+ * Gọi trong onboarding bước chọn trứng.
+ * body: { egg_type: 'fire' | 'ice' | 'leaf' }
+ */
+exports.chooseEgg = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const { egg_type } = req.body || {};
+    if (!['fire', 'ice', 'leaf'].includes(egg_type)) {
+      return res.status(400).json({ success: false, message: 'egg_type không hợp lệ (fire | ice | leaf)' });
+    }
+
+    // Tạo hoặc cập nhật pet record
+    let pet = await Pet.findOne({ user: userId });
+    if (!pet) {
+      pet = new Pet({ user: userId });
+    }
+
+    pet.egg_type = egg_type;
+    pet.hatched  = false; // chưa nở
+    await pet.save();
+
+    return res.json({ success: true, message: `Đã chọn trứng ${egg_type}!`, egg_type });
+  } catch (err) {
+    console.error('chooseEgg error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * POST /api/pet/hatch
+ * User bấm nút "Ấp nở" trên Dashboard. Chỉ cho phép nếu hatched=false.
+ * Trả về petType sau khi nở + thưởng 200 coins.
+ */
+exports.hatch = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    let pet = await Pet.findOne({ user: userId });
+    if (!pet) {
+      pet = await Pet.create({ user: userId, egg_type: 'default', hatched: false });
+    }
+
+    if (pet.hatched) {
+      const petData = await buildPetResponse(pet);
+      return res.status(400).json({ success: false, message: 'Trứng đã nở rồi!', pet: petData });
+    }
+
+    const eggType = pet.egg_type || 'default';
+    const petType = EGG_TO_PET[eggType] || 'slime';
+    const petName = EGG_NAMES[eggType] || 'Slime';
+
+    pet.petType = petType;
+    pet.hatched  = true;
+    pet.happiness = 100;
+    pet.hunger    = 0;
+    await pet.save();
+
+    // Thưởng 200 coins khi ấp nở
+    const { earned } = await earnCoins(userId, 'hatch_bonus', 200);
+
+    const petData = await buildPetResponse(pet);
+    return res.json({
+      success:    true,
+      message:    `🎉 ${petName} đã gia nhập đội của bạn!`,
+      petName,
+      petType,
+      coinsEarned: earned,
+      pet:        petData,
+    });
+  } catch (err) {
+    console.error('hatch error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };

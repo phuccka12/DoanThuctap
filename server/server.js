@@ -13,6 +13,8 @@ const aiRoutes = require('./src/routes/aiRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const onboardingRoutes = require('./src/routes/onboardingRoutes');
+const placementRoutes  = require('./src/routes/placementRoutes');
+const userRoutes       = require('./src/routes/userRoutes');
 
 // Import CMS public routes
 const topicRoutes = require('./src/routes/Public/PublicTopics');
@@ -98,6 +100,7 @@ app.get('/api/maintenance/status', (req, res) => res.json({ maintenance: false }
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/admin/topics', adminTopicRoutes);
 app.use('/api/admin/writing-prompts', adminWritingPromptRoutes);
 app.use('/api/admin/speaking-questions', adminSpeakingQuestionRoutes);
@@ -119,6 +122,7 @@ app.use('/api/admin/anti-cheat',  adminAntiCheatRoutes);
 
 app.use('/api', dashboardRoutes);
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/placement',  placementRoutes);
 app.use('/api/topics', topicRoutes);
 app.use('/api/writing-prompts', writingPromptRoutes);
 app.use('/api/speaking-questions', speakingQuestionRoutes);

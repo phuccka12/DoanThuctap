@@ -94,27 +94,28 @@ function resolvePetEvolution(pet, species) {
 // ─── Pet state logic ─────────────────────────────────────────────────────────
 /**
  * Trả về trạng thái pet dựa trên hunger:
- *   happy   – hunger < happy_threshold   → +expBuff, expLocked=false
- *   neutral – hunger < dying_threshold   → expBuff=0, expLocked=false
- *   dying   – hunger >= dying_threshold  → expBuff=0, expLocked=true
- *
- * NOTE: hunger model hiện tại: 0=no hunger (full), 100=starving
- *       Requirement: >50 = vui vẻ (đói < 50), 0=hấp hối (đói = 100)
- *       → map: happy khi hunger < 50, dying khi hunger >= 100
+ *   happy   – hunger < happy_threshold    → +expBuff, expLocked=false
+ *   neutral – hunger < warning_threshold  → expBuff=0, expLocked=false
+ *   warning – hunger < dying_threshold    → expBuff=0, expLocked=false, widget chớp đỏ
+ *   dying   – hunger >= dying_threshold   → expBuff=0, expLocked=true, streak vỡ
  */
 async function getPetState(pet) {
-  const happyThreshold = await getNum('economy_hunger_happy_threshold', 50);
-  const dyingThreshold = await getNum('economy_hunger_dying_threshold', 100);
-  const expBuffPct     = await getNum('economy_exp_buff_happy_pct', 10);
+  const happyThreshold   = await getNum('economy_hunger_happy_threshold',   50);
+  const warningThreshold = await getNum('economy_hunger_warning_threshold', 80);
+  const dyingThreshold   = await getNum('economy_hunger_dying_threshold',  100);
+  const expBuffPct       = await getNum('economy_exp_buff_happy_pct',       10);
 
   const h = pet.hunger ?? 0;
-  if (h < happyThreshold) {
-    return { status: 'happy', expMultiplier: 1 + expBuffPct / 100, expLocked: false };
-  }
   if (h >= dyingThreshold) {
-    return { status: 'dying', expMultiplier: 1, expLocked: true };
+    return { status: 'dying',   expMultiplier: 1,                    expLocked: true  };
   }
-  return { status: 'neutral', expMultiplier: 1, expLocked: false };
+  if (h >= warningThreshold) {
+    return { status: 'warning', expMultiplier: 1,                    expLocked: false };
+  }
+  if (h < happyThreshold) {
+    return { status: 'happy',   expMultiplier: 1 + expBuffPct / 100, expLocked: false };
+  }
+  return   { status: 'neutral', expMultiplier: 1,                    expLocked: false };
 }
 
 // ─── Pet species buff multiplier ─────────────────────────────────────────────

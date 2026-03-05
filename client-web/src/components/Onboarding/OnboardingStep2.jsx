@@ -46,7 +46,14 @@ export default function OnboardingStep2({ onNext, onBack }) {
 
   function handleNext() {
     if (selected && onNext) {
-      onNext({ background: selected });
+      onNext({ background: selected, wantsPlacement: false });
+    }
+  }
+
+  function handleUnsure() {
+    // User explicitly requests the placement test later
+    if (onNext) {
+      onNext({ background: null, wantsPlacement: true });
     }
   }
 
@@ -124,26 +131,35 @@ export default function OnboardingStep2({ onNext, onBack }) {
         </div>
 
         {/* Navigation Buttons */}
-        <div className="mt-10 flex justify-between items-center">
+        <div className="mt-8 flex justify-between items-center">
           <button
             onClick={onBack}
             className="px-8 py-4 rounded-xl font-semibold text-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-300"
           >
             ← Quay lại
           </button>
-          <button
-            onClick={handleNext}
-            disabled={!selected}
-            className={`
-              px-10 py-4 rounded-xl font-semibold text-lg transition-all duration-300
-              ${selected
-                ? "bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-              }
-            `}
-          >
-            Tiếp theo →
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleUnsure}
+              className="px-4 py-3 rounded-xl font-semibold text-sm bg-white border border-purple-100 text-gray-700 hover:shadow-md transition"
+            >
+              🤔 Tôi không chắc — kiểm tra giúp tôi
+            </button>
+
+            <button
+              onClick={handleNext}
+              disabled={!selected}
+              className={`
+                px-8 py-3 rounded-xl font-semibold text-sm transition-all duration-300
+                ${selected
+                  ? "bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                }
+              `}
+            >
+              Tiếp theo →
+            </button>
+          </div>
         </div>
       </div>
     </div>

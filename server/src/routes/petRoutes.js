@@ -12,6 +12,14 @@ router.get('/test', (req, res) => {
 router.get('/', protect, petController.getStatus);
 router.post('/checkin', protect, petController.checkin);
 router.post('/feed', protect, petController.feed);
+router.post('/feed-direct', protect, petController.feedDirect);
 router.post('/play', protect, petController.play);
+
+// Egg / hatch system
+router.post('/choose-egg', protect, petController.chooseEgg);
+router.post('/hatch', protect, petController.hatch);
+
+// Rename
+router.patch('/rename', protect, petController.rename);
 
 module.exports = router;

@@ -73,6 +73,17 @@ router.get("/me", protect, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "Người dùng không tồn tại" });
     }
+    // If user skipped onboarding entirely (no onboarding_completed and no declared level),
+    // assign default beginner level (A1) and give a small subsidy (50 coins) once.
+    if (!user.onboarding_completed && (!user.learning_preferences || !user.learning_preferences.current_level) && !user.onboarding_default_assigned) {
+      if (!user.learning_preferences) user.learning_preferences = {};
+      user.learning_preferences.current_level = 'a1';
+      user.learning_preferences.wants_placement_check = false;
+      if (!user.gamification_data) user.gamification_data = {};
+      user.gamification_data.gold = (user.gamification_data.gold || 0) + 50; // subsidy for skipping
+      user.onboarding_default_assigned = true;
+      await user.save();
+    }
     res.json({ 
       user: {
         id: user._id,
@@ -85,8 +96,10 @@ router.get("/me", protect, async (req, res) => {
         gamification_data: user.gamification_data,
         last_login_at: user.last_login_at,
         created_at: user.created_at,
-        onboarding_completed: user.onboarding_completed, // ← THÊM DÒNG NÀY
-        learning_preferences: user.learning_preferences  // ← VÀ DÒNG NÀY
+        onboarding_completed: user.onboarding_completed,
+        learning_preferences: user.learning_preferences,
+        placement_test_completed: user.placement_test_completed,
+        placement_test_result:    user.placement_test_result,
       }
     });
   } catch (err) {

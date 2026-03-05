@@ -1,9 +1,18 @@
 // src/controllers/aiController.js
 const axios = require('axios');
-const { earnCoins, getNum } = require('../services/economyService');
+const { earnCoins, getNum, getPetState } = require('../services/economyService');
+const Pet = require('../models/Pet');
 
 // Địa chỉ của Server Python (đang chạy ở cổng 5000)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:5000';
+
+/** Helper: lấy trạng thái pet của user hiện tại */
+async function getUserPetState(userId) {
+  if (!userId) return { status: 'neutral', expMultiplier: 1, expLocked: false };
+  const pet = await Pet.findOne({ user: userId });
+  if (!pet || !pet.hatched) return { status: 'neutral', expMultiplier: 1, expLocked: false };
+  return getPetState(pet);
+}
 
 // 1. Chức năng Chấm bài Writing
 exports.checkWriting = async (req, res) => {
@@ -13,14 +22,24 @@ exports.checkWriting = async (req, res) => {
         // Gọi sang Python
         const response = await axios.post(`${AI_SERVICE_URL}/api/writing/check`, { text, topic });
 
-        // Cộng Coins sau khi nộp bài (nếu user đã đăng nhập)
+        // Cộng Coins + check expLocked
         let coinResult = null;
+        let petState   = null;
         if (req.userId) {
-            const reward = await getNum('economy_reward_writing', 40);
-            coinResult = await earnCoins(req.userId, 'writing', reward);
+            petState = await getUserPetState(req.userId);
+            if (petState.expLocked) {
+                // Pet hấp hối — không cộng coins/exp, trả về warning
+                coinResult = { earned: 0, expLocked: true, message: 'Pet đang hấp hối! Hãy cứu pet để nhận EXP và Coins.' };
+            } else {
+                const reward = await getNum('economy_reward_writing', 40);
+                const finalReward = Math.round(reward * petState.expMultiplier);
+                coinResult = await earnCoins(req.userId, 'writing', finalReward);
+                coinResult.expMultiplier = petState.expMultiplier;
+                coinResult.expLocked = false;
+            }
         }
 
-        res.json({ ...response.data, coinResult });
+        res.json({ ...response.data, coinResult, petState });
 
     } catch (error) {
         console.error("Lỗi gọi AI Writing:", error.message);
@@ -33,7 +52,6 @@ exports.checkSpeaking = async (req, res) => {
     try {
         let response;
         if (req.file) {
-            // Upload file tới Python
             const FormData = require('form-data');
             const form = new FormData();
             form.append('audio', req.file.buffer, {
@@ -48,14 +66,23 @@ exports.checkSpeaking = async (req, res) => {
             return res.status(400).json({ error: "Cần upload file audio." });
         }
 
-        // Cộng Coins sau khi nộp bài
+        // Cộng Coins + check expLocked
         let coinResult = null;
+        let petState   = null;
         if (req.userId) {
-            const reward = await getNum('economy_reward_speaking', 50);
-            coinResult = await earnCoins(req.userId, 'speaking', reward);
+            petState = await getUserPetState(req.userId);
+            if (petState.expLocked) {
+                coinResult = { earned: 0, expLocked: true, message: 'Pet đang hấp hối! Hãy cứu pet để nhận EXP và Coins.' };
+            } else {
+                const reward = await getNum('economy_reward_speaking', 50);
+                const finalReward = Math.round(reward * petState.expMultiplier);
+                coinResult = await earnCoins(req.userId, 'speaking', finalReward);
+                coinResult.expMultiplier = petState.expMultiplier;
+                coinResult.expLocked = false;
+            }
         }
 
-        res.json({ ...response.data, coinResult });
+        res.json({ ...response.data, coinResult, petState });
 
     } catch (error) {
         console.error("Lỗi gọi AI Speaking:", error.message);

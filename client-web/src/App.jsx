@@ -15,6 +15,8 @@ import AIWriting from './pages/AiWriting';
 import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
 import Onboarding from './pages/Onboarding';
+import PlacementTest   from './pages/PlacementTest';
+import PlacementResult from './pages/PlacementResult';
 import NotFound from './pages/NotFound';
 import Landingpage from './pages/Landingpage';
 import Pricing from './pages/Pricing';
@@ -160,6 +162,18 @@ function App() {
           <Route path="/pricing" element={<Pricing />} />
           {/* VNPay return page (public — VNPay redirects here) */}
           <Route path="/payment/result" element={<PaymentResult />} />
+
+          {/* Placement Test — protected, accessible even if onboarding just finished */}
+          <Route path="/placement-test" element={
+            <ProtectedRoute allowWithoutOnboarding={true}>
+              <PlacementTest />
+            </ProtectedRoute>
+          } />
+          <Route path="/placement-result" element={
+            <ProtectedRoute allowWithoutOnboarding={true}>
+              <PlacementResult />
+            </ProtectedRoute>
+          } />
 
           {/* Protected Routes - Require onboarding completion */}
           <Route path="/dashboard" element={

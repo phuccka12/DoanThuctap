@@ -19,6 +19,19 @@ const learningPreferencesSchema = new mongoose.Schema(
     preferred_study_days: { type: [String], default: [] }, // ['monday', 'tuesday', ...]
     exam_date: { type: Date, default: null },
     focus_skills: { type: [String], default: [] }, // ['speaking', 'writing', 'listening', 'reading']
+    wants_placement_check: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const placementResultSchema = new mongoose.Schema(
+  {
+    score:          { type: Number, default: null }, // 0-100
+    cefr_level:     { type: String, default: null }, // A1 A2 B1 B2 C1 C2
+    vocab_score:    { type: Number, default: null }, // 0-40
+    reading_score:  { type: Number, default: null }, // 0-35
+    speaking_score: { type: Number, default: null }, // 0-25
+    completed_at:   { type: Date,   default: null },
   },
   { _id: false }
 );
@@ -28,6 +41,13 @@ const userSchema = new mongoose.Schema(
     user_name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password_hash: { type: String, required: true },
+
+    // Extended profile fields
+    phone:         { type: String, default: null },
+    date_of_birth: { type: Date,   default: null },
+    address:       { type: String, default: null },
+    bio:           { type: String, default: null },
+    current_band:  { type: Number, default: null },
 
     // Google OAuth fields
     google_id: { type: String, unique: true, sparse: true },
@@ -42,6 +62,14 @@ const userSchema = new mongoose.Schema(
     // Onboarding tracking
     onboarding_completed: { type: Boolean, default: false },
     learning_preferences: { type: learningPreferencesSchema, default: () => ({}) },
+
+    // Placement test
+    placement_test_completed: { type: Boolean, default: false },
+    placement_test_result:    { type: placementResultSchema, default: null },
+  // Temporary bonus stored when user starts a retake from UI (consumed on submit)
+  placement_test_bonus: { type: Number, default: 0 },
+  // Whether we auto-assigned a default onboarding level (to avoid double-awarding subsidy)
+  onboarding_default_assigned: { type: Boolean, default: false },
 
     last_login_at: { type: Date, default: null },
 

@@ -5,7 +5,17 @@ const petSchema = new mongoose.Schema(
     user:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     // Link tới PetSpecies (Pokedex) — nếu null → dùng petType string cũ cho backwards compat
     speciesRef:    { type: mongoose.Schema.Types.ObjectId, ref: 'PetSpecies', default: null },
-    petType:       { type: String, enum: ['cat', 'dog', 'dragon', 'bird', 'custom'], default: 'cat' },
+    petType:       { type: String, enum: ['cat', 'dog', 'dragon', 'bird', 'slime', 'custom', 'frog', 'pig'], default: 'cat' },
+
+    // Tên do user đặt (tối đa 20 ký tự)
+    nickname: { type: String, default: '', trim: true, maxlength: 20 },
+
+    // ── Egg / Hatch system ──────────────────────────────────────────────
+    // egg_type: loại trứng user chọn trong onboarding ('fire','ice','leaf','default')
+    // hatched: false = trứng chưa nở (hiện widget trứng), true = đã nở (hiện pet)
+    egg_type: { type: String, enum: ['fire', 'ice', 'leaf', 'default', null], default: null },
+    hatched:  { type: Boolean, default: false },
+    // ────────────────────────────────────────────────────────────────────
     level:         { type: Number, default: 1 },
     growthPoints:  { type: Number, default: 0 },
     streakCount:   { type: Number, default: 0 },
