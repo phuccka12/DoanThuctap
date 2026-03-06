@@ -85,6 +85,13 @@ const lessonSchema = new mongoose.Schema({
   updated_at: {
     type: Date,
     default: Date.now
+  },
+
+  // 3072-dim embedding vector (gemini-embedding-001) — auto-generated on create/update
+  embedding: {
+    type: [Number],
+    default: [],
+    select: false, // don't return by default in queries (heavy field)
   }
 });
 

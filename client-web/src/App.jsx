@@ -23,6 +23,10 @@ import Pricing from './pages/Pricing';
 import MySubscription from './pages/MySubscription';
 import PaymentResult from './pages/PaymentResult';
 import MaintenancePage from './pages/MaintenancePage';
+// Learning module
+import Learn        from './pages/Learn';
+import TopicDetail  from './pages/TopicDetail';
+import LessonPlayer from './pages/LessonPlayer';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -209,6 +213,23 @@ function App() {
           <Route path="/my-subscription" element={
             <ProtectedRoute>
               <MySubscription />
+            </ProtectedRoute>
+          } />
+
+          {/* Learning / Practice module */}
+          <Route path="/learn" element={
+            <ProtectedRoute>
+              <Learn />
+            </ProtectedRoute>
+          } />
+          <Route path="/learn/topics/:topicId" element={
+            <ProtectedRoute>
+              <TopicDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/learn/lessons/:lessonId" element={
+            <ProtectedRoute>
+              <LessonPlayer />
             </ProtectedRoute>
           } />
           

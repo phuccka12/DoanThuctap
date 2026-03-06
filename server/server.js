@@ -47,6 +47,8 @@ const petRoutes = require('./src/routes/petRoutes');
 const uploadRoutes = require('./src/routes/upload');
 // ── NEW: Shop (user-side) ────────────────────────────────────────────────────
 const shopRoutes = require('./src/routes/shopRoutes');
+// ── Learning / Practice module ───────────────────────────────────────────────
+const learnRoutes = require('./src/routes/learnRoutes');
 // ─────────────────────────────────────────────────────────────────────────────
 const { startPetDecayJob } = require('./src/jobs/petDecay');
 const { startCancelStalePendingJob } = require('./src/jobs/cancelStalePending');
@@ -134,6 +136,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
 // ── NEW user-side shop + ranking ─────────────────────────────────────────────
 app.use('/api/shop', shopRoutes);
+// ── Learning / Practice module ───────────────────────────────────────────────
+app.use('/api/learn', learnRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // start background jobs

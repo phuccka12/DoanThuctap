@@ -1,5 +1,17 @@
 const Lesson = require('../models/Lesson');
-const Topic = require('../models/Topic');
+const Topic  = require('../models/Topic');
+const { embedText, buildLessonText } = require('../services/embeddingService');
+
+/** Fire-and-forget: embed a lesson and save its vector. */
+async function embedLessonAsync(lesson) {
+  try {
+    const text      = buildLessonText(lesson);
+    const embedding = await embedText(text);
+    await Lesson.findByIdAndUpdate(lesson._id, { embedding });
+  } catch (e) {
+    console.warn('[LessonEmbed] failed for', lesson._id, e.message);
+  }
+}
 
 // GET /api/admin/topics/:topicId/lessons - Get all lessons for a topic
 exports.getLessonsByTopic = async (req, res) => {
@@ -65,6 +77,8 @@ exports.createLesson = async (req, res) => {
     });
 
     await lesson.save();
+    // Embed lesson async (non-blocking)
+    embedLessonAsync(lesson);
 
     res.status(201).json({
       message: 'Tạo bài học thành công',
@@ -116,6 +130,8 @@ exports.updateLesson = async (req, res) => {
     if (nodes !== undefined) lesson.nodes = nodes; // Update Builder data
 
     await lesson.save();
+    // Re-embed when nodes or title change
+    if (nodes !== undefined || title !== undefined) embedLessonAsync(lesson);
 
     res.json({
       message: 'Cập nhật bài học thành công',

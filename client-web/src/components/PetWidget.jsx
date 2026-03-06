@@ -2,6 +2,7 @@
 import axiosInstance from '../utils/axiosConfig';
 import { FaHeart, FaDrumstickBite, FaPencilAlt, FaCheck, FaTimes } from 'react-icons/fa';
 import { PixelEgg, PixelPetIdle } from './PixelSprite';
+import Icon from './ui/Icon';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const EGG_CONFIG = {
@@ -438,7 +439,8 @@ export default function PetWidget({ theme = {} }) {
           `}
         >
           <span className="flex items-center gap-1">
-            <FaDrumstickBite size={11} /> Cho ăn
+            <Icon forceShow><FaDrumstickBite size={11} /></Icon>
+            <span>Cho ăn</span>
           </span>
           <span className={`text-[10px] ${canFeed ? 'text-orange-400' : 'text-gray-600'}`}>
             -{FEED_COST} 🪙
@@ -458,7 +460,8 @@ export default function PetWidget({ theme = {} }) {
           `}
         >
           <span className="flex items-center gap-1">
-            <FaHeart size={11} /> Chơi
+            <Icon forceShow><FaHeart size={11} /></Icon>
+            <span>Chơi</span>
           </span>
           <span className={`text-[10px] ${canPlay ? 'text-pink-400' : 'text-gray-600'}`}>
             -{PLAY_COST} 🪙
@@ -558,10 +561,10 @@ function RenameField({ displayName, theme, onSave }) {
                      text-white text-sm font-bold px-2 py-0.5 outline-none"
         />
         <button onClick={confirm} disabled={saving} className="text-green-400 hover:text-green-300">
-          <FaCheck size={11} />
+          <Icon forceShow><FaCheck size={11} /></Icon>
         </button>
         <button onClick={cancel} className="text-gray-500 hover:text-gray-300">
-          <FaTimes size={11} />
+          <Icon forceShow><FaTimes size={11} /></Icon>
         </button>
       </div>
     );
@@ -577,7 +580,7 @@ function RenameField({ displayName, theme, onSave }) {
         className="text-gray-600 hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
         title="Đổi tên"
       >
-        <FaPencilAlt size={11} />
+        <Icon forceShow><FaPencilAlt size={11} /></Icon>
       </button>
     </div>
   );

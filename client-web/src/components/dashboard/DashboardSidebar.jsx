@@ -1,53 +1,55 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { FaSignOutAlt, FaStar } from "react-icons/fa";
+import { FaSignOutAlt } from "react-icons/fa";
 import { cn } from "../../utils/dashboardTheme";
 import { navGroups } from "../../utils/dashboardNavGroups";
 
 export default function DashboardSidebar({ active, setActive, onLogout, theme: t }) {
   const navigate = useNavigate();
 
+  const ROUTES = {
+    dashboard:    "/dashboard",
+    learn:        "/learn",
+    roadmap:      "/learn",
+    topics:       "/learn",
+    writing:      "/ai-writing",
+    speaking:     "/ai-speaking",
+    conversation: "/ai-conversation",
+    feedback:     "/feedback",
+    profile:      "/profile",
+    settings:     "/settings",
+  };
+
   const handleNavClick = (item) => {
     setActive(item.key);
-    const routes = {
-      dashboard:    "/dashboard",
-      roadmap:      "/roadmap",
-      topics:       "/topics",
-      writing:      "/ai-writing",
-      speaking:     "/ai-speaking",
-      conversation: "/ai-conversation",
-      feedback:     "/feedback",
-      profile:      "/profile",
-      settings:     "/settings",
-    };
-    if (routes[item.key] && item.key !== "dashboard") {
-      navigate(routes[item.key]);
-    }
+    if (ROUTES[item.key]) navigate(ROUTES[item.key]);
   };
 
   return (
-    <aside className={cn("rounded-3xl border p-6 h-fit sticky top-6", t.border, t.sidebar)}>
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-2 mb-8">
-        <div className="w-12 h-12 rounded-xl bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] text-white flex items-center justify-center font-bold text-lg shadow-md">
+    <aside className={cn(
+      "w-64 shrink-0 flex flex-col rounded-2xl sticky top-6 h-fit overflow-hidden",
+      t.sidebar
+    )}>
+
+      {/* ── Brand ─────────────────────────────────────────────── */}
+      <div className="px-6 pt-7 pb-5 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] flex items-center justify-center text-white font-black text-sm tracking-tight shadow">
           AI
         </div>
         <div>
-          <div className={cn("font-bold text-lg", t.text)}>IELTS Coach</div>
-          <div className="text-xs text-[#6C5CE7] font-semibold uppercase tracking-wider">Premium</div>
+          <p className="font-bold text-sm text-slate-800 leading-none">IELTS Coach</p>
+          <p className="text-[11px] text-[#6C5CE7] font-semibold mt-0.5">Premium</p>
         </div>
       </div>
 
-      {/* Navigation Groups */}
-      <div className="space-y-6">
-        {navGroups.map((group, groupIdx) => (
-          <div key={groupIdx}>
-            <div className="px-2 mb-3">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {group.title}
-              </h4>
-            </div>
-            <div className="space-y-1">
+      {/* ── Nav groups ────────────────────────────────────────── */}
+      <nav className="flex-1 px-3 space-y-5 pb-4">
+        {navGroups.map((group, gi) => (
+          <div key={gi}>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold text-indigo-300 uppercase tracking-widest">
+              {group.title}
+            </p>
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = item.key === active;
                 return (
@@ -55,30 +57,33 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
                     key={item.key}
                     onClick={() => handleNavClick(item)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                       isActive
-                        ? "bg-linear-to-r from-[#A29BFE]/30 to-[#00CEC9]/20 border border-[#6C5CE7]/30 text-[#6C5CE7] shadow-sm font-semibold"
-                        : cn("text-gray-600", t.hover, "hover:text-[#6C5CE7]")
+                        ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                        : "text-slate-500 hover:text-indigo-700 hover:bg-indigo-50/60"
                     )}
                   >
-                    <span className={cn("text-base", isActive ? "text-[#6C5CE7]" : "text-gray-500")}>
+                    {/* Active indicator dot */}
+                    <span className={cn(
+                      "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
+                      isActive ? "bg-indigo-500" : "bg-transparent"
+                    )} />
+
+                    <span className={cn(
+                      "text-base shrink-0",
+                      isActive ? "text-indigo-600" : "text-slate-400"
+                    )}>
                       {item.icon}
                     </span>
-                    <span className="flex-1 text-left">{item.label}</span>
 
-                    {item.badge && (
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                        item.badge === "AI"    ? "bg-[#6C5CE7] text-white" :
-                        item.badge === "Check" ? "bg-[#00CEC9] text-white" :
-                                                  "bg-orange-500 text-white"
-                      )}>
-                        {item.badge}
-                      </span>
+                    <span className="flex-1 text-left truncate">{item.label}</span>
+
+                    {/* Only AI/NEW badge */}
+                    {item.badge === "AI" && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#6C5CE7] text-white">AI</span>
                     )}
-
-                    {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00CEC9] shadow-[0_0_8px_#00CEC9]" />
+                    {item.badge === "NEW" && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-500 text-white">NEW</span>
                     )}
                   </button>
                 );
@@ -86,38 +91,27 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
             </div>
           </div>
         ))}
-      </div>
+      </nav>
 
-      {/* Upgrade Banner */}
-      <div className="mt-6 rounded-2xl bg-linear-to-br from-[#6C5CE7] to-[#a855f7] p-4 text-white shadow-lg">
-        <div className="flex items-center gap-2 mb-1.5">
-          <FaStar className="text-yellow-300" />
-          <span className="font-bold text-sm">Nâng cấp Premium</span>
-        </div>
-        <p className="text-xs text-white/80 mb-3 leading-relaxed">
-          Mở khóa AI không giới hạn &amp; toàn bộ nội dung
-        </p>
+      {/* ── Upgrade card ──────────────────────────────────────── */}
+      <div className="mx-3 mb-4 rounded-xl bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] p-4">
+        <p className="text-white font-bold text-sm">Nâng cấp Premium</p>
+        <p className="text-white/70 text-xs mt-1 mb-3 leading-relaxed">Mở khóa AI không giới hạn & toàn bộ nội dung</p>
         <button
           onClick={() => navigate("/pricing")}
-          className="w-full py-2 rounded-xl bg-white text-[#6C5CE7] font-bold text-xs hover:shadow-md transition-all active:scale-95"
+          className="w-full py-2 rounded-lg bg-white text-[#6C5CE7] font-bold text-xs hover:shadow transition-all active:scale-[0.98]"
         >
-          ⚡ Xem gói cước
-        </button>
-        <button
-          onClick={() => navigate("/my-subscription")}
-          className="w-full pt-2 text-[10px] text-white/60 hover:text-white transition text-center"
-        >
-          Gói hiện tại của tôi →
+          Xem gói cước →
         </button>
       </div>
 
-      {/* Logout */}
-      <div className="mt-4 pt-4 border-t border-dashed border-purple-100">
+      {/* ── Logout ────────────────────────────────────────────── */}
+      <div className="px-3 pb-5 border-t border-slate-100">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors font-medium"
+          className="mt-3 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
         >
-          <FaSignOutAlt className="text-base" />
+          <FaSignOutAlt className="text-base shrink-0" />
           <span>Đăng xuất</span>
         </button>
       </div>

@@ -2,15 +2,17 @@ import React from "react";
 import {
   FaHome, FaBookOpen, FaCalendarAlt, FaComments,
   FaUser, FaCog, FaClipboardCheck, FaMicrophoneAlt, FaPenFancy,
+  FaGraduationCap,
 } from "react-icons/fa";
 
 export const navGroups = [
   {
     title: "QUẢN LÝ & LỘ TRÌNH",
     items: [
-      { key: "dashboard",    label: "Tổng quan",     icon: <FaHome />,          badge: null    },
-      { key: "roadmap",      label: "Lộ trình học",  icon: <FaCalendarAlt />,   badge: "AI"    },
-      { key: "topics",       label: "Kho Chủ đề",    icon: <FaBookOpen />,      badge: null    },
+      { key: "dashboard",    label: "Tổng quan",      icon: <FaHome />,           badge: null    },
+      { key: "learn",        label: "Luyện Tập",       icon: <FaGraduationCap />,  badge: "NEW"   },
+      { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"    },
+      { key: "topics",       label: "Kho Chủ đề",      icon: <FaBookOpen />,       badge: null    },
     ],
   },
   {
