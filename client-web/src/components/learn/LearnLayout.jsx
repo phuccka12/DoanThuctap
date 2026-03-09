@@ -19,7 +19,21 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Determine active sidebar key from pathname
-  const activeKey = location.pathname.startsWith('/learn') ? 'learn' : 'dashboard';
+  const getActiveKeyFromPath = (p) => {
+    if (!p) return 'dashboard';
+    if (p.startsWith('/stories'))    return 'stories';
+    if (p.startsWith('/vocabulary')) return 'vocabulary';
+    if (p.startsWith('/learn') || p.startsWith('/topics') || p.startsWith('/learn/')) return 'learn';
+    if (p.startsWith('/ai-writing'))    return 'writing';
+    if (p.startsWith('/ai-speaking'))   return 'speaking';
+    if (p.startsWith('/ai-conversation')) return 'conversation';
+    if (p.startsWith('/profile'))    return 'profile';
+    if (p.startsWith('/settings'))   return 'settings';
+    if (p.startsWith('/dashboard'))  return 'dashboard';
+    return 'dashboard';
+  };
+
+  const activeKey = getActiveKeyFromPath(location.pathname);
 
   const handleNavClick = (item) => {
     setSidebarOpen(false);
@@ -28,6 +42,7 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
       learn:        '/learn',
       roadmap:      '/learn',
       topics:       '/learn',
+      vocabulary:   '/vocabulary',
       writing:      '/ai-writing',
       speaking:     '/ai-speaking',
       conversation: '/ai-conversation',

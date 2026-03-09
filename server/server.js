@@ -49,6 +49,11 @@ const uploadRoutes = require('./src/routes/upload');
 const shopRoutes = require('./src/routes/shopRoutes');
 // ── Learning / Practice module ───────────────────────────────────────────────
 const learnRoutes = require('./src/routes/learnRoutes');
+// ── RPG Story module ─────────────────────────────────────────────────────────
+const storyRoutes      = require('./src/routes/storyRoutes');
+const adminStoryRoutes = require('./src/routes/Admin/AdminStories');
+// ── Vocabulary Learning module ────────────────────────────────────────────────
+const vocabLearnRoutes = require('./src/routes/vocabLearnRoutes');
 // ─────────────────────────────────────────────────────────────────────────────
 const { startPetDecayJob } = require('./src/jobs/petDecay');
 const { startCancelStalePendingJob } = require('./src/jobs/cancelStalePending');
@@ -120,6 +125,7 @@ app.use('/api/admin/shop',        adminShopRoutes);
 app.use('/api/admin/economy',     adminEconomyRoutes);
 app.use('/api/admin/pokedex',     adminPokedexRoutes);
 app.use('/api/admin/anti-cheat',  adminAntiCheatRoutes);
+app.use('/api/admin/stories',     adminStoryRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.use('/api', dashboardRoutes);
@@ -138,6 +144,10 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/shop', shopRoutes);
 // ── Learning / Practice module ───────────────────────────────────────────────
 app.use('/api/learn', learnRoutes);
+// ── RPG Story module ─────────────────────────────────────────────────────────
+app.use('/api/stories', storyRoutes);
+// ── Vocabulary Learning module ────────────────────────────────────────────────
+app.use('/api/vocabulary', vocabLearnRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // start background jobs

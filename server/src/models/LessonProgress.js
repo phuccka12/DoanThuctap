@@ -17,13 +17,15 @@ const lessonProgressSchema = new mongoose.Schema(
     lessonId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Lesson',
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Topic',
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     // Array of node indices/IDs that have been completed
@@ -65,13 +67,32 @@ const lessonProgressSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    // ── Story RPG fields (optional — only set when this record tracks a story part) ──
+    storyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Story',
+      default: null,
+      index: true,
+    },
+    // Which part of the story was completed (1-based)
+    current_story_part: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
   }
 );
 
-// One progress record per (user, lesson) — use upsert to update
-lessonProgressSchema.index({ userId: 1, lessonId: 1 }, { unique: true });
+// One progress record per (user, lesson) — only enforce uniqueness when lessonId is a real ObjectId.
+// Story progress records have lessonId: null and are NOT covered by this index,
+// allowing multiple story-part records per user.
+// Note: $type:'objectId' is used instead of $ne:null because MongoDB Atlas
+// does not support $ne in partialFilterExpression.
+lessonProgressSchema.index(
+  { userId: 1, lessonId: 1 },
+  { unique: true, partialFilterExpression: { lessonId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('LessonProgress', lessonProgressSchema);

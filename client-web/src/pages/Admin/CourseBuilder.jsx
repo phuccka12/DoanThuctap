@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi';
 import { 
   FaBook, FaVideo, FaRobot, FaClipboardCheck, 
-  FaGraduationCap, FaHeadphones 
+  FaGraduationCap, FaHeadphones, FaNewspaper
 } from 'react-icons/fa';
 import adminService from '../../services/adminService';
 import AdminLayout from '../../components/AdminLayout';
@@ -55,6 +55,13 @@ const ACTIVITY_TYPES = [
     icon: FaHeadphones,
     emoji: '🎧',
     description: 'Bài tập nghe với phụ đề tương tác'
+  },
+  {
+    id: 'reading',
+    label: 'Bài Đọc',
+    icon: FaNewspaper,
+    emoji: '📖',
+    description: 'Bài đọc hiểu với câu hỏi trắc nghiệm'
   }
 ];
 
@@ -551,6 +558,9 @@ function ContentEditor({ node, activityTypes, onUpdate }) {
         {node.type === 'listening' && (
           <ListeningEditor data={node.data} onChange={handleDataChange} />
         )}
+        {node.type === 'reading' && (
+          <ReadingEditor data={node.data} onChange={handleDataChange} />
+        )}
       </div>
     </div>
   );
@@ -1027,6 +1037,272 @@ function GrammarEditor({ data, onChange }) {
           rows={4}
           className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+      </div>
+    </div>
+  );
+}
+
+// Helper: strip HTML tags + decode &nbsp; etc. → plain text
+function stripHtml(html = '') {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')   // remove tags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s{2,}/g, ' ')    // collapse multiple spaces
+    .trim();
+}
+
+// 7. Reading Editor
+function ReadingEditor({ data, onChange }) {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handlePickPassage = (passage) => {
+    onChange({
+      passage_id:       passage._id,
+      passage_title:    passage.title,
+      passage:          stripHtml(passage.passage || ''),
+      vocab_highlights: passage.vocab_highlights || [],
+      questions:        passage.questions || [],
+      level:            passage.cefr_level || passage.level || '',
+    });
+    setShowPicker(false);
+  };
+
+  const handleClearPassage = () => {
+    onChange({
+      passage_id:       null,
+      passage_title:    '',
+      passage:          '',
+      vocab_highlights: [],
+      questions:        [],
+      level:            '',
+    });
+  };
+
+  const LEVEL_COLORS = {
+    A1: 'bg-green-700 text-green-200', A2: 'bg-green-700 text-green-200',
+    B1: 'bg-yellow-700 text-yellow-200', B2: 'bg-yellow-700 text-yellow-200',
+    C1: 'bg-red-700 text-red-200',   C2: 'bg-red-700 text-red-200',
+    beginner: 'bg-green-700 text-green-200',
+    intermediate: 'bg-yellow-700 text-yellow-200',
+    advanced: 'bg-red-700 text-red-200',
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Passage Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">📖 Bài đọc từ kho</label>
+        {data.passage_id ? (
+          <div className="flex items-center gap-3 p-4 bg-blue-900/20 border border-blue-500/40 rounded-xl">
+            <div className="w-10 h-10 rounded-lg bg-blue-700 flex items-center justify-center shrink-0">
+              <FaNewspaper className="text-white" size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold truncate">{data.passage_title}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {data.level && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${LEVEL_COLORS[data.level] || 'bg-gray-700 text-gray-300'}`}>
+                    {data.level}
+                  </span>
+                )}
+                {data.vocab_highlights?.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-800/60 text-amber-300">
+                    {data.vocab_highlights.length} từ highlight
+                  </span>
+                )}
+                {data.questions?.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-800 text-blue-200">
+                    {data.questions.length} câu hỏi
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-xs transition-colors"
+              >
+                Đổi bài
+              </button>
+              <button
+                type="button"
+                onClick={handleClearPassage}
+                className="px-3 py-1.5 bg-red-700/60 hover:bg-red-700 text-white rounded-lg text-xs transition-colors"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowPicker(true)}
+            className="w-full py-4 border-2 border-dashed border-gray-600 hover:border-blue-500 rounded-xl text-gray-400 hover:text-blue-400 transition-colors flex items-center justify-center gap-2"
+          >
+            <FaNewspaper size={18} />
+            <span>Chọn bài đọc từ kho</span>
+          </button>
+        )}
+      </div>
+
+      {/* Preview passage snippet */}
+      {data.passage && (
+        <div className="bg-gray-900 border border-white/10 rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Xem trước đoạn văn</p>
+          <p className="text-gray-300 text-sm leading-relaxed line-clamp-4">{stripHtml(data.passage)}</p>
+        </div>
+      )}
+
+      {/* Picker modal */}
+      {showPicker && (
+        <ReadingPickerModal
+          onClose={() => setShowPicker(false)}
+          onPick={handlePickPassage}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============ Reading Picker Modal ============
+function ReadingPickerModal({ onClose, onPick }) {
+  const [passages, setPassages] = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [search, setSearch]     = useState('');
+  const [level, setLevel]       = useState('');
+  const [page, setPage]         = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const LEVEL_COLORS = {
+    beginner:     'bg-green-700 text-green-200',
+    intermediate: 'bg-yellow-700 text-yellow-200',
+    advanced:     'bg-red-700 text-red-200',
+  };
+  const LEVEL_LABELS = { beginner: 'Sơ cấp', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
+
+  useEffect(() => { fetchPassages(); }, [page, search, level]);
+
+  const fetchPassages = async () => {
+    setLoading(true);
+    try {
+      const res = await adminService.getPassagesForLessonBuilder({
+        page, limit: 8,
+        search: search.trim(),
+        cefr_level: level,
+        is_active: true,
+      });
+      const raw = res.data.data || [];
+      setPassages(Array.isArray(raw) ? raw : raw.passages || []);
+      setTotalPages(res.data.totalPages || 1);
+    } catch (err) {
+      console.error('Lỗi tải kho bài đọc:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-700 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-700">
+          <h2 className="text-lg font-bold text-white">📖 Kho Bài Đọc</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1"><FiX size={22} /></button>
+        </div>
+
+        {/* Filters */}
+        <div className="p-4 border-b border-gray-700 flex flex-wrap gap-3">
+          <div className="flex-1 min-w-48 relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Tìm tiêu đề bài đọc..."
+              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <select
+            value={level}
+            onChange={(e) => { setLevel(e.target.value); setPage(1); }}
+            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Tất cả cấp độ</option>
+            {['A1','A2','B1','B2','C1','C2'].map(l => <option key={l} value={l}>{l}</option>)}
+            <option value="beginner">Sơ cấp</option>
+            <option value="intermediate">Trung cấp</option>
+            <option value="advanced">Nâng cao</option>
+          </select>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {loading ? (
+            <div className="flex justify-center items-center py-16">
+              <FiLoader className="animate-spin text-blue-400" size={32} />
+            </div>
+          ) : passages.length === 0 ? (
+            <div className="text-center text-gray-500 py-16">Không tìm thấy bài đọc nào</div>
+          ) : (
+            passages.map((p) => (
+              <div
+                key={p._id}
+                onClick={() => onPick(p)}
+                className="flex items-start gap-4 p-4 bg-gray-800 hover:bg-blue-900/30 border border-gray-700 hover:border-blue-500 rounded-xl cursor-pointer transition-colors"
+              >
+                <div className="w-11 h-11 rounded-full bg-blue-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <FaNewspaper className="text-white" size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold truncate">{p.title}</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {(p.cefr_level || p.level) && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${LEVEL_COLORS[p.cefr_level || p.level] || 'bg-gray-700 text-gray-300'}`}>
+                        {LEVEL_LABELS[p.cefr_level || p.level] || p.cefr_level || p.level}
+                      </span>
+                    )}
+                    {p.word_count > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">{p.word_count} từ</span>
+                    )}
+                    {p.vocab_highlights?.length > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-800/60 text-amber-300">
+                        ✨ {p.vocab_highlights.length} highlight
+                      </span>
+                    )}
+                    {p.questions?.length > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-800 text-blue-200">{p.questions.length} câu hỏi</span>
+                    )}
+                  </div>
+                  {p.passage && (
+                    <p className="text-gray-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">{stripHtml(p.passage)}</p>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 p-4 border-t border-gray-700">
+            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
+              className="px-4 py-1.5 rounded-lg bg-gray-700 text-white text-sm disabled:opacity-40 hover:bg-gray-600">
+              ← Trước
+            </button>
+            <span className="px-4 py-1.5 text-gray-400 text-sm">{page} / {totalPages}</span>
+            <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}
+              className="px-4 py-1.5 rounded-lg bg-gray-700 text-white text-sm disabled:opacity-40 hover:bg-gray-600">
+              Tiếp →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

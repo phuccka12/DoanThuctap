@@ -9,6 +9,7 @@ import {
   FaGlobe, FaPalette, FaShoppingCart, FaMusic, FaFutbol 
 } from 'react-icons/fa';
 import adminService from '../../services/adminService';
+import FileUploader from '../../components/FileUploader';
 
 /**
  * AdminTopics - Professional Topics Library Management
@@ -401,15 +402,39 @@ function AdminTopics() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Cover Image URL</label>
-                <input
-                  type="url"
-                  name="cover_image"
-                  value={formData.cover_image}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                  placeholder="https://example.com/image.jpg"
+                <label className="block text-sm font-medium text-gray-300 mb-2">Cover Image</label>
+                <FileUploader
+                  onUploadSuccess={(data) => setFormData(prev => ({ ...prev, cover_image: data.url }))}
+                  onUploadError={(err) => console.error('Cover upload error', err)}
                 />
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="url"
+                    name="cover_image"
+                    value={formData.cover_image}
+                    onChange={handleFormChange}
+                    className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  {formData.cover_image && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, cover_image: '' }))}
+                      className="px-3 py-2 bg-gray-600 hover:bg-red-600 text-white rounded-lg transition"
+                      title="Xóa ảnh"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {formData.cover_image && (
+                  <img
+                    src={formData.cover_image}
+                    alt="Preview"
+                    className="w-full h-32 object-cover rounded-lg mt-2 border border-gray-600"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                )}
               </div>
 
               <div>

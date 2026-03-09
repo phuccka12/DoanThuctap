@@ -2,25 +2,26 @@ import React from "react";
 import {
   FaHome, FaBookOpen, FaCalendarAlt, FaComments,
   FaUser, FaCog, FaClipboardCheck, FaMicrophoneAlt, FaPenFancy,
-  FaGraduationCap,
+  FaGraduationCap, FaLayerGroup,
 } from "react-icons/fa";
 
 export const navGroups = [
   {
     title: "QUẢN LÝ & LỘ TRÌNH",
     items: [
-      { key: "dashboard",    label: "Tổng quan",      icon: <FaHome />,           badge: null    },
-      { key: "learn",        label: "Luyện Tập",       icon: <FaGraduationCap />,  badge: "NEW"   },
-      { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"    },
-      { key: "topics",       label: "Kho Chủ đề",      icon: <FaBookOpen />,       badge: null    },
+      { key: "dashboard",    label: "Tổng quan",      icon: <FaHome />,           badge: null       },
+      { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"       },
+      { key: "topics",       label: "Kho Chủ đề",      icon: <FaGraduationCap />,  badge: null       },
+      { key: "vocabulary",   label: "Từ Vựng",         icon: <FaLayerGroup />,     badge: "NEW"      },
+      { key: "stories",      label: "Câu chuyện",      icon: <FaBookOpen />,       badge: "STORY"    },
     ],
   },
   {
     title: "LUYỆN THI & CHẤM ĐIỂM",
     items: [
-      { key: "writing",      label: "Luyện Writing",  icon: <FaPenFancy />,      badge: "Check" },
-      { key: "speaking",     label: "Luyện Speaking", icon: <FaMicrophoneAlt />, badge: "Check" },
-      { key: "conversation", label: "Hội thoại AI",   icon: <FaComments />,      badge: "1-1"   },
+      { key: "writing",      label: "Luyện Writing",  icon: <FaPenFancy />,      badge: "AI" },
+      { key: "speaking",     label: "Luyện Speaking", icon: <FaMicrophoneAlt />, badge: "AI" },
+      { key: "conversation", label: "Hội thoại AI",   icon: <FaComments />,      badge: "AI"   },
     ],
   },
   {

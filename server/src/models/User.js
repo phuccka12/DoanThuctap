@@ -75,6 +75,9 @@ const userSchema = new mongoose.Schema(
 
     email_verified: { type: Boolean, default: false },
 
+    // Vocabulary learning progress: { [topicId]: [wordId, ...] }
+    vocab_progress: { type: Map, of: [mongoose.Schema.Types.ObjectId], default: {} },
+
     failed_login_attempts: { type: Number, default: 0 },
     lock_until: { type: Date, default: null },
   },

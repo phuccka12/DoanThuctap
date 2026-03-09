@@ -2,6 +2,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiMenu, FiX, FiLogOut, FiHome, FiBook, FiHeadphones, FiEdit3, FiUsers, FiBookOpen, FiFileText, FiDollarSign, FiSettings, FiVolume2, FiHeart, FiShoppingBag, FiSliders, FiShield } from 'react-icons/fi';
 import { GiDragonSpiral } from 'react-icons/gi';
+import { FaBookOpen } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
 // 1️⃣ DI CHUYỂN MENU RA NGOÀI COMPONENT ĐỂ TRÁNH RENDER LẠI VÀ LỖI CACHE
@@ -15,6 +16,8 @@ const menuItems = [
   { icon: FiEdit3,      label: 'Writing Scenarios',  path: '/admin/writing-scenarios' },
   { icon: FiHeadphones, label: 'Speaking Questions', path: '/admin/speaking-questions' },
   { icon: FiVolume2,    label: 'Listening',          path: '/admin/listening' },
+  { divider: true, label: 'MINI-GAME' },
+  { icon: FaBookOpen,   label: 'Câu chuyện RPG',     path: '/admin/stories' },
   { divider: true, label: 'GAMIFICATION' },
   { icon: FiHeart,        label: 'Gamification',       path: '/admin/gamification' },
   { icon: FiShoppingBag,  label: 'Cửa hàng Vật phẩm', path: '/admin/shop' },

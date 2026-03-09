@@ -424,15 +424,6 @@ function TopicCard({ topic, onClick, t, isDark }) {
                 />
               </div>
             </div>
-            <button className={cn(
-              'w-full py-3 rounded-2xl text-white text-sm font-black flex items-center justify-center gap-2 transition-all shadow-md',
-              done
-                ? 'bg-emerald-500 group-hover:bg-emerald-400 shadow-emerald-500/20'
-                : 'bg-linear-to-r from-[#6C5CE7] to-[#a855f7] group-hover:shadow-lg group-hover:shadow-[#6C5CE7]/30'
-            )}>
-              {done ? <><FaTrophy className="text-xs" /> Ôn lại</> : pct > 0 ? <><FaPlay className="text-xs" /> Tiếp tục học</> : <><FaPlay className="text-xs" /> Bắt đầu</>}
-              <FaChevronRight className="text-[10px] ml-auto opacity-60 group-hover:translate-x-1 transition-transform" />
-            </button>
           </>
         )}
       </div>

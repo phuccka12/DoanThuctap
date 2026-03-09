@@ -27,6 +27,13 @@ import MaintenancePage from './pages/MaintenancePage';
 import Learn        from './pages/Learn';
 import TopicDetail  from './pages/TopicDetail';
 import LessonPlayer from './pages/LessonPlayer';
+// RPG Story module
+import StoryLobby  from './pages/StoryLobby';
+import StoryReader from './pages/StoryReader';
+// Vocabulary Learning module
+import VocabularyHome   from './pages/VocabularyHome';
+import VocabularyDetail from './pages/VocabularyDetail';
+import VocabularyLearn  from './pages/VocabularyLearn';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -49,6 +56,7 @@ import AdminShop from './pages/Admin/AdminShop';
 import AdminEconomy from './pages/Admin/AdminEconomy';
 import AdminPokedex from './pages/Admin/AdminPokedex';
 import AdminAntiCheat from './pages/Admin/AdminAntiCheat';
+import AdminStories from './pages/Admin/AdminStories';
 import AIListening from './pages/AIListening';
 
 // Protected Route Component with Onboarding check
@@ -232,6 +240,35 @@ function App() {
               <LessonPlayer />
             </ProtectedRoute>
           } />
+
+          {/* RPG Story module */}
+          <Route path="/stories" element={
+            <ProtectedRoute>
+              <StoryLobby />
+            </ProtectedRoute>
+          } />
+          <Route path="/stories/:storyId/parts/:partNum" element={
+            <ProtectedRoute>
+              <StoryReader />
+            </ProtectedRoute>
+          } />
+
+          {/* Vocabulary Learning module */}
+          <Route path="/vocabulary" element={
+            <ProtectedRoute>
+              <VocabularyHome />
+            </ProtectedRoute>
+          } />
+          <Route path="/vocabulary/:topicId" element={
+            <ProtectedRoute>
+              <VocabularyDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/vocabulary/:topicId/learn" element={
+            <ProtectedRoute>
+              <VocabularyLearn />
+            </ProtectedRoute>
+          } />
           
           {/* Admin Routes */}
           <Route path="/admin" element={
@@ -348,6 +385,13 @@ function App() {
             <AdminRoute>
               <AdminLayout>
                 <AdminAntiCheat />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/stories" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminStories />
               </AdminLayout>
             </AdminRoute>
           } />

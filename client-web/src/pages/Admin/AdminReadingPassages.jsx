@@ -709,7 +709,8 @@ function CreateEditModal({ passage, allTopics, onClose, onSuccess }) {
     audio_url: '',
     estimated_time: 5,
     difficulty_score: 5,
-    is_active: true
+    is_active: true,
+    vocab_highlights: [],
   });
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -745,7 +746,8 @@ function CreateEditModal({ passage, allTopics, onClose, onSuccess }) {
         audio_url: passage.audio_url || '',
         estimated_time: passage.estimated_time || 5,
         difficulty_score: passage.difficulty_score || 5,
-        is_active: passage.is_active !== false
+        is_active: passage.is_active !== false,
+        vocab_highlights: passage.vocab_highlights || [],
       };
       console.log('📝 Setting formData to:', newFormData);
       setFormData(newFormData);
@@ -1126,7 +1128,101 @@ function CreateEditModal({ passage, allTopics, onClose, onSuccess }) {
             </label>
           </div>
 
-          {/* Submit Buttons */}
+          {/* ── Vocabulary Highlights ─────────────────────────────── */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300">
+                  🟡 Từ Vựng Highlight
+                </label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Từ được highlight vàng trong bài — user hover/click sẽ thấy nghĩa ngay
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData(f => ({
+                  ...f,
+                  vocab_highlights: [...f.vocab_highlights, { word: '', meaning: '', pos: '' }]
+                }))}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm flex items-center gap-1 shrink-0"
+              >
+                <FiPlus /> Thêm từ
+              </button>
+            </div>
+
+            {formData.vocab_highlights.length === 0 ? (
+              <div className="border border-dashed border-gray-600 rounded-lg p-4 text-center text-gray-500 text-sm">
+                Chưa có từ vựng nào. Nhấn "Thêm từ" để bắt đầu.
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="grid grid-cols-[2fr_3fr_1.5fr_auto] gap-2 mb-1 px-2">
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Từ (Word)</span>
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Nghĩa</span>
+                  <span className="text-xs text-gray-500 font-semibold uppercase">Loại từ</span>
+                  <span />
+                </div>
+                <div className="space-y-2">
+                  {formData.vocab_highlights.map((vh, i) => (
+                    <div key={i} className="grid grid-cols-[2fr_3fr_1.5fr_auto] gap-2 items-center bg-gray-700/40 rounded-lg px-2 py-1.5">
+                      <input
+                        type="text"
+                        placeholder="pastime"
+                        value={vh.word}
+                        onChange={e => {
+                          const updated = [...formData.vocab_highlights];
+                          updated[i] = { ...updated[i], word: e.target.value };
+                          setFormData(f => ({ ...f, vocab_highlights: updated }));
+                        }}
+                        className="px-2 py-1.5 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-amber-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="trò tiêu khiển"
+                        value={vh.meaning}
+                        onChange={e => {
+                          const updated = [...formData.vocab_highlights];
+                          updated[i] = { ...updated[i], meaning: e.target.value };
+                          setFormData(f => ({ ...f, vocab_highlights: updated }));
+                        }}
+                        className="px-2 py-1.5 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-amber-500"
+                      />
+                      <select
+                        value={vh.pos}
+                        onChange={e => {
+                          const updated = [...formData.vocab_highlights];
+                          updated[i] = { ...updated[i], pos: e.target.value };
+                          setFormData(f => ({ ...f, vocab_highlights: updated }));
+                        }}
+                        className="px-2 py-1.5 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="">--</option>
+                        <option value="noun">noun</option>
+                        <option value="verb">verb</option>
+                        <option value="adj">adj</option>
+                        <option value="adv">adv</option>
+                        <option value="phrase">phrase</option>
+                        <option value="other">other</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({
+                          ...f,
+                          vocab_highlights: f.vocab_highlights.filter((_, idx) => idx !== i)
+                        }))}
+                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded"
+                      >
+                        <FiTrash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
             <button
               type="button"

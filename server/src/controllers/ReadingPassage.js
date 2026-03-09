@@ -565,7 +565,7 @@ exports.getPassagesForLessonBuilder = async (req, res) => {
     const passages = await ReadingPassage.find(query)
       .populate('topics', 'name level icon_image_url')
       .populate('linked_vocabulary.word_id', 'word meaning')
-      .select('title passage content_type cefr_level word_count estimated_time topics linked_vocabulary image_url')
+      .select('title passage content_type cefr_level word_count estimated_time topics linked_vocabulary vocab_highlights questions image_url')
       .sort({ usage_count: -1, created_at: -1 })
       .limit(parseInt(limit));
     

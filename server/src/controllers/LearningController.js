@@ -13,6 +13,7 @@
  *   GET  /progress                 — summary of user's completed lessons & topics
  */
 
+const mongoose       = require('mongoose');
 const Lesson         = require('../models/Lesson');
 const Topic          = require('../models/Topic');
 const LessonProgress = require('../models/LessonProgress');
@@ -64,6 +65,8 @@ exports.getTopicsWithProgress = async (req, res) => {
     // If authenticated, attach progress percentage
     let progressMap = {};
     if (req.userId) {
+      const userObjId = new mongoose.Types.ObjectId(req.userId);
+
       // Count total published lessons per topic
       const lessonCounts = await Lesson.aggregate([
         { $match: { is_published: true, is_active: true } },
@@ -74,10 +77,11 @@ exports.getTopicsWithProgress = async (req, res) => {
 
       // Count completed lessons per topic for this user
       const completedAgg = await LessonProgress.aggregate([
-        { $match: { userId: req.userId, completedAt: { $ne: null } } },
+        { $match: { userId: userObjId, lessonId: { $ne: null }, completedAt: { $ne: null } } },
         { $group: { _id: '$topicId', done: { $sum: 1 } } },
       ]);
       completedAgg.forEach(r => {
+        if (!r._id) return; // skip null topicId (story records)
         const tid = r._id.toString();
         const total = totalMap[tid] || 1;
         progressMap[tid] = Math.round((r.done / total) * 100);
@@ -329,11 +333,11 @@ exports.generatePlan = async (req, res) => {
 
     // ── 3. Get user's progress per topic ─────────────────────────────────────
     const completedTopicAgg = await LessonProgress.aggregate([
-      { $match: { userId: req.userId, completedAt: { $ne: null } } },
+      { $match: { userId: new mongoose.Types.ObjectId(req.userId), lessonId: { $ne: null }, completedAt: { $ne: null } } },
       { $group: { _id: '$topicId', done: { $sum: 1 } } },
     ]);
     const completedTopicMap = {};
-    completedTopicAgg.forEach(r => { completedTopicMap[r._id?.toString()] = r.done; });
+    completedTopicAgg.forEach(r => { if (r._id) completedTopicMap[r._id.toString()] = r.done; });
 
     // ── 4. Build topic profile texts (for semantic matching) ──────────────────
     function buildTopicText(tp) {

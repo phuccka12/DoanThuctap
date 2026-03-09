@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 
 /**
@@ -7,9 +7,12 @@ import { FaCheck, FaTimes } from 'react-icons/fa';
  *   { passageId?, passage?, title?, questions: [{ _id, text, type, options, answer }] }
  */
 export default function ReadingNode({ node, nodeIdx, onComplete }) {
-  const data      = node.data || {};
-  const passage   = data.passage || '';
-  const title     = node.title  || data.title || 'Bài Đọc';
+  const data           = node.data || {};
+  const rawPassage     = data.passage || data.text || '';
+  // Strip any stored HTML tags (passage may have been saved via rich-text editor)
+  const passage        = rawPassage.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  const title          = node.title  || data.title || 'Bài Đọc';
+  const vocabHighlights = data.vocab_highlights || [];
   const questions = data.questions || [];
 
   const [answers,   setAnswers]   = useState({});
@@ -50,7 +53,9 @@ export default function ReadingNode({ node, nodeIdx, onComplete }) {
           <span className="text-2xl">📖</span>
           <h2 className="font-bold text-lg">{title}</h2>
         </div>
-        <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap">{passage}</p>
+        <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap">
+            <HighlightedPassage text={passage} highlights={vocabHighlights} />
+          </p>
       </div>
 
       {/* Questions */}
@@ -185,5 +190,113 @@ function ScoreSummary({ correct, total }) {
       <p className="font-bold text-lg">{pct >= 70 ? '🎉' : '💪'} {correct}/{total} câu đúng ({pct}%)</p>
       <p className="text-sm text-gray-400 mt-0.5">{pct >= 70 ? 'Xuất sắc! Tiếp tục nhé.' : 'Ôn luyện thêm để làm tốt hơn!'}</p>
     </div>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   Vocabulary Highlight helpers
+────────────────────────────────────────────── */
+const POS_COLORS = {
+  noun:   'text-sky-300   border-sky-400',
+  verb:   'text-emerald-300 border-emerald-400',
+  adj:    'text-violet-300 border-violet-400',
+  adv:    'text-rose-300   border-rose-400',
+  phrase: 'text-amber-300  border-amber-400',
+  other:  'text-gray-300   border-gray-400',
+};
+const POS_LABELS = {
+  noun: 'n.', verb: 'v.', adj: 'adj.', adv: 'adv.', phrase: 'phr.', other: '',
+};
+
+function HighlightWord({ word, vocab }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const colorCls = POS_COLORS[vocab.pos] || POS_COLORS.other;
+  const posLabel  = POS_LABELS[vocab.pos] || '';
+
+  return (
+    <span ref={ref} className="relative inline-block">
+      <span
+        onClick={() => setOpen(o => !o)}
+        className={`border-b border-dashed cursor-pointer rounded-sm px-0.5 transition-colors
+          text-amber-300 border-amber-400 hover:bg-amber-400/15 select-none`}
+      >
+        {word}
+      </span>
+
+      {open && (
+        <span
+          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2
+            bg-gray-800 border border-white/10 rounded-xl shadow-2xl
+            px-3 py-2.5 min-w-40 max-w-64 text-xs pointer-events-none"
+          style={{ whiteSpace: 'normal' }}
+        >
+          {/* Word + POS badge */}
+          <span className="flex items-baseline gap-1.5 flex-wrap mb-1">
+            <span className="font-bold text-amber-300 text-sm">{vocab.word}</span>
+            {posLabel && (
+              <span className={`italic font-medium text-[10px] border rounded px-1 ${colorCls}`}>
+                {posLabel}
+              </span>
+            )}
+          </span>
+          {/* Meaning */}
+          {vocab.meaning && (
+            <span className="block text-gray-200 leading-snug">{vocab.meaning}</span>
+          )}
+          {/* Tiny caret */}
+          <span
+            className="absolute top-full left-1/2 -translate-x-1/2 -mt-px
+              border-4 border-transparent border-t-gray-800"
+          />
+        </span>
+      )}
+    </span>
+  );
+}
+
+function HighlightedPassage({ text, highlights }) {
+  if (!text) return null;
+  if (!highlights || highlights.length === 0) return <>{text}</>;
+
+  // Build a map: lowercase word → vocab object (last wins for duplicates)
+  const vocabMap = new Map();
+  highlights.forEach(h => {
+    if (h.word?.trim()) vocabMap.set(h.word.trim().toLowerCase(), h);
+  });
+
+  // Escape regex special chars
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const words = Array.from(vocabMap.keys()).sort((a, b) => b.length - a.length); // longest first
+  const regex = new RegExp(`(${words.map(escape).join('|')})`, 'gi');
+
+  // Split preserving delimiters
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const vocab = vocabMap.get(part.toLowerCase());
+        if (vocab) {
+          return <HighlightWord key={i} word={part} vocab={vocab} />;
+        }
+        // Preserve newlines
+        return part.split('\n').map((line, li, arr) => (
+          <React.Fragment key={`${i}-${li}`}>
+            {line}
+            {li < arr.length - 1 && <br />}
+          </React.Fragment>
+        ));
+      })}
+    </>
   );
 }

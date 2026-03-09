@@ -142,6 +142,13 @@ export const getAntiCheatUserDetail = (userId) => adminAxios.get(`/admin/anti-ch
 export const adjustCoins          = (userId, amount, reason) => adminAxios.post(`/admin/anti-cheat/user/${userId}/coins`, { amount, reason });
 export const resetPetAdmin        = (petId)    => adminAxios.post(`/admin/anti-cheat/pet/${petId}/reset`);
 
+// ============ RPG STORIES ============
+export const getStoriesAdmin  = (params)     => adminAxios.get('/admin/stories', { params });
+export const getStoryAdmin    = (id)         => adminAxios.get(`/admin/stories/${id}`);
+export const createStoryAdmin = (data)       => adminAxios.post('/admin/stories', data);
+export const updateStoryAdmin = (id, data)   => adminAxios.put(`/admin/stories/${id}`, data);
+export const deleteStoryAdmin = (id)         => adminAxios.delete(`/admin/stories/${id}`);
+
 export default {
   // Topics
   getTopics,
@@ -247,6 +254,12 @@ export default {
   getAntiCheatUserDetail,
   adjustCoins,
   resetPetAdmin,
+  // Stories (RPG module)
+  getStoriesAdmin,
+  getStoryAdmin,
+  createStoryAdmin,
+  updateStoryAdmin,
+  deleteStoryAdmin,
   // Raw axios instance (for custom calls)
   adminAxios,
 };

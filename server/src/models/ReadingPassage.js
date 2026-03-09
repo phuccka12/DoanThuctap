@@ -67,6 +67,13 @@ const readingPassageSchema = new mongoose.Schema({
       end: Number
     }]
   }],
+
+  // Vocabulary Highlights — từ khó admin muốn highlight trong bài
+  vocab_highlights: [{
+    word:    { type: String, required: true, trim: true },
+    meaning: { type: String, trim: true, default: '' },
+    pos:     { type: String, trim: true, default: '' }, // part of speech: noun/verb/adj/adv...
+  }],
   
   // Reading Questions (embedded)
   questions: [{

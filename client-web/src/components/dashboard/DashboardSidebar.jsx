@@ -12,6 +12,8 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
     learn:        "/learn",
     roadmap:      "/learn",
     topics:       "/learn",
+    vocabulary:   "/vocabulary",
+    stories:      "/stories",
     writing:      "/ai-writing",
     speaking:     "/ai-speaking",
     conversation: "/ai-conversation",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
@@ -88,16 +88,7 @@ export default function LessonPlayer() {
 
   const isLastNode = current === nodes.length - 1;
 
-  const handleNext = async () => {
-    if (!isLastNode) {
-      setCurrent(c => c + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    await submitLesson();
-  };
-
-  const submitLesson = async () => {
+  const submitLesson = useCallback(async () => {
     setSubmitting(true);
     try {
       const scores   = Object.values(nodeScores);
@@ -115,6 +106,31 @@ export default function LessonPlayer() {
     } finally {
       setSubmitting(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId, nodeScores, completedNodes, startTime]);
+
+  // ── Auto-submit when ALL nodes are completed (e.g. single-node lessons) ──
+  const autoSubmitRef = useRef(false);
+  useEffect(() => {
+    if (
+      nodes.length > 0 &&
+      completedNodes.size >= nodes.length &&
+      !showModal &&
+      !submitting &&
+      !autoSubmitRef.current
+    ) {
+      autoSubmitRef.current = true;
+      submitLesson();
+    }
+  }, [completedNodes.size, nodes.length, showModal, submitting, submitLesson]);
+
+  const handleNext = async () => {
+    if (!isLastNode) {
+      setCurrent(c => c + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    await submitLesson();
   };
 
   // Next lesson in this topic
@@ -405,17 +421,28 @@ function NodeRenderer({ node, nodeIdx, isDone, onComplete, t, isDark }) {
   if (type.includes('quiz') || type.includes('grammar')) return <QuizNode      {...common} />;
   if (type.includes('writ') || type.includes('essay'))   return <WritingNode   {...common} />;
 
+  // Speaking / roleplay / ai_roleplay → fallback interactive card (auto-completes on click)
+  const isSpeakType = type.includes('speak') || type.includes('role') || type.includes('ai_');
+  const cardLabel   = isSpeakType ? '🎙️ Luyện nói / Roleplay' : (node.type || 'Hoạt động');
+  const btnLabel    = isSpeakType ? '🎙️ Đã luyện tập xong ✓' : 'Đã xem ✓';
+
   return (
     <div className={cn('rounded-2xl border p-6', t.border, t.card)}>
       <span className={cn(
         'inline-block text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-4',
         isDark ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-500'
       )}>
-        {node.type || 'unknown'}
+        {cardLabel}
       </span>
       <h2 className={cn('text-xl font-bold mb-3', t.text)}>{node.title || 'Nội dung bài học'}</h2>
-      {node.data?.content && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.content}</p>}
-      {node.data?.text    && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.text}</p>}
+      {node.data?.content  && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.content}</p>}
+      {node.data?.text     && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.text}</p>}
+      {node.data?.prompt   && (
+        <div className={cn('rounded-xl border p-4 mb-4 text-sm leading-relaxed', isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-indigo-50 border-indigo-100 text-slate-700')}>
+          <p className={cn('text-xs font-bold uppercase tracking-wide mb-2', isDark ? 'text-indigo-300' : 'text-indigo-500')}>Chủ đề</p>
+          {node.data.prompt}
+        </div>
+      )}
       {node.data?.videoUrl && <video controls src={node.data.videoUrl} className="w-full mt-2 rounded-xl mb-4" />}
       {isDone
         ? <div className="flex items-center gap-2 text-emerald-500 font-semibold text-sm">
@@ -424,7 +451,7 @@ function NodeRenderer({ node, nodeIdx, isDone, onComplete, t, isDark }) {
         : <button
             onClick={() => onComplete(nodeIdx, { score: 100 })}
             className="mt-2 px-6 py-2.5 bg-[#6C5CE7] hover:opacity-90 text-white rounded-xl font-bold text-sm transition-all">
-            Đã xem ✓
+            {btnLabel}
           </button>
       }
     </div>
