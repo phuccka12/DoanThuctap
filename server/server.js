@@ -148,6 +148,9 @@ app.use('/api/learn', learnRoutes);
 app.use('/api/stories', storyRoutes);
 // ── Vocabulary Learning module ────────────────────────────────────────────────
 app.use('/api/vocabulary', vocabLearnRoutes);
+// ── Reading Practice module (user-facing, no admin required) ─────────────────
+const readingPracticeRoutes = require('./src/routes/readingPracticeRoutes');
+app.use('/api/reading-passages', readingPracticeRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // start background jobs

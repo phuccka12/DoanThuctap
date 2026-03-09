@@ -13,6 +13,7 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
     roadmap:      "/learn",
     topics:       "/learn",
     vocabulary:   "/vocabulary",
+    reading:      "/reading",
     stories:      "/stories",
     writing:      "/ai-writing",
     speaking:     "/ai-speaking",

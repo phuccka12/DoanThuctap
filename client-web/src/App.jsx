@@ -34,6 +34,8 @@ import StoryReader from './pages/StoryReader';
 import VocabularyHome   from './pages/VocabularyHome';
 import VocabularyDetail from './pages/VocabularyDetail';
 import VocabularyLearn  from './pages/VocabularyLearn';
+// Reading Practice module
+import ReadingPractice from './pages/ReadingPractice';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -267,6 +269,13 @@ function App() {
           <Route path="/vocabulary/:topicId/learn" element={
             <ProtectedRoute>
               <VocabularyLearn />
+            </ProtectedRoute>
+          } />
+
+          {/* Reading Practice module */}
+          <Route path="/reading" element={
+            <ProtectedRoute>
+              <ReadingPractice />
             </ProtectedRoute>
           } />
           

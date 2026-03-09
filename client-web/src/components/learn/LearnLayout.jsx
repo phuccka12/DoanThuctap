@@ -23,6 +23,7 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
     if (!p) return 'dashboard';
     if (p.startsWith('/stories'))    return 'stories';
     if (p.startsWith('/vocabulary')) return 'vocabulary';
+    if (p.startsWith('/reading'))    return 'reading';
     if (p.startsWith('/learn') || p.startsWith('/topics') || p.startsWith('/learn/')) return 'learn';
     if (p.startsWith('/ai-writing'))    return 'writing';
     if (p.startsWith('/ai-speaking'))   return 'speaking';
@@ -43,6 +44,8 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
       roadmap:      '/learn',
       topics:       '/learn',
       vocabulary:   '/vocabulary',
+      reading:      '/reading',
+      stories:      '/stories',
       writing:      '/ai-writing',
       speaking:     '/ai-speaking',
       conversation: '/ai-conversation',

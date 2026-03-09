@@ -2,7 +2,7 @@ import React from "react";
 import {
   FaHome, FaBookOpen, FaCalendarAlt, FaComments,
   FaUser, FaCog, FaClipboardCheck, FaMicrophoneAlt, FaPenFancy,
-  FaGraduationCap, FaLayerGroup,
+  FaGraduationCap, FaLayerGroup, FaNewspaper,
 } from "react-icons/fa";
 
 export const navGroups = [
@@ -13,7 +13,8 @@ export const navGroups = [
       { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"       },
       { key: "topics",       label: "Kho Chủ đề",      icon: <FaGraduationCap />,  badge: null       },
       { key: "vocabulary",   label: "Từ Vựng",         icon: <FaLayerGroup />,     badge: "NEW"      },
-      { key: "stories",      label: "Câu chuyện",      icon: <FaBookOpen />,       badge: "STORY"    },
+      { key: "reading",      label: "Bài Đọc",          icon: <FaNewspaper />,      badge: "NEW"      },
+      { key: "stories",      label: "Câu chuyện",      icon: <FaBookOpen />,       badge: null       },
     ],
   },
   {

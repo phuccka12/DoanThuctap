@@ -652,3 +652,117 @@ exports.generateWithAI = async (req, res) => {
     });
   }
 };
+
+// ── USER-FACING: list passages for practice ──────────────────────────────────
+// ── USER-FACING: get topics that have reading passages ───────────────────────
+exports.getReadingTopics = async (req, res) => {
+  try {
+    // Aggregate: find all topic IDs that have at least 1 active passage
+    const rows = await ReadingPassage.aggregate([
+      { $match: { is_active: true } },
+      { $unwind: '$topics' },
+      { $group: { _id: '$topics', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    if (!rows.length) {
+      return res.json({ success: true, data: { topics: [], uncategorized: 0 } });
+    }
+
+    const topicIds = rows.filter(r => r._id).map(r => r._id);
+    const topics   = await Topic.find({ _id: { $in: topicIds } })
+      .select('name icon_name cover_image level description')
+      .lean();
+
+    const countMap = {};
+    rows.forEach(r => { if (r._id) countMap[r._id.toString()] = r.count; });
+
+    const result = topics.map(t => ({
+      ...t,
+      passage_count: countMap[t._id.toString()] || 0,
+    })).sort((a, b) => b.passage_count - a.passage_count);
+
+    // Count passages with no topic
+    const uncategorized = await ReadingPassage.countDocuments({
+      is_active: true,
+      $or: [{ topics: { $exists: false } }, { topics: { $size: 0 } }],
+    });
+
+    res.json({ success: true, data: { topics: result, uncategorized } });
+  } catch (err) {
+    console.error('getReadingTopics error:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+exports.getPassagesForPractice = async (req, res) => {
+  try {
+    const { search, level, cefr_level, topic, uncategorized, page = 1, limit = 12 } = req.query;
+    const query = { is_active: true };
+
+    if (search) query.$text = { $search: search };
+    if (level)      query.level      = level;
+    if (cefr_level) query.cefr_level = cefr_level;
+    if (topic)      query.topics = topic;
+    if (uncategorized === '1') {
+      query.$or = [{ topics: { $exists: false } }, { topics: { $size: 0 } }];
+    }
+
+    const passages = await ReadingPassage.find(query)
+      .populate('topics', 'name level')
+      .select('title passage cefr_level level word_count estimated_time image_url vocab_highlights questions usage_count')
+      .sort({ created_at: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Strip HTML from passage preview
+    const clean = passages.map(p => ({
+      ...p,
+      passage_preview: (p.passage || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .slice(0, 200),
+    }));
+
+    const total = await ReadingPassage.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: {
+        passages: clean,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+      },
+    });
+  } catch (err) {
+    console.error('getPassagesForPractice error:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// ── USER-FACING: get single passage for practice ─────────────────────────────
+exports.getPassageForPractice = async (req, res) => {
+  try {
+    const passage = await ReadingPassage.findOne({ _id: req.params.id, is_active: true })
+      .populate('topics', 'name level')
+      .lean();
+
+    if (!passage) return res.status(404).json({ message: 'Không tìm thấy bài đọc' });
+
+    // Strip HTML from passage text
+    passage.passage = (passage.passage || '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    res.json({ success: true, data: passage });
+  } catch (err) {
+    console.error('getPassageForPractice error:', err);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};

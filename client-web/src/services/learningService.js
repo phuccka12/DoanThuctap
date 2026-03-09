@@ -23,3 +23,8 @@ export const getCurrentPlan = () => axiosInstance.get(`${BASE}/plan/current`);
 
 /** User progress summary */
 export const getProgress = () => axiosInstance.get(`${BASE}/progress`);
+
+// ── Reading Practice ──────────────────────────────────────────────────────────
+export const getReadingTopics      = ()       => axiosInstance.get('/reading-passages/topics');
+export const getReadingPassages    = (params) => axiosInstance.get('/reading-passages/list', { params });
+export const getReadingPassageById = (id)     => axiosInstance.get(`/reading-passages/${id}`);

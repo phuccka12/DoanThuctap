@@ -126,4 +126,20 @@ router.post(
   readingPassageController.importReadingPassagesFromCSV
 );
 
+// ── USER-FACING routes (no admin required) ────────────────────────────────
+
+// List active passages for practice (filter by level, topic, search)
+router.get(
+  '/practice/list',
+  protect,
+  readingPassageController.getPassagesForPractice
+);
+
+// Get single passage for practice (full data incl. vocab_highlights + questions)
+router.get(
+  '/practice/:id',
+  protect,
+  readingPassageController.getPassageForPractice
+);
+
 module.exports = router;
