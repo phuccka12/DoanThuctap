@@ -34,6 +34,7 @@ const adminReadingPassageRoutes = require('./src/routes/readingPassage');
 const adminBillingRoutes = require('./src/routes/Admin/AdminBilling');
 const adminSystemConfigRoutes = require('./src/routes/Admin/AdminSystemConfig');
 const adminListeningRoutes = require('./src/routes/Admin/AdminListening');
+const adminGrammarRoutes   = require('./src/routes/Admin/AdminGrammar');
 const adminPetsRoutes = require('./src/routes/Admin/AdminPets');
 // ── NEW: Shop, Economy, Pokedex, Anti-Cheat ──────────────────────────────────
 const adminShopRoutes      = require('./src/routes/Admin/AdminShop');
@@ -119,6 +120,7 @@ app.use('/api/admin/reading-passages', adminReadingPassageRoutes);
 app.use('/api/admin/billing', adminBillingRoutes);
 app.use('/api/admin/system-config', adminSystemConfigRoutes);
 app.use('/api/admin/listening', adminListeningRoutes);
+app.use('/api/admin/grammar',   adminGrammarRoutes);
 app.use('/api/admin/pets', adminPetsRoutes);
 // ── NEW admin routes ─────────────────────────────────────────────────────────
 app.use('/api/admin/shop',        adminShopRoutes);
@@ -151,6 +153,12 @@ app.use('/api/vocabulary', vocabLearnRoutes);
 // ── Reading Practice module (user-facing, no admin required) ─────────────────
 const readingPracticeRoutes = require('./src/routes/readingPracticeRoutes');
 app.use('/api/reading-passages', readingPracticeRoutes);
+// ── Speaking Practice module (user-facing) ────────────────────────────────────
+const speakingPracticeRoutes = require('./src/routes/Public/SpeakingPracticeRoutes');
+app.use('/api/speaking-practice', speakingPracticeRoutes);
+// ── Grammar Practice module (user-facing) ─────────────────────────────────────
+const grammarRoutes = require('./src/routes/Public/GrammarRoutes');
+app.use('/api/grammar', grammarRoutes);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // start background jobs

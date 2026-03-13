@@ -2,6 +2,7 @@ const ListeningPassage = require('../models/ListeningPassage');
 
 // ── GET all (admin) ──────────────────────────────────────────────────────────
 exports.getAll = async (req, res) => {
+
   try {
     const { page = 1, limit = 20, search, level, section, is_active } = req.query;
     const query = {};
@@ -46,12 +47,34 @@ exports.getOne = async (req, res) => {
 // ── GET stats ────────────────────────────────────────────────────────────────
 exports.getStats = async (req, res) => {
   try {
-    const [total, active, byLevel] = await Promise.all([
+    const [total, active, byLevelArr, bySectionArr, questionStats] = await Promise.all([
       ListeningPassage.countDocuments(),
       ListeningPassage.countDocuments({ is_active: true }),
-      ListeningPassage.aggregate([{ $group: { _id: '$level', count: { $sum: 1 } } }]),
+      ListeningPassage.aggregate([{ $group: { _id: '$level',   count: { $sum: 1 } } }]),
+      ListeningPassage.aggregate([{ $group: { _id: '$section', count: { $sum: 1 } } }]),
+      ListeningPassage.aggregate([
+        { $project: { questionCount: { $size: { $ifNull: ['$questions', []] } } } },
+        { $group: { _id: null, total: { $sum: '$questionCount' }, avg: { $avg: '$questionCount' } } },
+      ]),
     ]);
-    res.json({ message: 'OK', data: { total, active, inactive: total - active, byLevel } });
+
+    // Convert arrays to objects for easier consumption
+    const byLevel   = {};
+    byLevelArr.forEach(({ _id, count }) => { if (_id) byLevel[_id]   = count; });
+    const bySection = {};
+    bySectionArr.forEach(({ _id, count }) => { if (_id) bySection[_id] = count; });
+
+    const totalQuestions = questionStats[0]?.total ?? 0;
+    const avgQuestions   = questionStats[0]?.avg   ?? 0;
+
+    res.json({
+      message: 'OK',
+      data: {
+        total, active, inactive: total - active,
+        byLevel, bySection,
+        totalQuestions, avgQuestions: Math.round(avgQuestions * 10) / 10,
+      },
+    });
   } catch (e) {
     res.status(500).json({ message: 'Lỗi server', error: e.message });
   }
@@ -113,6 +136,53 @@ exports.remove = async (req, res) => {
     const passage = await ListeningPassage.findByIdAndDelete(req.params.id);
     if (!passage) return res.status(404).json({ message: 'Không tìm thấy bài nghe' });
     res.json({ message: 'Đã xoá bài nghe' });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
+  }
+};
+
+// ── DUPLICATE ────────────────────────────────────────────────────────────────
+exports.duplicate = async (req, res) => {
+  try {
+    const original = await ListeningPassage.findById(req.params.id).lean();
+    if (!original) return res.status(404).json({ message: 'Không tìm thấy bài nghe' });
+
+    const { _id, created_at, updated_at, ...rest } = original;
+    const copy = await ListeningPassage.create({
+      ...rest,
+      title: `${rest.title} (Bản sao)`,
+      is_active: false,
+      created_by: req.userId,
+    });
+    res.status(201).json({ message: 'Đã nhân đôi bài nghe', data: copy });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
+  }
+};
+
+// ── BULK DELETE ──────────────────────────────────────────────────────────────
+exports.bulkDelete = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ message: 'Danh sách ID không hợp lệ' });
+
+    const result = await ListeningPassage.deleteMany({ _id: { $in: ids } });
+    res.json({ message: `Đã xoá ${result.deletedCount} bài nghe` });
+  } catch (e) {
+    res.status(500).json({ message: 'Lỗi server', error: e.message });
+  }
+};
+
+// ── BULK TOGGLE ──────────────────────────────────────────────────────────────
+exports.bulkToggle = async (req, res) => {
+  try {
+    const { ids, is_active } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ message: 'Danh sách ID không hợp lệ' });
+
+    await ListeningPassage.updateMany({ _id: { $in: ids } }, { is_active: !!is_active });
+    res.json({ message: `Đã cập nhật ${ids.length} bài nghe` });
   } catch (e) {
     res.status(500).json({ message: 'Lỗi server', error: e.message });
   }

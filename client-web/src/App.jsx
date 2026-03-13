@@ -36,6 +36,8 @@ import VocabularyDetail from './pages/VocabularyDetail';
 import VocabularyLearn  from './pages/VocabularyLearn';
 // Reading Practice module
 import ReadingPractice from './pages/ReadingPractice';
+// Speaking Practice module
+import SpeakingPractice from './pages/SpeakingPractice';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -59,6 +61,9 @@ import AdminEconomy from './pages/Admin/AdminEconomy';
 import AdminPokedex from './pages/Admin/AdminPokedex';
 import AdminAntiCheat from './pages/Admin/AdminAntiCheat';
 import AdminStories from './pages/Admin/AdminStories';
+import AdminGrammar from './pages/Admin/AdminGrammar';
+import GrammarLobby from './pages/GrammarLobby';
+import GrammarLesson from './pages/GrammarLesson';
 import AIListening from './pages/AIListening';
 
 // Protected Route Component with Onboarding check
@@ -220,6 +225,17 @@ function App() {
               <AIListening />
             </ProtectedRoute>
           } />
+          {/* Grammar Journey module */}
+          <Route path="/grammar" element={
+            <ProtectedRoute>
+              <GrammarLobby />
+            </ProtectedRoute>
+          } />
+          <Route path="/grammar/:id" element={
+            <ProtectedRoute>
+              <GrammarLesson />
+            </ProtectedRoute>
+          } />
           <Route path="/my-subscription" element={
             <ProtectedRoute>
               <MySubscription />
@@ -276,6 +292,13 @@ function App() {
           <Route path="/reading" element={
             <ProtectedRoute>
               <ReadingPractice />
+            </ProtectedRoute>
+          } />
+
+          {/* Speaking Practice module */}
+          <Route path="/speaking-practice" element={
+            <ProtectedRoute>
+              <SpeakingPractice />
             </ProtectedRoute>
           } />
           
@@ -352,6 +375,13 @@ function App() {
             <AdminRoute>
               <AdminLayout>
                 <AdminListening />
+              </AdminLayout>
+            </AdminRoute>
+          } />
+          <Route path="/admin/grammar" element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminGrammar />
               </AdminLayout>
             </AdminRoute>
           } />

@@ -277,7 +277,8 @@ export default function Dashboard() {
               <CardHeader title="Luyện tập nhanh" theme={t} />
               <div className="flex flex-wrap gap-2">
                 <Pill emoji="✍️" label="Writing"      onClick={() => navigate("/ai-writing")} />
-                <Pill emoji="🎙️" label="Speaking"     onClick={() => navigate("/ai-speaking")} />
+                <Pill emoji="�" label="Listening"    onClick={() => navigate("/ai-listening")} />
+                <Pill emoji="�🎙️" label="Speaking"     onClick={() => navigate("/ai-speaking")} />
                 <Pill emoji="💬" label="Conversation" onClick={() => navigate("/ai-conversation")} />
                 <Pill emoji="📝" label="Mock Test"    onClick={() => navigate("/mock-tests")} />
                 <Pill emoji="📚" label="Từ vựng"      onClick={() => navigate("/learn")} />

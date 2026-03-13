@@ -21,16 +21,19 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
   // Determine active sidebar key from pathname
   const getActiveKeyFromPath = (p) => {
     if (!p) return 'dashboard';
-    if (p.startsWith('/stories'))    return 'stories';
-    if (p.startsWith('/vocabulary')) return 'vocabulary';
-    if (p.startsWith('/reading'))    return 'reading';
+    if (p.startsWith('/stories'))            return 'stories';
+    if (p.startsWith('/vocabulary'))         return 'vocabulary';
+    if (p.startsWith('/reading'))            return 'reading';
+    if (p.startsWith('/grammar'))            return 'grammar';
+    if (p.startsWith('/speaking-practice'))  return 'speaking-practice';
+    if (p.startsWith('/ai-listening'))       return 'listening';
     if (p.startsWith('/learn') || p.startsWith('/topics') || p.startsWith('/learn/')) return 'learn';
-    if (p.startsWith('/ai-writing'))    return 'writing';
-    if (p.startsWith('/ai-speaking'))   return 'speaking';
-    if (p.startsWith('/ai-conversation')) return 'conversation';
-    if (p.startsWith('/profile'))    return 'profile';
-    if (p.startsWith('/settings'))   return 'settings';
-    if (p.startsWith('/dashboard'))  return 'dashboard';
+    if (p.startsWith('/ai-writing'))         return 'writing';
+    if (p.startsWith('/ai-speaking'))        return 'speaking';
+    if (p.startsWith('/ai-conversation'))    return 'conversation';
+    if (p.startsWith('/profile'))            return 'profile';
+    if (p.startsWith('/settings'))           return 'settings';
+    if (p.startsWith('/dashboard'))          return 'dashboard';
     return 'dashboard';
   };
 
@@ -39,19 +42,22 @@ export default function LearnLayout({ children, breadcrumbs = [] }) {
   const handleNavClick = (item) => {
     setSidebarOpen(false);
     const routes = {
-      dashboard:    '/dashboard',
-      learn:        '/learn',
-      roadmap:      '/learn',
-      topics:       '/learn',
-      vocabulary:   '/vocabulary',
-      reading:      '/reading',
-      stories:      '/stories',
-      writing:      '/ai-writing',
-      speaking:     '/ai-speaking',
-      conversation: '/ai-conversation',
-      feedback:     '/feedback',
-      profile:      '/profile',
-      settings:     '/settings',
+      dashboard:          '/dashboard',
+      learn:              '/learn',
+      roadmap:            '/learn',
+      topics:             '/learn',
+      vocabulary:         '/vocabulary',
+      reading:            '/reading',
+      grammar:            '/grammar',
+      listening:          '/ai-listening',
+      'speaking-practice': '/speaking-practice',
+      stories:            '/stories',
+      writing:            '/ai-writing',
+      speaking:           '/ai-speaking',
+      conversation:       '/ai-conversation',
+      feedback:           '/feedback',
+      profile:            '/profile',
+      settings:           '/settings',
     };
     if (routes[item.key]) navigate(routes[item.key]);
   };

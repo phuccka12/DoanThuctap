@@ -3,24 +3,29 @@ import { useNavigate } from "react-router-dom";
 import { FaSignOutAlt } from "react-icons/fa";
 import { cn } from "../../utils/dashboardTheme";
 import { navGroups } from "../../utils/dashboardNavGroups";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function DashboardSidebar({ active, setActive, onLogout, theme: t }) {
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
+  const { isDark } = useTheme();
 
   const ROUTES = {
-    dashboard:    "/dashboard",
-    learn:        "/learn",
-    roadmap:      "/learn",
-    topics:       "/learn",
-    vocabulary:   "/vocabulary",
-    reading:      "/reading",
-    stories:      "/stories",
-    writing:      "/ai-writing",
-    speaking:     "/ai-speaking",
-    conversation: "/ai-conversation",
-    feedback:     "/feedback",
-    profile:      "/profile",
-    settings:     "/settings",
+    dashboard:           "/dashboard",
+    learn:               "/learn",
+    roadmap:             "/learn",
+    topics:              "/learn",
+    vocabulary:          "/vocabulary",
+    reading:             "/reading",
+    grammar:             "/grammar",
+    listening:           "/ai-listening",
+    "speaking-practice": "/speaking-practice",
+    stories:             "/stories",
+    writing:             "/ai-writing",
+    speaking:            "/ai-speaking",
+    conversation:        "/ai-conversation",
+    feedback:            "/feedback",
+    profile:             "/profile",
+    settings:            "/settings",
   };
 
   const handleNavClick = (item) => {
@@ -40,7 +45,7 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
           AI
         </div>
         <div>
-          <p className="font-bold text-sm text-slate-800 leading-none">IELTS Coach</p>
+          <p className={cn("font-bold text-sm leading-none", isDark ? "text-white" : "text-slate-800")}>IELTS Coach</p>
           <p className="text-[11px] text-[#6C5CE7] font-semibold mt-0.5">Premium</p>
         </div>
       </div>
@@ -49,7 +54,10 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
       <nav className="flex-1 px-3 space-y-5 pb-4">
         {navGroups.map((group, gi) => (
           <div key={gi}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold text-indigo-300 uppercase tracking-widest">
+            <p className={cn(
+              "px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest",
+              isDark ? "text-white/30" : "text-indigo-300"
+            )}>
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -62,26 +70,33 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                       isActive
-                        ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                        : "text-slate-500 hover:text-indigo-700 hover:bg-indigo-50/60"
+                        ? isDark
+                          ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                          : "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                        : isDark
+                          ? "text-white/50 hover:text-white hover:bg-white/8"
+                          : "text-slate-500 hover:text-indigo-700 hover:bg-indigo-50/60"
                     )}
                   >
                     {/* Active indicator dot */}
                     <span className={cn(
                       "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
-                      isActive ? "bg-indigo-500" : "bg-transparent"
+                      isActive
+                        ? "bg-indigo-500"
+                        : "bg-transparent"
                     )} />
 
                     <span className={cn(
                       "text-base shrink-0",
-                      isActive ? "text-indigo-600" : "text-slate-400"
+                      isActive
+                        ? isDark ? "text-indigo-400" : "text-indigo-600"
+                        : isDark ? "text-white/40"   : "text-slate-400"
                     )}>
                       {item.icon}
                     </span>
 
                     <span className="flex-1 text-left truncate">{item.label}</span>
 
-                    {/* Only AI/NEW badge */}
                     {item.badge === "AI" && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#6C5CE7] text-white">AI</span>
                     )}
@@ -109,10 +124,15 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
       </div>
 
       {/* ── Logout ────────────────────────────────────────────── */}
-      <div className="px-3 pb-5 border-t border-slate-100">
+      <div className={cn("px-3 pb-5 border-t", isDark ? "border-white/5" : "border-slate-100")}>
         <button
           onClick={onLogout}
-          className="mt-3 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          className={cn(
+            "mt-3 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors",
+            isDark
+              ? "text-white/30 hover:text-red-400 hover:bg-red-500/10"
+              : "text-slate-400 hover:text-red-500 hover:bg-red-50"
+          )}
         >
           <FaSignOutAlt className="text-base shrink-0" />
           <span>Đăng xuất</span>

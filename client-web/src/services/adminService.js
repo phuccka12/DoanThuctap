@@ -92,13 +92,16 @@ export const trackPassageUsage = (id) => adminAxios.post(`/admin/reading-passage
 export const getPassagesForLessonBuilder = (params) => adminAxios.get('/admin/reading-passages/for-lesson-builder', { params });
 
 // ============ LISTENING PASSAGES ============
-export const getListeningPassages  = (params) => adminAxios.get('/admin/listening',           { params });
-export const getListeningById      = (id)      => adminAxios.get(`/admin/listening/${id}`);
-export const getListeningStats     = ()        => adminAxios.get('/admin/listening/stats');
-export const createListeningPassage = (data)  => adminAxios.post('/admin/listening',           data);
-export const updateListeningPassage = (id, data) => adminAxios.put(`/admin/listening/${id}`,   data);
-export const toggleListeningActive  = (id)    => adminAxios.patch(`/admin/listening/${id}/toggle`);
-export const deleteListeningPassage = (id)    => adminAxios.delete(`/admin/listening/${id}`);
+export const getListeningPassages     = (params) => adminAxios.get('/admin/listening',                  { params });
+export const getListeningById         = (id)      => adminAxios.get(`/admin/listening/${id}`);
+export const getListeningStats        = ()        => adminAxios.get('/admin/listening/stats');
+export const createListeningPassage   = (data)    => adminAxios.post('/admin/listening',                data);
+export const updateListeningPassage   = (id, data) => adminAxios.put(`/admin/listening/${id}`,          data);
+export const toggleListeningActive    = (id)      => adminAxios.patch(`/admin/listening/${id}/toggle`);
+export const deleteListeningPassage   = (id)      => adminAxios.delete(`/admin/listening/${id}`);
+export const duplicateListeningPassage = (id)     => adminAxios.post(`/admin/listening/${id}/duplicate`);
+export const bulkDeleteListening      = (ids)     => adminAxios.post('/admin/listening/bulk-delete',    { ids });
+export const bulkToggleListening      = (ids, is_active) => adminAxios.post('/admin/listening/bulk-toggle', { ids, is_active });
 
 // ============ BILLING / REVENUE ============
 export const getTransactionStats   = ()               => adminAxios.get('/admin/billing/transactions/stats');
@@ -148,6 +151,14 @@ export const getStoryAdmin    = (id)         => adminAxios.get(`/admin/stories/$
 export const createStoryAdmin = (data)       => adminAxios.post('/admin/stories', data);
 export const updateStoryAdmin = (id, data)   => adminAxios.put(`/admin/stories/${id}`, data);
 export const deleteStoryAdmin = (id)         => adminAxios.delete(`/admin/stories/${id}`);
+
+// ============ GRAMMAR LESSONS ============
+export const getGrammarList     = (params)       => adminAxios.get('/admin/grammar', { params });
+export const getGrammarById     = (id)           => adminAxios.get(`/admin/grammar/${id}`);
+export const createGrammar      = (data)         => adminAxios.post('/admin/grammar', data);
+export const updateGrammar      = (id, data)     => adminAxios.put(`/admin/grammar/${id}`, data);
+export const deleteGrammar      = (id)           => adminAxios.delete(`/admin/grammar/${id}`);
+export const aiGenerateGrammar  = (topic)        => adminAxios.post('/admin/grammar/ai-generate', { topic });
 
 export default {
   // Topics
@@ -260,6 +271,13 @@ export default {
   createStoryAdmin,
   updateStoryAdmin,
   deleteStoryAdmin,
+  // Grammar Lessons
+  getGrammarList,
+  getGrammarById,
+  createGrammar,
+  updateGrammar,
+  deleteGrammar,
+  aiGenerateGrammar,
   // Raw axios instance (for custom calls)
   adminAxios,
 };

@@ -117,44 +117,81 @@ export default function VocabularyHome() {
   return (
     <LearnLayout breadcrumbs={[{ label: 'Từ Vựng', to: '/vocabulary' }]}>
       <div className="space-y-6">
-        {/* Header */}
-        <div className={cn('rounded-2xl border p-6', t.card, t.border)}>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className={cn('text-2xl font-black mb-1', t.text)}>📚 Kho Từ Vựng</h1>
-              <p className={cn('text-sm', t.sub)}>Học từ vựng theo chủ đề với Flashcard, Quiz và Mini-Game</p>
-            </div>
-            {/* Stats */}
-            <div className="flex gap-4">
-              {[
-                { icon: <FaBookOpen />, val: topics.length,  label: 'Chủ đề',     color: 'text-purple-400' },
-                { icon: <FaStar />,     val: learnedWords,   label: 'Đã học',     color: 'text-amber-400'  },
-                { icon: <FaTrophy />,   val: doneTopics,     label: 'Hoàn thành', color: 'text-emerald-400' },
-              ].map(s => (
-                <div key={s.label} className={cn('text-center px-4 py-2 rounded-xl', 'bg-white/5')}>
-                  <div className={cn('text-lg mb-0.5', s.color)}>{s.icon}</div>
-                  <div className={cn('text-lg font-bold', t.text)}>{s.val}</div>
-                  <div className={cn('text-xs', t.sub)}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Overall progress */}
-          {totalWords > 0 && (
-            <div className="mt-4">
-              <div className={cn('flex justify-between text-xs mb-1', t.sub)}>
-                <span>Tiến độ tổng thể</span>
-                <span className="font-semibold">{learnedWords} / {totalWords} từ ({Math.round(learnedWords/totalWords*100)}%)</span>
+        {/* ── HERO BANNER ──────────────────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-3xl shadow-xl">
+          <div className={cn(
+            'absolute inset-0',
+            isDark
+              ? 'bg-linear-to-br from-[#1a0a3d] via-[#2d1060] to-[#0f1122]'
+              : 'bg-linear-to-br from-[#7C3AED] via-[#6D28D9] to-[#4F46E5]',
+          )} />
+          {/* Glow blobs */}
+          <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-white/5 blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-white/5 blur-2xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+          {/* Floating book decoration */}
+          <div className="absolute right-8 top-1/2 -translate-y-1/2 text-[80px] opacity-10 pointer-events-none select-none rotate-12">📚</div>
+
+          <div className="relative z-10 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg text-2xl">
+                    📚
+                  </div>
+                  <div>
+                    <p className="text-white/70 text-xs font-semibold uppercase tracking-widest">Học từ vựng</p>
+                    <h1 className="text-white text-2xl font-black leading-tight">Kho Từ Vựng IELTS</h1>
+                  </div>
+                </div>
+                <p className="text-white/75 text-sm max-w-md leading-relaxed">
+                  Học từ vựng theo chủ đề với{' '}
+                  <span className="font-bold text-white">Flashcard</span>,{' '}
+                  <span className="font-bold text-white">Quiz</span> và{' '}
+                  <span className="font-bold text-white">Mini-Game</span> — ghi nhớ nhanh, nhớ lâu.
+                </p>
               </div>
-              <div className="w-full h-2 rounded-full bg-gray-700/50 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-linear-to-r from-purple-500 via-blue-500 to-emerald-500 transition-all duration-700"
-                  style={{ width: `${totalWords > 0 ? Math.round(learnedWords/totalWords*100) : 0}%` }}
-                />
+
+              {/* Stats chips */}
+              <div className="flex flex-wrap md:flex-col gap-2 md:items-end shrink-0">
+                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5 border border-white/20">
+                  <FaBookOpen className="text-white/80 text-sm" />
+                  <span className="text-white font-black text-lg leading-none">{topics.length}</span>
+                  <span className="text-white/70 text-xs">chủ đề</span>
+                </div>
+                {learnedWords > 0 && (
+                  <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5 border border-white/20">
+                    <FaStar className="text-amber-300 text-sm" />
+                    <span className="text-white font-black text-lg leading-none">{learnedWords}</span>
+                    <span className="text-white/70 text-xs">từ đã học</span>
+                  </div>
+                )}
+                {doneTopics > 0 && (
+                  <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-2.5 border border-white/20">
+                    <FaTrophy className="text-emerald-300 text-sm" />
+                    <span className="text-white font-black text-lg leading-none">{doneTopics}</span>
+                    <span className="text-white/70 text-xs">hoàn thành</span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+
+            {/* Overall progress bar */}
+            {totalWords > 0 && (
+              <div className="mt-5">
+                <div className="flex justify-between text-xs text-white/70 mb-1.5">
+                  <span>Tiến độ tổng thể</span>
+                  <span className="font-bold text-white">{learnedWords} / {totalWords} từ</span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-white/15 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-white/90 transition-all duration-700"
+                    style={{ width: `${Math.round(learnedWords / totalWords * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search */}

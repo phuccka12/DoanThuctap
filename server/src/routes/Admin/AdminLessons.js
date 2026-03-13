@@ -7,6 +7,9 @@ const requireAdmin = require('../../middlewares/requireAdmin');
 // All routes require admin authentication
 router.use(protect, requireAdmin);
 
+// AI auto-generate lesson content (must be before /:id routes)
+router.post('/lessons/ai-generate', lessonController.aiGenerateLesson);
+
 // Get lessons by topic
 router.get('/topics/:topicId/lessons', lessonController.getLessonsByTopic);
 

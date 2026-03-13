@@ -16,6 +16,7 @@ const menuItems = [
   { icon: FiEdit3,      label: 'Writing Scenarios',  path: '/admin/writing-scenarios' },
   { icon: FiHeadphones, label: 'Speaking Questions', path: '/admin/speaking-questions' },
   { icon: FiVolume2,    label: 'Listening',          path: '/admin/listening' },
+  { icon: FiFileText,   label: 'Ngữ pháp',           path: '/admin/grammar' },
   { divider: true, label: 'MINI-GAME' },
   { icon: FaBookOpen,   label: 'Câu chuyện RPG',     path: '/admin/stories' },
   { divider: true, label: 'GAMIFICATION' },

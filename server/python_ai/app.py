@@ -775,5 +775,271 @@ Return ONLY a JSON object (no markdown) with this exact structure:
         return jsonify({"error": str(e)}), 500
 
 
+# ==========================================
+# 🎤 API: SPEAKING PRACTICE — HYBRID ENGINE
+# Phase: warmup | main | followup
+# ==========================================
+import math
+import re as _re
+
+def _offline_fluency_score(transcript, wpm, hesitation_count, rhythm_std):
+    """Tính điểm Fluency offline từ WPM + hesitation + rhythm."""
+    # WPM chuẩn IELTS Speaking: 110-160 wpm → điểm cao nhất
+    if wpm == 0:
+        return 3.0
+    if wpm < 60:
+        wpm_score = 4.0
+    elif wpm < 90:
+        wpm_score = 5.0
+    elif wpm < 110:
+        wpm_score = 6.0
+    elif wpm <= 160:
+        wpm_score = 8.5
+    elif wpm <= 200:
+        wpm_score = 7.5
+    else:
+        wpm_score = 6.5  # Nói quá nhanh → mất điểm
+
+    # Trừ điểm cho hesitation
+    hesitation_penalty = min(hesitation_count * 0.4, 2.5)
+
+    # Rhythm penalty (std > 0.6 → "giật cục")
+    rhythm_penalty = min(rhythm_std * 1.5, 1.5) if rhythm_std > 0.4 else 0
+
+    score = wpm_score - hesitation_penalty - rhythm_penalty
+    return round(max(3.0, min(9.0, score)), 1)
+
+
+def _offline_grammar_bleu(transcript, sample_answer):
+    """N-gram BLEU-like overlap giữa transcript và sample answer → Grammar/Lexical score."""
+    if not transcript or not sample_answer:
+        return 5.0
+
+    def ngrams(tokens, n):
+        return [tuple(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
+
+    def tokenize(text):
+        return _re.sub(r'[^a-z\s]', '', text.lower()).split()
+
+    ref = tokenize(sample_answer)
+    hyp = tokenize(transcript)
+    if not hyp or not ref:
+        return 5.0
+
+    scores = []
+    for n in [1, 2, 3]:
+        ref_ng = ngrams(ref, n)
+        hyp_ng = ngrams(hyp, n)
+        if not hyp_ng:
+            continue
+        ref_set = {}
+        for ng in ref_ng:
+            ref_set[ng] = ref_set.get(ng, 0) + 1
+        match = 0
+        for ng in hyp_ng:
+            if ref_set.get(ng, 0) > 0:
+                match += 1
+                ref_set[ng] -= 1
+        precision = match / len(hyp_ng)
+        scores.append(precision)
+
+    if not scores:
+        return 5.0
+
+    avg = sum(scores) / len(scores)
+    # Scale 0→1 into IELTS band 4→9
+    band = 4.0 + avg * 5.0
+    return round(min(9.0, max(4.0, band)), 1)
+
+
+def _double_metaphone_simple(word):
+    """Very simplified Double Metaphone — just strips vowels/common alt-spellings."""
+    w = word.lower()
+    w = _re.sub(r'[aeiou]', '', w)
+    w = w.replace('ph', 'f').replace('ck', 'k').replace('th', 't')
+    return w
+
+
+def _offline_pronunciation_score(transcript, sample_answer):
+    """Dùng soundex-like similarity để bắt lỗi phát âm mờ."""
+    if not transcript or not sample_answer:
+        return 5.0
+    def tokenize(text):
+        return _re.sub(r'[^a-z\s]', '', text.lower()).split()
+    ref_tokens = tokenize(sample_answer)
+    hyp_tokens = tokenize(transcript)
+    if not hyp_tokens or not ref_tokens:
+        return 5.0
+    ref_meta = set(_double_metaphone_simple(w) for w in ref_tokens)
+    matches = sum(1 for w in hyp_tokens if _double_metaphone_simple(w) in ref_meta)
+    ratio = matches / max(len(hyp_tokens), 1)
+    band = 4.0 + ratio * 5.0
+    return round(min(9.0, max(4.0, band)), 1)
+
+
+@app.route('/api/speaking-practice/evaluate', methods=['POST'])
+def evaluate_speaking_practice():
+    """
+    Body (multipart/form-data):
+      audio        : audio file (wav/mp3/webm)
+      question     : câu hỏi đang trả lời
+      phase        : 'warmup' | 'main' | 'followup'
+      sample_answer: đáp án mẫu (tùy chọn, dùng offline fallback)
+      frontend_data: JSON string { wpm, hesitation_count, rhythm_std, duration_sec }
+    """
+    try:
+        if whisper_model is None:
+            return jsonify({"error": "Whisper chưa load! Kiểm tra FFmpeg."}), 500
+
+        if 'audio' not in request.files:
+            return jsonify({"error": "Thiếu audio"}), 400
+
+        audio_file   = request.files['audio']
+        question     = request.form.get('question', 'Tell me about yourself.')
+        phase        = request.form.get('phase', 'main')   # warmup | main | followup
+        sample_ans   = request.form.get('sample_answer', '')
+        fe_data_raw  = request.form.get('frontend_data', '{}')
+
+        try:
+            fe_data = json.loads(fe_data_raw)
+        except Exception:
+            fe_data = {}
+
+        wpm             = float(fe_data.get('wpm', 0))
+        hesitation_count = int(fe_data.get('hesitation_count', 0))
+        rhythm_std      = float(fe_data.get('rhythm_std', 0))
+        duration_sec    = float(fe_data.get('duration_sec', 0))
+
+        # ── 1. Save & Whisper ──────────────────────────────────────────────────
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
+            audio_file.save(tmp.name)
+            tmp_path = tmp.name
+
+        # ── 1b. Whisper transcription (có fallback nếu Whisper lỗi) ──────────────
+        print(f"🎤 Speaking Practice [{phase}]: Whisper đang phân tích...")
+        transcript = ''
+        try:
+            whisper_result = whisper_model.transcribe(tmp_path)
+            transcript = whisper_result.get('text', '').strip()
+            print(f"📝 Transcript: {transcript}")
+        except Exception as whisper_err:
+            print(f"⚠️ Whisper thất bại → dùng frontend_data làm fallback: {whisper_err}")
+            # Lấy transcript từ Web Speech API nếu frontend gửi lên
+            transcript = fe_data.get('browser_transcript', '').strip()
+            if not transcript:
+                transcript = f"[Whisper lỗi - dùng điểm offline từ frontend_data: WPM={int(wpm)}]"
+
+        # ── 2. Try Online (Gemini) ─────────────────────────────────────────────
+        online_ok = False
+        result = {}
+        try:
+            uploaded_file = client.files.upload(path=tmp_path)
+
+            phase_instruction = {
+                'warmup': 'This is a warm-up question (easy ice-breaker, 10-15 seconds expected).',
+                'main':   'This is the Main IELTS Speaking Part 2 challenge (45 seconds expected).',
+                'followup': 'This is a follow-up conversational question (Part 3 style, 20-30 seconds).',
+            }.get(phase, 'This is a standard IELTS Speaking question.')
+
+            prompt = f"""
+You are a strict IELTS Speaking Examiner with 20 years of experience.
+
+## CONTEXT
+{phase_instruction}
+Question asked: "{question}"
+
+## INPUT
+Whisper Transcript (verbatim, including all fillers like um/uh/ah): "{transcript}"
+Frontend Fluency Data:
+  - WPM: {wpm} (0 = not measured)
+  - Hesitation words counted by browser: {hesitation_count}
+  - Rhythm standard deviation: {rhythm_std} (higher = more uneven)
+  - Recording duration: {duration_sec}s
+
+## TASK
+1. Score each IELTS criterion on a scale of 0.0–9.0 (0.5 increments).
+2. Generate a follow-up question based on what the user just said.
+3. Provide a corrected/improved version of the answer at Band 7 level.
+4. List up to 3 specific mistakes found.
+
+## OUTPUT (JSON ONLY, feedback in Vietnamese):
+{{
+  "transcript": "{transcript}",
+  "scores": {{
+    "fluency": <0-9>,
+    "pronunciation": <0-9>,
+    "lexical": <0-9>,
+    "grammar": <0-9>,
+    "overall": <0-9>
+  }},
+  "feedback": {{
+    "fluency":       "[Nhận xét về độ trôi chảy bằng Tiếng Việt]",
+    "pronunciation": "[Nhận xét phát âm bằng Tiếng Việt]",
+    "lexical":       "[Nhận xét từ vựng bằng Tiếng Việt]",
+    "grammar":       "[Nhận xét ngữ pháp bằng Tiếng Việt]"
+  }},
+  "mistakes": [
+    {{"word": "...", "error": "...", "fix": "..."}}
+  ],
+  "follow_up_question": "[Câu hỏi tiếp theo bằng Tiếng Anh, liên quan đến câu trả lời vừa nghe]",
+  "improved_answer": "[Câu trả lời Band 7 viết lại bằng Tiếng Anh]",
+  "encouragement": "[1 câu động viên ngắn bằng Tiếng Việt]"
+}}
+"""
+            response = genai_generate_with_backoff(MODEL_NAME, [prompt, uploaded_file])
+            raw = response.text.strip().replace('```json', '').replace('```', '').strip()
+            result = json.loads(raw)
+            result['source'] = 'online'
+            online_ok = True
+
+        except Exception as ai_err:
+            print(f"⚠️ Gemini/Online thất bại → kích hoạt Offline Engine: {ai_err}")
+
+        # ── 3. Offline Fallback ────────────────────────────────────────────────
+        if not online_ok:
+            # Tầng 3: Phao Cứu Sinh
+            fluency_score = _offline_fluency_score(transcript, wpm, hesitation_count, rhythm_std)
+            grammar_score = _offline_grammar_bleu(transcript, sample_ans)
+            lexical_score = grammar_score  # Same N-gram overlap used for lexical
+            pron_score    = _offline_pronunciation_score(transcript, sample_ans)
+            overall       = round((fluency_score + grammar_score + lexical_score + pron_score) / 4, 1)
+
+            result = {
+                'transcript': transcript,
+                'scores': {
+                    'fluency':       fluency_score,
+                    'pronunciation': pron_score,
+                    'lexical':       lexical_score,
+                    'grammar':       grammar_score,
+                    'overall':       overall,
+                },
+                'feedback': {
+                    'fluency':       f"Tốc độ nói đo được: {int(wpm)} WPM. {'Tốt!' if 110 <= wpm <= 160 else 'Cần luyện tập thêm để đạt 110-160 WPM.'}",
+                    'pronunciation': 'Phân tích phát âm offline (chế độ dự phòng khi AI không kết nối).',
+                    'lexical':       'Đánh giá từ vựng dựa trên độ tương đồng với đáp án mẫu.',
+                    'grammar':       f"Phát hiện ~{hesitation_count} từ ngập ngừng (um/uh/ah). {'Tốt, không có nhiều.' if hesitation_count < 3 else 'Cần giảm bớt từ ngập ngừng.'}",
+                },
+                'mistakes': [],
+                'follow_up_question': 'Can you tell me more about that?',
+                'improved_answer': sample_ans or 'No sample answer provided.',
+                'encouragement': 'Tiếp tục cố gắng! Mỗi lần luyện tập là một bước tiến.',
+                'source': 'offline',
+            }
+
+        # ── Cleanup ────────────────────────────────────────────────────────────
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"❌ evaluate_speaking_practice error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
