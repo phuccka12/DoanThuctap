@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  getStoryById, submitPartTranslations, completeStoryPart,
-} from '../services/storyService';
+import { getStoryById, completeStoryPart, submitPartTranslations } from '../services/storyService';
+import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import {
   FaSpinner, FaStar, FaCoins, FaBolt, FaChevronRight,
   FaCheck, FaUndo, FaArrowRight, FaHome,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 import LearnLayout from '../components/learn/LearnLayout';
 import { useTheme } from '../context/ThemeContext';
 import { cn } from '../utils/dashboardTheme';
@@ -338,6 +338,14 @@ export default function StoryReader() {
   const [reward,       setReward]       = useState(null);
   const [nextPart,     setNextPart]     = useState(null);
 
+  // ── Timer Logic ──
+  const startTimeRef = useRef(null);
+  useEffect(() => {
+    if (phase === PHASE.READING && !startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+  }, [phase]);
+
   useEffect(() => {
     setLoading(true); setError('');
     setPhase(PHASE.READING); setActiveIndex(0);
@@ -374,8 +382,14 @@ export default function StoryReader() {
       const r = await submitPartTranslations(storyId, partNum, answersArr);
       setGradeResults(r.data.data.results);
       setPartScore(r.data.data.partScore);
-    } catch (e) { console.error(e); }
-    finally { setGrading(false); }
+    } catch (e) { 
+      console.error(e); 
+      const msg = e.response?.data?.message || 'Lỗi khi chấm điểm bài dịch. Vui lòng thử lại sau!';
+      alert(msg);
+      setPhase(PHASE.READING); // Quay lại phase cũ nếu lỗi
+    } finally { 
+      setGrading(false); 
+    }
   };
 
   const handleStartReverse = () => {
@@ -394,7 +408,9 @@ export default function StoryReader() {
     setCompleting(true);
     setCompleteError(null);
     try {
-      const r = await completeStoryPart(storyId, partNum, partScore);
+      const timeSec = Math.round((Date.now() - (startTimeRef.current || Date.now())) / 1000);
+      const r = await completeStoryPart(storyId, partNum, { partScore, timeSpentSec: timeSec });
+      dashboardRefreshEmitter.emit();
       setReward(r.data.data.reward);
       setPhase(PHASE.COMPLETE);
     } catch (e) {
@@ -423,7 +439,7 @@ export default function StoryReader() {
   if (loading) return (
     <LearnLayout breadcrumbs={breadcrumbs}>
       <div className={`min-h-screen flex items-center justify-center ${pageBg}`}>
-        <FaSpinner className="text-indigo-400 text-3xl animate-spin" />
+        <LoadingCat size={250} text="Đang tải nội dung câu chuyện..." />
       </div>
     </LearnLayout>
   );
@@ -520,8 +536,8 @@ export default function StoryReader() {
           )}
 
           {completing && (
-            <div className="mt-6 flex justify-end items-center gap-3">
-              <FaSpinner className="animate-spin text-indigo-400" />
+            <div className="mt-6 flex flex-col items-center justify-end gap-3">
+              <LoadingCat size={80} />
               <span className={cn('text-sm', isDark ? 'text-gray-400' : 'text-slate-500')}>Đang lưu tiến trình…</span>
             </div>
           )}
@@ -573,8 +589,7 @@ export default function StoryReader() {
 
           {!gradeResults ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <FaSpinner className="text-indigo-400 text-3xl animate-spin" />
-              <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>AI đang chấm điểm bài dịch của bạn…</p>
+              <LoadingCat size={200} text="AI đang thẩm định bài dịch của bạn..." />
             </div>
           ) : (
             <>

@@ -9,6 +9,11 @@ const dayItemSchema = new mongoose.Schema(
     dayIndex: { type: Number, min: 0, max: 6, required: true }, // 0 = Mon … 6 = Sun
     lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson', default: null },
     topicId: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', default: null },
+    
+    // New fields for flexible content types:
+    itemId: { type: mongoose.Schema.Types.ObjectId, default: null }, // can be reading ID, writing ID, etc.
+    itemType: { type: String, default: 'topic' }, // e.g. 'topic', 'reading', 'speaking', 'writing', 'vocabulary', 'story'
+    
     skill: { type: String, default: '' }, // primary skill of this slot
     similarityScore: { type: Number, default: 0 }, // cosine score at generation time
     isExploration: { type: Boolean, default: false }, // was this injected for variety?

@@ -1,9 +1,9 @@
-// Login Page - Dark Theme
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import Button from '../components/Button';
-import Input from '../components/Input';
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaGoogle, FaExclamationCircle } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -36,8 +36,6 @@ export default function Login() {
 
     try {
       const response = await login(email, password);
-      
-      // Check user role and redirect accordingly
       const userRole = response?.user?.role;
       if (userRole === 'admin') {
         navigate('/admin');
@@ -52,163 +50,149 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1d29] flex items-center justify-center p-4">
-      <div className="w-full max-w-md mx-auto">
-        {/* Header Card */}
-        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 rounded-t-2xl p-6 text-white relative overflow-hidden">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Đăng nhập</h2>
-              <p className="text-sm text-white/80">Chào mừng bạn đã quay trở lại</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#0F1117] relative flex items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Subtle Background Blobs - Not too "AI" */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[120px] animate-float" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[35%] h-[35%] bg-purple-600/10 rounded-full blur-[100px] animate-float" style={{ animationDelay: '-5s' }} />
+      <div className="absolute top-[20%] right-[10%] w-[20%] h-[20%] bg-sky-500/5 rounded-full blur-[80px] animate-float" style={{ animationDelay: '-10s' }} />
 
-        {/* Form Card */}
-        <div className="bg-[#252b3b] rounded-b-2xl p-6 shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-[440px] z-10"
+      >
+        {/* Glass Card */}
+        <div className="backdrop-blur-xl bg-white/[0.03] border border-white/10 rounded-[2.5rem] shadow-2xl p-8 md:p-10 relative overflow-hidden group">
+          {/* Subtle top light effect */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-linear-to-r from-transparent via-white/20 to-transparent" />
+          
+          <div className="text-center mb-10">
+            <motion.div 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+              className="w-16 h-16 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/20 rotate-3 group-hover:rotate-0 transition-transform duration-500"
+            >
+              <FaLock className="text-white text-2xl" />
+            </motion.div>
+            <h2 className="text-3xl font-black text-white tracking-tight mb-2">Đăng nhập</h2>
+            <p className="text-slate-400 text-sm font-medium">Chào mừng trở lại! Hãy tiếp tục hành trình của bạn.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl text-xs font-bold flex items-center gap-3"
+                >
+                  <FaExclamationCircle className="flex-shrink-0" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Email Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email của bạn</label>
+              <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-500 transition-colors">
+                  <FaEnvelope />
                 </div>
                 <input
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/95 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 outline-none focus:border-indigo-500 focus:bg-white/[0.08] transition-all font-medium text-sm"
                   required
                 />
               </div>
             </div>
 
             {/* Password Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center ml-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mật khẩu</label>
+                <Link to="/forgot-password" className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors">QUÊN MẬT KHẨU?</Link>
+              </div>
+              <div className="relative group/input">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-500 transition-colors">
+                  <FaLock />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 bg-white/95 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 outline-none focus:border-indigo-500 focus:bg-white/[0.08] transition-all font-medium text-sm"
                   required
                 />
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
             </div>
 
             {/* Submit Button */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full bg-linear-to-r from-indigo-600 to-purple-600 text-white font-black text-xs py-3 rounded-2xl shadow-xl shadow-indigo-600/10 hover:shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4 uppercase tracking-widest"
             >
               {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Đang xử lý...
-                </>
+                <div className="flex items-center gap-2">
+                   <LoadingCat size={40} text={null} />
+                   <span>ĐANG ĐĂNG NHẬP...</span>
+                </div>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
-                  Đăng nhập
+                  Đăng nhập <FaArrowRight className="text-[10px]" />
                 </>
               )}
-            </button>
-
-            {/* Links */}
-            <div className="flex items-center justify-between text-sm">
-              <Link to="/forgot-password" className="text-blue-400 hover:text-blue-300">
-                Quên mật khẩu?
-              </Link>
-            </div>
+            </motion.button>
 
             {/* Divider */}
-            <div className="relative my-6">
+            <div className="relative py-4">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-700"></div>
+                <div className="w-full border-t border-white/10"></div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-[#252b3b] text-gray-400">Hoặc đăng nhập với</span>
+              <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
+                <span className="px-4 bg-[#0F1117] text-slate-500 rounded-full">Hoặc</span>
               </div>
             </div>
 
-            {/* Social Login Buttons */}
-            <div className="space-y-3">
-              {/* Google Login */}
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all border border-gray-300"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span>Đăng nhập với Google</span>
-              </button>
-            </div>
+            {/* Social Login */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-bold hover:bg-white/10 transition-all shadow-sm"
+            >
+              <FaGoogle className="text-red-400" />
+              Tiếp tục với Google
+            </motion.button>
 
             {/* Register Link */}
-            <div className="pt-4 border-t border-gray-700 text-center mt-6">
-              <p className="text-gray-400 text-sm">
-                Chưa có tài khoản?{' '}
-                <Link to="/register" className="text-blue-400 hover:text-blue-300 font-semibold">
-                  Đăng ký ngay
-                </Link>
-              </p>
+            <div className="pt-6 text-center text-sm font-medium">
+              <span className="text-slate-500">Chưa có tài khoản?</span>{' '}
+              <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-bold ml-1 transition-colors underline-offset-4 hover:underline">
+                Đăng ký ngay
+              </Link>
             </div>
           </form>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -79,6 +79,25 @@ const lessonProgressSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    // ── Reading/Listening fields ──
+    passageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'passageModel',
+      default: null,
+      index: true,
+    },
+    passageType: {
+      type: String,
+      enum: ['reading', 'listening'],
+      default: null,
+    },
+    // ── Speaking fields ──
+    speakingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SpeakingQuestion',
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

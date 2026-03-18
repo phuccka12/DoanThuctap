@@ -8,7 +8,8 @@ import {
   FaCheck, FaFire, FaStar, FaTrophy, FaCoins, FaBolt,
   FaHeart, FaRegSmile, FaGrinStars,
 } from 'react-icons/fa';
-import { FiLoader } from 'react-icons/fi';
+import LoadingCat from '../components/shared/LoadingCat';
+
 
 // ─── Phases ──────────────────────────────────────────────────────────────────
 const PHASE = { FLASHCARD: 'flashcard', PRACTICE: 'practice', GAME: 'game', RESULT: 'result' };
@@ -285,7 +286,7 @@ function PracticePhase({ words, t, onComplete }) {
 
   if (!questions.length) return (
     <div className="flex items-center justify-center flex-1">
-      <FiLoader className="animate-spin text-3xl text-purple-400" />
+      <LoadingCat size={120} text="Đang tải câu hỏi..." />
     </div>
   );
 
@@ -374,7 +375,7 @@ function PracticePhase({ words, t, onComplete }) {
             </p>
             {loadingAI ? (
               <div className="flex items-center gap-2 py-4">
-                <FiLoader className="animate-spin text-purple-400" />
+                <LoadingCat size={60} />
                 <span className={cn('text-sm', t.sub)}>AI đang tạo câu...</span>
               </div>
             ) : (
@@ -819,7 +820,7 @@ export default function VocabularyLearn() {
 
   if (loading) return (
     <div className={cn('min-h-screen flex items-center justify-center', t.page)}>
-      <FiLoader className="animate-spin text-4xl text-purple-400" />
+      <LoadingCat size={250} text="Đang chuẩn bị bài học cho bạn..." />
     </div>
   );
 

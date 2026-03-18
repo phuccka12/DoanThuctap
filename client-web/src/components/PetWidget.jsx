@@ -401,6 +401,7 @@ export default function PetWidget({ theme = {} }) {
           {/* Stat bars */}
           <div className="mt-2 space-y-1">
             <HungerBar hungerPct={hungerPct} isDying={isDying} isWarning={isWarning} />
+            <StatBar label="⚡" value={Math.min(100, ((pet?.growthPoints || 0) % 100))} color="from-blue-400 to-purple-400" />
             <StatBar label="💛" value={happiness} color="from-yellow-400 to-lime-400" />
           </div>
         </div>

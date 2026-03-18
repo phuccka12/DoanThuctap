@@ -13,7 +13,7 @@ const {
   verifyEmailSchema
 } = require("../validators/authSchemas");
 
-const { register, login, refresh, logout, logoutAll } = require("../controllers/authController");
+const { register, login, refresh, logout, logoutAll, changePassword } = require("../controllers/authController");
 const {
   requestVerifyEmail,
   confirmVerifyEmail,
@@ -32,6 +32,7 @@ router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAll);
+router.post("/change-password", protect, changePassword);
 
 // Google OAuth routes - Đăng nhập
 router.get("/google/login", (req, res, next) => {
@@ -51,7 +52,7 @@ router.get("/google/callback", (req, res, next) => {
   const strategy = authType === 'register' ? 'google-register' : 'google-login';
   const errorRedirect = authType === 'register' ? '/register' : '/login';
   const errorMessage = authType === 'register' ? 'account_exists' : 'account_not_found';
-  
+
   passport.authenticate(strategy, { session: false }, (err, user, info) => {
     if (err) {
       console.error(`Google ${authType} error:`, err);
@@ -84,7 +85,22 @@ router.get("/me", protect, async (req, res) => {
       user.onboarding_default_assigned = true;
       await user.save();
     }
-    res.json({ 
+
+    // [SINGLE SOURCE OF TRUTH] Lấy coins từ Pet + lấy level/exp từ Pet
+    const Pet = require('../models/Pet');
+    const userPet = await Pet.findOne({ user: req.userId });
+    
+    // Khởi tạo gamification_data nếu chưa có
+    const gamification_data = user.gamification_data || {};
+    if (userPet) {
+      gamification_data.coins = userPet.coins;
+      gamification_data.gold = userPet.coins; // Đề phòng frontend gọi thuộc tính gold
+      gamification_data.level = userPet.level || 1;
+      gamification_data.exp = userPet.growthPoints || 0;
+      gamification_data.streak = userPet.streakCount || 0;
+    }
+
+    res.json({
       user: {
         id: user._id,
         user_name: user.user_name,
@@ -93,13 +109,13 @@ router.get("/me", protect, async (req, res) => {
         status: user.status,
         vip_expire_at: user.vip_expire_at,
         email_verified: user.email_verified,
-        gamification_data: user.gamification_data,
+        gamification_data: gamification_data,
         last_login_at: user.last_login_at,
         created_at: user.created_at,
         onboarding_completed: user.onboarding_completed,
         learning_preferences: user.learning_preferences,
         placement_test_completed: user.placement_test_completed,
-        placement_test_result:    user.placement_test_result,
+        placement_test_result: user.placement_test_result,
       }
     });
   } catch (err) {

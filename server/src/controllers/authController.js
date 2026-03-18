@@ -168,3 +168,31 @@ exports.logoutAll = async (req, res) => {
     return res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 };
+// POST /api/auth/change-password
+exports.changePassword = async (req, res) => {
+  try {
+    const { old_password, new_password } = req.body;
+    if (!old_password || !new_password) {
+      return res.status(400).json({ message: "Vui lòng nhập mật khẩu cũ và mới" });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: "Mật khẩu mới tối thiểu 6 ký tự" });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+    // Check old password
+    const ok = await bcrypt.compare(old_password, user.password_hash);
+    if (!ok) return res.status(401).json({ message: "Mật khẩu cũ không chính xác" });
+
+    // Update new password
+    const salt = await bcrypt.genSalt(10);
+    user.password_hash = await bcrypt.hash(new_password, salt);
+    await user.save();
+
+    return res.json({ success: true, message: "Đổi mật khẩu thành công" });
+  } catch (err) {
+    return res.status(500).json({ message: "Lỗi server", error: err.message });
+  }
+};

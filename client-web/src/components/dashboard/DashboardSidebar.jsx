@@ -21,6 +21,7 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
     "speaking-practice": "/speaking-practice",
     stories:             "/stories",
     writing:             "/ai-writing",
+    "writing-scenarios": "/writing-scenarios",
     speaking:            "/ai-speaking",
     conversation:        "/ai-conversation",
     feedback:            "/feedback",

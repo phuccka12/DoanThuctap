@@ -33,6 +33,7 @@ const AdminWritingScenarios = () => {
       const params = {
         page: pagination.page,
         limit: pagination.limit,
+        is_admin: true,
         ...filters
       };
       

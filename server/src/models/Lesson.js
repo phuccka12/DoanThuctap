@@ -96,12 +96,12 @@ const lessonSchema = new mongoose.Schema({
 });
 
 // Update timestamp on save - use async/await for newer Mongoose
-lessonSchema.pre('save', async function() {
+lessonSchema.pre('save', async function () {
   this.updated_at = Date.now();
 });
 
 // Virtual for activity count
-lessonSchema.virtual('activities_count').get(function() {
+lessonSchema.virtual('activities_count').get(function () {
   return this.nodes ? this.nodes.length : 0;
 });
 

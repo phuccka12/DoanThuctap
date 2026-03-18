@@ -363,8 +363,24 @@ exports.getUserStats = async (req, res) => {
 // ─── Admin: User Detail Profile (3 tabs) ───────────────────────────────────────
 exports.getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password_hash -failed_login_attempts -lock_until');
+    const User = require('../models/User');
+    const Pet = require('../models/Pet');
+    const AIUsage = require('../models/AIUsage');
+    const Transaction = require('../models/Transaction');
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+
+    const user = await User.findById(req.params.id)
+      .select('-password_hash -failed_login_attempts -lock_until');
     if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+
+    // [SINGLE SOURCE OF TRUTH] Sync gamification from Pet
+    const userPet = await Pet.findOne({ user: user._id });
+    const realGamification = {
+      level:  userPet ? (userPet.level || 1) : (user.gamification_data?.level || 1),
+      gold:   userPet ? (userPet.coins || 0) : (user.gamification_data?.gold || 0),
+      exp:    userPet ? (userPet.growthPoints || 0) : (user.gamification_data?.exp || 0),
+      streak: userPet ? (userPet.streakCount || 0) : (user.gamification_data?.streak || 0),
+    };
 
     // Tab 1: Subscription info
     const latestSuccessTx = await Transaction.findOne({ user_id: user._id, status: 'success' })
@@ -373,6 +389,7 @@ exports.getUserProfile = async (req, res) => {
 
     // Tab 2: AI usage (last 7 days)
     const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
     const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 6);
     const dateRange = [];
     for (let i = 0; i < 7; i++) {
@@ -380,9 +397,29 @@ exports.getUserProfile = async (req, res) => {
       dateRange.push(d.toISOString().slice(0, 10));
     }
     const usageRecords = await AIUsage.find({ user_id: user._id, date: { $in: dateRange } });
-    const todayStr = today.toISOString().slice(0, 10);
     const todayUsage = usageRecords.find(u => u.date === todayStr) || {};
     const isAIBlocked = usageRecords.some(u => u.ai_blocked);
+
+    // Tab 3: Learning progress & Stats
+    const LessonProgress = require('../models/LessonProgress');
+    const [lessonStats, exercisesCount, topicsCount] = await Promise.all([
+      LessonProgress.aggregate([
+        { $match: { userId: user._id, lessonId: { $ne: null } } },
+        {
+          $group: {
+            _id: null,
+            completedLessons: { $count: {} },
+            avgScore: { $avg: "$score" },
+            highestScore: { $max: "$score" },
+            totalTimeSpent: { $sum: "$timeSpentSec" }
+          }
+        }
+      ]),
+      LessonProgress.countDocuments({ userId: user._id, lessonId: null, $or: [{ passageId: { $ne: null } }, { speakingId: { $ne: null } }] }),
+      LessonProgress.distinct('topicId', { userId: user._id, topicId: { $ne: null } })
+    ]);
+
+    const stats = lessonStats[0] || { completedLessons: 0, avgScore: 0, highestScore: 0, totalTimeSpent: 0 };
 
     // Tab 3: Learning progress (transactions + gamification)
     const allTransactions = await Transaction.find({ user_id: user._id })
@@ -419,9 +456,17 @@ exports.getUserProfile = async (req, res) => {
           blocked_record: usageRecords.find(u => u.ai_blocked) || null,
         },
         learning: {
-          gamification: user.gamification_data,
+          gamification: realGamification,
           preferences:  user.learning_preferences,
           transactions: allTransactions,
+          progress_stats: {
+            completed_lessons: stats.completedLessons,
+            completed_exercises: exercisesCount,
+            average_score: stats.avgScore,
+            highest_score: stats.highestScore,
+            total_study_time: stats.totalTimeSpent,
+            topics_studied: topicsCount,
+          }
         },
       }
     });

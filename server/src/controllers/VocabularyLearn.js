@@ -1,9 +1,9 @@
 'use strict';
 const Vocabulary = require('../models/Vocabulary');
-const Topic      = require('../models/Topic');
-const Pet        = require('../models/Pet');
-const User       = require('../models/User');
-const mongoose   = require('mongoose');
+const Topic = require('../models/Topic');
+const Pet = require('../models/Pet');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 const { rewardExercise } = require('../utils/rewardHelper');
 
 // ─── optional Gemini AI ───────────────────────────────────────────────────────
@@ -57,8 +57,8 @@ exports.getVocabTopics = async (req, res) => {
     }
 
     const result = topics.map(t => {
-      const id      = String(t._id);
-      const total   = countMap[id] || 0;
+      const id = String(t._id);
+      const total = countMap[id] || 0;
       const learned = progressMap[id] || 0;
       return {
         ...t,
@@ -109,7 +109,7 @@ exports.getTopicWords = async (req, res) => {
     let learnedSet = new Set();
     if (req.userId) {
       const user = await User.findById(req.userId).select('vocab_progress').lean();
-      const arr  = user?.vocab_progress?.[topicId];
+      const arr = user?.vocab_progress?.[topicId];
       if (Array.isArray(arr)) arr.forEach(id => learnedSet.add(String(id)));
     }
 
@@ -131,9 +131,9 @@ exports.completeSession = async (req, res) => {
     const { topicId } = req.params;
     const {
       correctCount = 0,
-      totalCount   = 1,
-      wordIds      = [],
-      wrongCount   = 0,
+      totalCount = 1,
+      wordIds = [],
+      wrongCount = 0,
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
@@ -146,7 +146,7 @@ exports.completeSession = async (req, res) => {
 
     // vocab_progress là Mongoose Map — phải dùng .get() / .set()
     const existingArr = user.vocab_progress.get(topicId) || [];
-    const existing    = new Set(existingArr.map(String));
+    const existing = new Set(existingArr.map(String));
     wordIds.forEach(id => existing.add(String(id)));
     user.vocab_progress.set(topicId, Array.from(existing));
     user.markModified('vocab_progress');
@@ -170,8 +170,8 @@ exports.completeSession = async (req, res) => {
         pet.markModified('hp');
         await pet.save();
         petState = {
-          hp:        pet.hp,
-          maxHp:     pet.max_hp || 100,
+          hp: pet.hp,
+          maxHp: pet.max_hp || 100,
           hpDamaged: dmg,
         };
       }
@@ -181,12 +181,12 @@ exports.completeSession = async (req, res) => {
     const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
     res.json({
-      success:     true,
+      success: true,
       accuracy,
       coinsEarned: rewardResult.earned,
-      expEarned:   rewardResult.expEarned || Math.floor(correctCount * 5),
-      capReached:  rewardResult.capReached,
-      pet:         petState,
+      expEarned: rewardResult.expEarned || Math.floor(correctCount * 5),
+      capReached: rewardResult.capReached,
+      pet: petState,
       learnedCount: existing.size,
     });
   } catch (err) {
@@ -215,13 +215,13 @@ exports.aiFill = async (req, res) => {
       return res.json({ sentence: fallback, answer: word });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `Create ONE short English sentence (max 15 words) that uses the word "${word}" (${meaning}) naturally in context. 
 Then output ONLY the sentence with the word replaced by "___".
 Do NOT include any explanation. Output format: just the sentence with ___ placeholder.
 Example output: "She ordered a ___ of coffee at the airport café."`;
 
-    const result   = await model.generateContent(prompt);
+    const result = await model.generateContent(prompt);
     const sentence = result.response.text().trim().replace(/^["']|["']$/g, '');
 
     res.json({ sentence, answer: word });

@@ -8,7 +8,7 @@ import {
   FaPlay, FaVolumeUp, FaCheckCircle, FaSearch,
   FaArrowLeft, FaBook, FaStar,
 } from 'react-icons/fa';
-import { FiLoader } from 'react-icons/fi';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const POS_LABEL = {
   noun: 'n', verb: 'v', adjective: 'adj', adverb: 'adv',
@@ -63,7 +63,7 @@ export default function VocabularyDetail() {
   if (loading) return (
     <LearnLayout breadcrumbs={[{ label: 'Từ Vựng', to: '/vocabulary' }, { label: '...' }]}>
       <div className="flex items-center justify-center py-32">
-        <FiLoader className="animate-spin text-3xl text-purple-400" />
+        <LoadingCat size={250} text="Đang tải danh sách từ..." />
       </div>
     </LearnLayout>
   );

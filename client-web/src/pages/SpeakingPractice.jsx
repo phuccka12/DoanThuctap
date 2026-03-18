@@ -13,43 +13,45 @@
 import React, {
   useState, useEffect, useRef, useCallback, useMemo,
 } from 'react';
-import { useTheme }                from '../context/ThemeContext';
-import { useAuth }                 from '../context/AuthContext';
-import { cn, theme, darkTheme }    from '../utils/dashboardTheme';
-import LearnLayout                 from '../components/learn/LearnLayout';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { cn, theme, darkTheme } from '../utils/dashboardTheme';
+import LearnLayout from '../components/learn/LearnLayout';
 import {
   getSpeakingTopics, getSpeakingQuestions, getSpeakingWarmup, evaluateSpeaking,
 } from '../services/learningService';
 import {
   FaMicrophone, FaStop, FaArrowRight, FaArrowLeft, FaStar,
   FaFire, FaTrophy, FaCheck, FaRedo, FaChevronRight, FaLightbulb,
-  FaBookOpen, FaVolumeMute, FaVolumeUp, FaSpinner,
+  FaBookOpen, FaVolumeMute, FaVolumeUp, FaSpinner, FaPlay, FaPause, FaMagic, FaHistory,
 } from 'react-icons/fa';
 import { FiLoader, FiActivity } from 'react-icons/fi';
+import LoadingCat from '../components/shared/LoadingCat';
+import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import SharedTopicCard from '../components/shared/TopicCard';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PHASE = {
-  TOPICS:   'topics',
-  WARMUP:   'warmup',
-  MAIN:     'main',
+  TOPICS: 'topics',
+  WARMUP: 'warmup',
+  MAIN: 'main',
   FOLLOWUP: 'followup',
-  RESULT:   'result',
+  RESULT: 'result',
 };
 
 const HESITATION_WORDS = /\b(um|uh|ah|er|hmm|like|you know|i mean)\b/gi;
 
 const LEVEL_META = {
-  beginner:     { label: 'Beginner',     color: 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' },
-  intermediate: { label: 'Intermediate', color: 'text-amber-500   border-amber-500/30   bg-amber-500/10'   },
-  advanced:     { label: 'Advanced',     color: 'text-rose-500    border-rose-500/30    bg-rose-500/10'    },
+  beginner: { label: 'Beginner', color: 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' },
+  intermediate: { label: 'Intermediate', color: 'text-amber-500   border-amber-500/30   bg-amber-500/10' },
+  advanced: { label: 'Advanced', color: 'text-rose-500    border-rose-500/30    bg-rose-500/10' },
 };
 
 const PART_META = {
-  free: { label: 'Free',   color: 'bg-slate-500/15 text-slate-400', time: 15 },
-  p1:   { label: 'Part 1', color: 'bg-blue-500/15   text-blue-400',  time: 30 },
-  p2:   { label: 'Part 2', color: 'bg-indigo-500/15 text-indigo-400', time: 45 },
-  p3:   { label: 'Part 3', color: 'bg-purple-500/15 text-purple-400', time: 40 },
+  free: { label: 'Free', color: 'bg-slate-500/15 text-slate-400', time: 15 },
+  p1: { label: 'Part 1', color: 'bg-blue-500/15   text-blue-400', time: 30 },
+  p2: { label: 'Part 2', color: 'bg-indigo-500/15 text-indigo-400', time: 45 },
+  p3: { label: 'Part 3', color: 'bg-purple-500/15 text-purple-400', time: 40 },
 };
 
 // ─── Tiny helpers ─────────────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ function getBandColor(score) {
 }
 
 function BandBar({ label, value, isDark }) {
-  const pct   = Math.round((value / 9) * 100);
+  const pct = Math.round((value / 9) * 100);
   const color = value >= 7.5 ? 'bg-emerald-500' : value >= 6 ? 'bg-amber-500' : value >= 4.5 ? 'bg-orange-500' : 'bg-rose-500';
   return (
     <div>
@@ -80,7 +82,7 @@ function BandBar({ label, value, isDark }) {
 // ─── Waveform Visualiser (uses AnalyserNode) ─────────────────────────────────
 function Waveform({ isRecording, analyserRef }) {
   const canvasRef = useRef(null);
-  const rafRef    = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -147,9 +149,9 @@ function CountdownTimer({ seconds, onExpire, running }) {
     return () => clearTimeout(id);
   }, [left, running, onExpire]);
 
-  const pct  = Math.round((left / seconds) * 100);
+  const pct = Math.round((left / seconds) * 100);
   const color = left <= 10 ? 'text-rose-400' : left <= 20 ? 'text-amber-400' : 'text-emerald-400';
-  const ring  = left <= 10 ? 'stroke-rose-400' : left <= 20 ? 'stroke-amber-400' : 'stroke-emerald-400';
+  const ring = left <= 10 ? 'stroke-rose-400' : left <= 20 ? 'stroke-amber-400' : 'stroke-emerald-400';
 
   return (
     <div className="relative w-20 h-20 mx-auto">
@@ -177,16 +179,16 @@ function TopicScoreModal({ isDark, t, topic, progress, onRetry, onNewTopic, onCl
   useEffect(() => { const id = setTimeout(() => setShow(true), 60); return () => clearTimeout(id); }, []);
 
   const { overall, completedAt } = progress;
-  const band   = overall || 0;
-  const emoji  = band >= 7.5 ? '🏆' : band >= 6.0 ? '🎉' : '💪';
-  const msg    = band >= 7.5 ? 'Xuất sắc!' : band >= 6.0 ? 'Tốt lắm!' : 'Cố gắng thêm!';
-  const stars  = band >= 7.5 ? 3 : band >= 6.0 ? 2 : 1;
+  const band = overall || 0;
+  const emoji = band >= 7.5 ? '🏆' : band >= 6.0 ? '🎉' : '💪';
+  const msg = band >= 7.5 ? 'Xuất sắc!' : band >= 6.0 ? 'Tốt lắm!' : 'Cố gắng thêm!';
+  const stars = band >= 7.5 ? 3 : band >= 6.0 ? 2 : 1;
   const dateStr = completedAt
     ? new Date(completedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '';
   const bandColor = band >= 7.5 ? 'text-emerald-400' : band >= 6.0 ? 'text-amber-400' : 'text-orange-400';
-  const barColor  = band >= 7.5 ? 'bg-emerald-500'   : band >= 6.0 ? 'bg-amber-500'   : 'bg-orange-500';
-  const pct       = Math.round((band / 9) * 100);
+  const barColor = band >= 7.5 ? 'bg-emerald-500' : band >= 6.0 ? 'bg-amber-500' : 'bg-orange-500';
+  const pct = Math.round((band / 9) * 100);
 
   const ICONS = {
     travel: '✈️', food: '🍜', technology: '💻', environment: '🌿',
@@ -216,10 +218,10 @@ function TopicScoreModal({ isDark, t, topic, progress, onRetry, onNewTopic, onCl
           {[...Array(14)].map((_, i) => (
             <div key={i}
               className={cn('absolute rounded-full opacity-40 animate-bounce',
-                ['bg-indigo-400','bg-purple-400','bg-pink-400','bg-amber-400','bg-emerald-400'][i % 5])}
+                ['bg-indigo-400', 'bg-purple-400', 'bg-pink-400', 'bg-amber-400', 'bg-emerald-400'][i % 5])}
               style={{
                 width: `${6 + (i % 4) * 3}px`, height: `${6 + (i % 4) * 3}px`,
-                left: `${(i * 43 + 5) % 95}%`,   top:  `${(i * 31 + 8) % 55}%`,
+                left: `${(i * 43 + 5) % 95}%`, top: `${(i * 31 + 8) % 55}%`,
                 animationDelay: `${(i * 0.18) % 1.2}s`, animationDuration: `${1.3 + (i % 3) * 0.4}s`,
               }} />
           ))}
@@ -263,7 +265,7 @@ function TopicScoreModal({ isDark, t, topic, progress, onRetry, onNewTopic, onCl
             {progress.scores && (
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
                 {[['Fluency', progress.scores.fluency], ['Pronunciation', progress.scores.pronunciation],
-                  ['Lexical', progress.scores.lexical], ['Grammar', progress.scores.grammar]].map(([lbl, val]) => (
+                ['Lexical', progress.scores.lexical], ['Grammar', progress.scores.grammar]].map(([lbl, val]) => (
                   <div key={lbl} className="flex justify-between text-xs">
                     <span className={isDark ? 'text-gray-500' : 'text-slate-400'}>{lbl}</span>
                     <span className={cn('font-semibold', getBandColor(val || 0))}>{val?.toFixed(1) ?? '-'}</span>
@@ -305,14 +307,14 @@ function TopicScoreModal({ isDark, t, topic, progress, onRetry, onNewTopic, onCl
 //  PHASE 0 — Topic Selection
 // ═══════════════════════════════════════════════════════════════════════════════
 function TopicsPhase({ isDark, t, onSelect, topicProgress }) {
-  const [topics,     setTopics]     = useState([]);
-  const [loading,    setLoading]    = useState(true);
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [scoreModal, setScoreModal] = useState(null);
 
   useEffect(() => {
     getSpeakingTopics()
       .then(r => setTopics(r.data.data || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
@@ -330,11 +332,11 @@ function TopicsPhase({ isDark, t, onSelect, topicProgress }) {
   const handleTopicClick = (topic) => {
     const prog = topicProgress?.[topic._id];
     if (prog) setScoreModal({ topic, progress: prog });
-    else      onSelect(topic);
+    else onSelect(topic);
   };
 
   // ── Stats for banner ──────────────────────────────────────────────────────
-  const doneCount  = topics.filter(tp => !!topicProgress?.[tp._id]).length;
+  const doneCount = topics.filter(tp => !!topicProgress?.[tp._id]).length;
   const totalCount = topics.length;
   const overallPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
@@ -368,7 +370,7 @@ function TopicsPhase({ isDark, t, onSelect, topicProgress }) {
           <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-white/5 blur-2xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
           {/* Sound wave decoration */}
           <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-20 pointer-events-none">
-            {[18,32,24,40,28,36,20,44,26,34].map((h, i) => (
+            {[18, 32, 24, 40, 28, 36, 20, 44, 26, 34].map((h, i) => (
               <div key={i} className="w-1.5 rounded-full bg-white animate-pulse"
                 style={{ height: `${h}px`, animationDelay: `${i * 0.12}s`, animationDuration: '1.2s' }} />
             ))}
@@ -434,7 +436,7 @@ function TopicsPhase({ isDark, t, onSelect, topicProgress }) {
 
           {loading ? (
             <div className="flex justify-center py-20">
-              <FiLoader className="animate-spin text-indigo-400" size={32} />
+              <LoadingCat size={200} text="Đang tải danh sách chủ đề..." />
             </div>
           ) : topics.length === 0 ? (
             <div className={cn('text-center py-20 rounded-2xl border',
@@ -448,7 +450,7 @@ function TopicsPhase({ isDark, t, onSelect, topicProgress }) {
                 const prog = topicProgress?.[topic._id];
                 const done = !!prog;
                 const band = prog?.overall || 0;
-                const pct  = Math.round((band / 9) * 100);
+                const pct = Math.round((band / 9) * 100);
 
                 return (
                   <SharedTopicCard
@@ -482,27 +484,27 @@ function RecordingPanel({
   onResult, onSkip,
   questionId,
 }) {
-  const [recState,    setRecState]    = useState('idle');  // idle | prep | recording | processing
-  const [audioBlob,   setAudioBlob]   = useState(null);
-  const [error,       setError]       = useState('');
+  const [recState, setRecState] = useState('idle');  // idle | prep | recording | processing
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [error, setError] = useState('');
   const [timerActive, setTimerActive] = useState(false);
 
   // Tầng 1: Frontend fluency metrics
-  const metricsRef       = useRef({ wordTimestamps: [], hesitationCount: 0, startTs: 0 });
-  const recognitionRef   = useRef(null);
+  const metricsRef = useRef({ wordTimestamps: [], hesitationCount: 0, startTs: 0 });
+  const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const chunksRef        = useRef([]);
-  const audioCtxRef      = useRef(null);
-  const analyserRef      = useRef(null);
+  const chunksRef = useRef([]);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
 
   const cleanup = useCallback(() => {
-    try { recognitionRef.current?.stop();   } catch (_) {}
-    try { mediaRecorderRef.current?.stop(); } catch (_) {}
-    try { audioCtxRef.current?.close();     } catch (_) {}
-    recognitionRef.current   = null;
+    try { recognitionRef.current?.stop(); } catch (_) { }
+    try { mediaRecorderRef.current?.stop(); } catch (_) { }
+    try { audioCtxRef.current?.close(); } catch (_) { }
+    recognitionRef.current = null;
     mediaRecorderRef.current = null;
-    audioCtxRef.current      = null;
-    analyserRef.current      = null;
+    audioCtxRef.current = null;
+    analyserRef.current = null;
   }, []);
 
   useEffect(() => () => cleanup(), [cleanup]);
@@ -517,8 +519,8 @@ function RecordingPanel({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       // Web Audio API → Waveform + Volume
-      audioCtxRef.current  = new (window.AudioContext || window.webkitAudioContext)();
-      analyserRef.current  = audioCtxRef.current.createAnalyser();
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      analyserRef.current = audioCtxRef.current.createAnalyser();
       analyserRef.current.fftSize = 512;
       const source = audioCtxRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
@@ -568,9 +570,9 @@ function RecordingPanel({
   const stopRecording = useCallback(() => {
     setTimerActive(false);
     setRecState('processing');
-    try { recognitionRef.current?.stop();   } catch (_) {}
-    try { mediaRecorderRef.current?.stop(); } catch (_) {}
-    try { audioCtxRef.current?.close();     } catch (_) {}
+    try { recognitionRef.current?.stop(); } catch (_) { }
+    try { mediaRecorderRef.current?.stop(); } catch (_) { }
+    try { audioCtxRef.current?.close(); } catch (_) { }
     analyserRef.current = null;
   }, []);
 
@@ -581,9 +583,9 @@ function RecordingPanel({
     const submit = async () => {
       try {
         // ─ Tính Fluency metrics ─
-        const ts     = metricsRef.current.wordTimestamps;
+        const ts = metricsRef.current.wordTimestamps;
         const elapsed = (Date.now() - metricsRef.current.startTs) / 1000 / 60; // minutes
-        const wpm    = elapsed > 0 ? Math.round(ts.length / elapsed) : 0;
+        const wpm = elapsed > 0 ? Math.round(ts.length / elapsed) : 0;
 
         // Rhythm: std dev of inter-word gaps
         let rhythmStd = 0;
@@ -597,18 +599,21 @@ function RecordingPanel({
         const frontendData = JSON.stringify({
           wpm,
           hesitation_count: metricsRef.current.hesitationCount,
-          rhythm_std:       parseFloat(rhythmStd.toFixed(3)),
-          duration_sec:     parseFloat(((Date.now() - metricsRef.current.startTs) / 1000).toFixed(1)),
+          rhythm_std: parseFloat(rhythmStd.toFixed(3)),
+          duration_sec: parseFloat(((Date.now() - metricsRef.current.startTs) / 1000).toFixed(1)),
           browser_transcript: metricsRef.current.transcript || '',  // Web Speech API fallback
-        }); 
+        });
 
         const form = new FormData();
-        form.append('audio',         audioBlob, 'recording.webm');
-        form.append('question',      question);
-        form.append('phase',         phase);
+        form.append('audio', audioBlob, 'recording.webm');
+        form.append('question', question);
+        form.append('phase', phase);
         form.append('sample_answer', sampleAnswer || '');
         form.append('frontend_data', frontendData);
         if (questionId) form.append('question_id', questionId);
+        
+        const duration = parseFloat(((Date.now() - metricsRef.current.startTs) / 1000).toFixed(1));
+        form.append('timeSpentSec', duration);
 
         const res = await evaluateSpeaking(form);
         onResult({
@@ -618,7 +623,7 @@ function RecordingPanel({
       } catch (e) {
         console.error('evaluate error:', e);
         // Phao cứu sinh tầng cuối: tự tạo kết quả từ browser metrics
-        const ts      = metricsRef.current;
+        const ts = metricsRef.current;
         const elapsed = (Date.now() - ts.startTs) / 1000 / 60;
         const wpmFallback = elapsed > 0 ? Math.round((ts.wordTimestamps?.length || 0) / elapsed) : 0;
         const hesitations = ts.hesitationCount || 0;
@@ -626,7 +631,7 @@ function RecordingPanel({
         if (wpmFallback >= 110 && wpmFallback <= 160) fluency = 7.5;
         else if (wpmFallback >= 90) fluency = 6.0;
         else if (wpmFallback >= 60) fluency = 5.0;
-        else if (wpmFallback > 0)   fluency = 4.0;
+        else if (wpmFallback > 0) fluency = 4.0;
         fluency = parseFloat(Math.max(3.0, fluency - Math.min(hesitations * 0.4, 2.0)).toFixed(1));
         const overall = parseFloat(((fluency + 5.0 + 5.0 + 5.0) / 4).toFixed(1));
 
@@ -634,10 +639,10 @@ function RecordingPanel({
           transcript: ts.transcript || '',
           scores: { fluency, pronunciation: 5.0, lexical: 5.0, grammar: 5.0, overall },
           feedback: {
-            fluency:       `Tốc độ: ${wpmFallback} WPM. ${wpmFallback >= 110 && wpmFallback <= 160 ? 'Tốt!' : 'Luyện thêm để đạt 110-160 WPM.'}`,
+            fluency: `Tốc độ: ${wpmFallback} WPM. ${wpmFallback >= 110 && wpmFallback <= 160 ? 'Tốt!' : 'Luyện thêm để đạt 110-160 WPM.'}`,
             pronunciation: 'Không thể chấm điểm — máy chủ AI không phản hồi.',
-            lexical:       'Không thể chấm điểm — máy chủ AI không phản hồi.',
-            grammar:       `Phát hiện ${hesitations} từ ngập ngừng. ${hesitations < 3 ? 'Tốt!' : 'Giảm bớt um/uh/ah.'}`,
+            lexical: 'Không thể chấm điểm — máy chủ AI không phản hồi.',
+            grammar: `Phát hiện ${hesitations} từ ngập ngừng. ${hesitations < 3 ? 'Tốt!' : 'Giảm bớt um/uh/ah.'}`,
           },
           mistakes: [],
           follow_up_question: 'Can you tell me more about that?',
@@ -651,7 +656,7 @@ function RecordingPanel({
     };
 
     submit();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioBlob, recState]);
 
   const pm = PART_META[phase] || PART_META.p2;
@@ -689,8 +694,8 @@ function RecordingPanel({
         <div className="flex-1">
           <Waveform isRecording={recState === 'recording'} analyserRef={analyserRef} />
           <p className={cn('text-xs mt-1 text-center', isDark ? 'text-gray-500' : 'text-slate-400')}>
-            {recState === 'idle'       && 'Nhấn để bắt đầu ghi âm'}
-            {recState === 'recording'  && '🔴 Đang ghi âm...'}
+            {recState === 'idle' && 'Nhấn để bắt đầu ghi âm'}
+            {recState === 'recording' && '🔴 Đang ghi âm...'}
             {recState === 'processing' && '⏳ Đang chấm điểm...'}
           </p>
         </div>
@@ -704,8 +709,8 @@ function RecordingPanel({
 
       {/* Record / Stop button */}
       {recState === 'processing' ? (
-        <div className="flex items-center justify-center gap-3 py-4">
-          <FiLoader className="animate-spin text-indigo-400" size={24} />
+        <div className="flex flex-col items-center justify-center gap-3 py-4">
+          <LoadingCat size={120} />
           <span className={isDark ? 'text-gray-300' : 'text-slate-600'}>AI đang phân tích bài nói...</span>
         </div>
       ) : recState === 'recording' ? (
@@ -745,19 +750,19 @@ function ResultPhase({ isDark, t, results, topic, onRestart, onNewTopic }) {
 
   const stars = overall >= 7.5 ? 3 : overall >= 5.5 ? 2 : 1;
   const emoji = overall >= 7.5 ? '🏆' : overall >= 5.5 ? '🎉' : '💪';
-  const msg   = overall >= 7.5 ? 'Xuất sắc!' : overall >= 5.5 ? 'Tốt lắm!' : 'Cố gắng thêm!';
+  const msg = overall >= 7.5 ? 'Xuất sắc!' : overall >= 5.5 ? 'Tốt lắm!' : 'Cố gắng thêm!';
 
   const [show, setShow] = useState(false);
   useEffect(() => { const id = setTimeout(() => setShow(true), 80); return () => clearTimeout(id); }, []);
 
   // Confetti dots
   const dots = [...Array(16)].map((_, i) => ({
-    size:     6 + (i % 4) * 3,
-    left:     (i * 41 + 5) % 95,
-    top:      (i * 27 + 8) % 50,
-    delay:    (i * 0.16) % 1.2,
+    size: 6 + (i % 4) * 3,
+    left: (i * 41 + 5) % 95,
+    top: (i * 27 + 8) % 50,
+    delay: (i * 0.16) % 1.2,
     duration: 1.2 + (i % 3) * 0.4,
-    color:    ['bg-indigo-400','bg-purple-400','bg-pink-400','bg-amber-400','bg-emerald-400'][i % 5],
+    color: ['bg-indigo-400', 'bg-purple-400', 'bg-pink-400', 'bg-amber-400', 'bg-emerald-400'][i % 5],
   }));
 
   return (
@@ -775,15 +780,17 @@ function ResultPhase({ isDark, t, results, topic, onRestart, onNewTopic }) {
           {dots.map((d, i) => (
             <div key={i}
               className={cn('absolute rounded-full opacity-50 animate-bounce', d.color)}
-              style={{ width: d.size, height: d.size, left: `${d.left}%`, top: `${d.top}%`,
-                animationDelay: `${d.delay}s`, animationDuration: `${d.duration}s` }} />
+              style={{
+                width: d.size, height: d.size, left: `${d.left}%`, top: `${d.top}%`,
+                animationDelay: `${d.delay}s`, animationDuration: `${d.duration}s`
+              }} />
           ))}
         </div>
 
         <div className="relative px-8 pt-8 pb-10">
           <div className="text-5xl mb-3 animate-bounce" style={{ animationDuration: '1.5s' }}>{emoji}</div>
           <div className="flex justify-center gap-2 mb-3">
-            {[1,2,3].map(s => (
+            {[1, 2, 3].map(s => (
               <FaStar key={s} size={28}
                 className={s <= stars
                   ? 'text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]'
@@ -800,10 +807,10 @@ function ResultPhase({ isDark, t, results, topic, onRestart, onNewTopic }) {
             <div className={cn('rounded-2xl border p-4 text-left space-y-3 mb-6',
               isDark ? 'bg-white/5 border-white/8' : 'bg-slate-50 border-slate-200')}>
               {Object.entries({
-                'Trôi chảy':    results[results.length-1].evalResult.scores.fluency,
-                'Phát âm':      results[results.length-1].evalResult.scores.pronunciation,
-                'Từ vựng':      results[results.length-1].evalResult.scores.lexical,
-                'Ngữ pháp':     results[results.length-1].evalResult.scores.grammar,
+                'Trôi chảy': results[results.length - 1].evalResult.scores.fluency,
+                'Phát âm': results[results.length - 1].evalResult.scores.pronunciation,
+                'Từ vựng': results[results.length - 1].evalResult.scores.lexical,
+                'Ngữ pháp': results[results.length - 1].evalResult.scores.grammar,
               }).map(([label, val]) => (
                 <BandBar key={label} label={label} value={val} isDark={isDark} />
               ))}
@@ -901,19 +908,19 @@ function ResultPhase({ isDark, t, results, topic, onRestart, onNewTopic }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function SpeakingPractice() {
   const { isDark } = useTheme();
-  const t          = isDark ? darkTheme : theme;
-  const { user }   = useAuth();
+  const t = isDark ? darkTheme : theme;
+  const { user } = useAuth();
 
   const LS_KEY = user?._id
     ? `speaking_topic_progress_${user._id}`
     : 'speaking_topic_progress'; // fallback khi chưa load user
 
-  const [phase,         setPhase]         = useState(PHASE.TOPICS);
-  const [topic,         setTopic]         = useState(null);
-  const [warmupQ,       setWarmupQ]       = useState(null);
-  const [mainQ,         setMainQ]         = useState(null);
-  const [followupQ,     setFollowupQ]     = useState(null);
-  const [loading,       setLoading]       = useState(false);
+  const [phase, setPhase] = useState(PHASE.TOPICS);
+  const [topic, setTopic] = useState(null);
+  const [warmupQ, setWarmupQ] = useState(null);
+  const [mainQ, setMainQ] = useState(null);
+  const [followupQ, setFollowupQ] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [topicProgress, setTopicProgress] = useState({});
 
   // Load progress từ localStorage khi user đã có
@@ -950,8 +957,8 @@ export default function SpeakingPractice() {
   // ── 2. Warmup done ────────────────────────────────────────────────────────
   const handleWarmupResult = useCallback((evalResult) => {
     setResults(prev => [...prev, {
-      phase:     'p1',
-      question:  warmupQ?.question || '',
+      phase: 'p1',
+      question: warmupQ?.question || '',
       evalResult,
     }]);
     setPhase(PHASE.MAIN);
@@ -960,12 +967,12 @@ export default function SpeakingPractice() {
   // ── 3. Main done → use follow-up from AI result ───────────────────────────
   const handleMainResult = useCallback((evalResult) => {
     setResults(prev => [...prev, {
-      phase:     mainQ?.part || 'p2',
-      question:  mainQ?.question || '',
+      phase: mainQ?.part || 'p2',
+      question: mainQ?.question || '',
       evalResult,
     }]);
     // Pick follow-up: from AI response or from question's follow_up_questions
-    const aiFollowup    = evalResult?.follow_up_question;
+    const aiFollowup = evalResult?.follow_up_question;
     const storedFollowups = mainQ?.follow_up_questions || [];
     const chosen = aiFollowup
       || (storedFollowups.length > 0 ? storedFollowups[Math.floor(Math.random() * storedFollowups.length)] : null)
@@ -978,8 +985,8 @@ export default function SpeakingPractice() {
   // ── 4. Followup done → save progress → result ────────────────────────────
   const handleFollowupResult = useCallback((evalResult) => {
     const newResults = [...results, {
-      phase:     'p3',
-      question:  followupQ || '',
+      phase: 'p3',
+      question: followupQ || '',
       evalResult,
     }];
     setResults(newResults);
@@ -1000,18 +1007,18 @@ export default function SpeakingPractice() {
 
     if (topic?._id) {
       const progress = {
-        overall:     avgOverall,
+        overall: avgOverall,
         scores: {
-          fluency:       avgScore('fluency'),
+          fluency: avgScore('fluency'),
           pronunciation: avgScore('pronunciation'),
-          lexical:       avgScore('lexical'),
-          grammar:       avgScore('grammar'),
+          lexical: avgScore('lexical'),
+          grammar: avgScore('grammar'),
         },
         completedAt: new Date().toISOString(),
       };
       const updated = { ...topicProgress, [topic._id]: progress };
       setTopicProgress(updated);
-      try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch (_) {}
+      try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch (_) { }
     }
 
     setPhase(PHASE.RESULT);
@@ -1034,13 +1041,13 @@ export default function SpeakingPractice() {
 
   // ── Step progress bar ─────────────────────────────────────────────────────
   const STEPS = [
-    { key: PHASE.WARMUP,   label: 'Khởi Động' },
-    { key: PHASE.MAIN,     label: 'Phần Chính' },
+    { key: PHASE.WARMUP, label: 'Khởi Động' },
+    { key: PHASE.MAIN, label: 'Phần Chính' },
     { key: PHASE.FOLLOWUP, label: 'Follow-up' },
-    { key: PHASE.RESULT,   label: 'Kết Quả' },
+    { key: PHASE.RESULT, label: 'Kết Quả' },
   ];
   const currentStepIdx = STEPS.findIndex(s => s.key === phase);
-  const inSession      = phase !== PHASE.TOPICS;
+  const inSession = phase !== PHASE.TOPICS;
 
   return (
     <LearnLayout breadcrumbs={[{ label: '🎤 Luyện Speaking' }]}>
@@ -1066,16 +1073,16 @@ export default function SpeakingPractice() {
             {inSession && (
               <div className="flex items-center gap-1">
                 {STEPS.map((s, i) => {
-                  const done    = i < currentStepIdx;
+                  const done = i < currentStepIdx;
                   const current = i === currentStepIdx;
                   return (
                     <React.Fragment key={s.key}>
                       <div className={cn(
                         'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all',
-                        done    ? 'bg-indigo-500 border-indigo-500 text-white'
-                        : current ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
-                        : isDark  ? 'border-white/15 text-white/30'
-                        :           'border-slate-200 text-slate-300',
+                        done ? 'bg-indigo-500 border-indigo-500 text-white'
+                          : current ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
+                            : isDark ? 'border-white/15 text-white/30'
+                              : 'border-slate-200 text-slate-300',
                       )}>
                         {done ? <FaCheck size={9} /> : i + 1}
                       </div>

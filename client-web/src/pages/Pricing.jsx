@@ -7,6 +7,7 @@ import {
 import { FaCrown, FaRocket, FaGem } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import userBillingService from '../services/userBillingService';
+import LoadingCat from '../components/shared/LoadingCat';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const THEME = {
@@ -174,10 +175,10 @@ function PurchaseModal({ plan, onClose }) {
           )}
 
           <button onClick={handlePay} disabled={loading}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${theme.btn}`}
+            className={`w-full py-2 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${theme.btn}`}
           >
             {loading
-              ? <><FiLoader className="animate-spin" size={15} /> Đang chuyển sang VNPay...</>
+              ? <div className="flex items-center gap-2"><LoadingCat size={40} text={null} /> Đang chuyển sang VNPay...</div>
               : <><FiLock size={14} /> Thanh toán {fmtMoney(amount)}</>
             }
           </button>
@@ -450,7 +451,7 @@ export default function Pricing() {
       <div className="max-w-5xl mx-auto px-4 pb-24">
         {loading ? (
           <div className="flex justify-center py-24">
-            <FiLoader className="animate-spin text-purple-400" size={36} />
+            <LoadingCat size={300} text="Đăng tải các gói dịch vụ..." />
           </div>
         ) : plans.length === 0 ? (
           <div className="text-center py-24 text-gray-600">Chưa có gói nào đang hoạt động.</div>

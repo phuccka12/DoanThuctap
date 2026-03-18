@@ -29,8 +29,8 @@ print("🔑 Đang dùng Key:", os.getenv("GEMINI_API_KEY")[:10] + "...")
 # Khởi tạo client với API key
 client = genai.Client(api_key=api_key)
 
-# ⚠️ CHỌN MODEL (Nếu 2.5 lỗi thì đổi về 1.5-flash)
-MODEL_NAME = 'gemini-2.5-flash'
+# ⚠️ CHỌN MODEL (Dùng bản 2.0 cho ổn định nhất)
+MODEL_NAME = 'models/gemini-2.5-flash'
 print(f"🧠 Đang kích hoạt bộ não: {MODEL_NAME}")
 
 # --- Helper: GenAI call with retries/backoff for quota handling ---
@@ -109,10 +109,112 @@ def analyze_deep_tech(text):
     }
     return {"nlp": {"starters": repetitive_starters}, "math": stats}
 
-def check_grammar_strict(text):
-    if tool is None: return [] # Tránh lỗi nếu tool chưa load
-    matches = tool.check(text)
-    return [{"error": r.message, "context": r.context, "fix": r.replacements[:2]} for r in matches]
+# --- 3.5 BỘ TỪ VỰNG HỌC THUẬT & TỪ NỐI (CHO OFFLINE FALLBACK) ---
+ACADEMIC_WORD_LIST = {
+    "analyze", "approach", "concept", "context", "derive", "distribution", "estimate", "evidence", "factor", "function",
+    "identify", "income", "indicate", "individual", "interpretation", "issue", "method", "occurrence", "percent", "period",
+    "policy", "principle", "procedure", "process", "range", "research", "response", "role", "section", "sector",
+    "significant", "source", "specific", "structure", "theory", "variable", "achieve", "acquisition", "administration", "affect",
+    "appropriate", "aspect", "assistance", "category", "chapter", "commission", "community", "complex", "computer", "conclusion",
+    "conduct", "consequence", "construction", "consumer", "credit", "culture", "design", "distinction", "element", "equation",
+    "evaluation", "feature", "final", "focus", "impact", "injury", "institute", "investment", "item", "journal",
+    "alternative", "circumstance", "comment", "compensation", "component", "consent", "considerable", "constant", "constraint", "contribution",
+    "convention", "coordination", "core", "corporate", "corresponding", "criteria", "deduction", "demonstrate", "document", "dominant",
+    "emphasis", "ensure", "excluded", "framework", "fund", "illustrated", "migration", "minority", "negative", "outcomes",
+    "partnership", "philosophy", "physical", "proportion", "published", "reaction", "registered", "reliance", "scheme", "sequence",
+    "shift", "specified", "sufficient", "task", "technical", "techniques", "technology", "valid", "volume", "access",
+    "adequate", "annual", "apparent", "approximated", "attitudes", "attributed", "civil", "code", "commitment", "communication",
+    "beneficial", "detrimental", "sustainable", "paradigm", "infrastructure", "empirical", "theoretical", "methodology", "facilitate", "comprehensive"
+}
+
+LINKING_WORDS_LIST = {
+    "however", "therefore", "furthermore", "moreover", "consequently", "nevertheless", "on the other hand", "in contrast", "specifically", "in addition",
+    "additionally", "firstly", "secondly", "thirdly", "finally", "in conclusion", "to sum up", "as a result", "for instance", "for example",
+    "notably", "significantly", "meanwhile", "simultaneously", "despite", "although", "whereas", "nonetheless", "subsequently", "accordingly",
+    "similarly", "likewise", "not only", "but also", "in other words", "to clarify", "alternatively", "conversely", "hence", "thus"
+}
+
+def _offline_writing_score(text, topic="General Topic", grammar_errors=[]):
+    """
+    Hệ thống chấm điểm Writing dự phòng (Heuristic) khi AI sập.
+    Dựa trên logic Kỹ thuật: Error Density, TTR, AWL count, và Structure.
+    """
+    words = text.lower().split()
+    total_words = len(words)
+    if total_words < 10:
+        return {
+            "overall_score": "Band 1.0",
+            "radar_chart": {"TR": 1, "CC": 1, "LR": 1, "GRA": 1},
+            "system_feedback": ["Văn bản quá ngắn để đánh giá."],
+            "source": "offline"
+        }
+
+    # 1. GRA (Grammar Accuracy) - Dựa trên Error Density
+    error_count = len(grammar_errors)
+    error_density = (error_count / total_words) * 100
+    if error_density < 1.0: gra = 8.5
+    elif error_density < 2.5: gra = 7.5
+    elif error_density < 5.0: gra = 6.5
+    elif error_density < 10.0: gra = 5.5
+    else: gra = 4.5
+
+    # 2. LR (Lexical Resource) - Dựa trên Diversity & AWL
+    unique_words = set(words)
+    ttr = len(unique_words) / total_words
+    awl_found = [w for w in words if w in ACADEMIC_WORD_LIST]
+    unique_awl = len(set(awl_found))
+    
+    lr_base = 5.0
+    if unique_awl >= 15: lr_base += 2.5
+    elif unique_awl >= 10: lr_base += 1.5
+    elif unique_awl >= 5: lr_base += 0.5
+    
+    # Thưởng diversity (TTR > 0.45 là ổn cho Writing)
+    if ttr > 0.5: lr_base += 0.5
+    lr = min(9.0, lr_base)
+
+    # 3. CC (Coherence & Cohesion) - Dựa trên Từ nối & trần (Cap)
+    linking_found = [w for w in words if w in LINKING_WORDS_LIST]
+    unique_linking = len(set(linking_found))
+    
+    if unique_linking < 3: cc = 5.0
+    elif unique_linking < 6: cc = 6.0
+    elif unique_linking < 12: cc = 7.5
+    elif unique_linking < 20: cc = 8.5
+    else: cc = 6.0  # Over-cohesion penalty (Cap)
+
+    # 4. TR (Task Response) - Dựa trên Word Count & Paragraphs
+    paragraphs = [p for p in text.split('\n\n') if len(p.strip()) > 20]
+    num_paras = len(paragraphs)
+    
+    tr_base = 5.0
+    if total_words >= 250: tr_base += 1.5
+    elif total_words >= 150: tr_base += 0.5
+    
+    if num_paras >= 4: tr_base += 1.0
+    elif num_paras >= 3: tr_base += 0.5
+    
+    tr = min(9.0, tr_base)
+
+    overall = round((gra + lr + cc + tr) / 4 * 2) / 2 # IELTS step 0.5
+    
+    return {
+        "overall_score": f"Band {overall}",
+        "radar_chart": {"TR": tr, "CC": cc, "LR": lr, "GRA": gra},
+        "system_feedback": [
+            f"Mật độ lỗi ngữ pháp: {error_density:.1f}% ({error_count} lỗi).",
+            f"Vốn từ học thuật: {unique_awl} từ độc nhất phát hiện được.",
+            f"Cấu trúc bài viết: {num_paras} đoạn văn, {total_words} từ.",
+            "⚠️ CHẾ ĐỘ DỰ PHÒNG: Đang dùng thuật toán Heuristic vì máy chủ AI quá tải."
+        ],
+        "detailed_analysis": {
+            "task_response": "Đánh giá dựa trên độ dài và số lượng đoạn văn.",
+            "coherence_cohesion": "Đánh giá dựa trên mật độ và sự đa dạng của từ nối.",
+            "lexical_resource": "Đánh giá dựa trên tỷ lệ từ vựng học thuật (AWL).",
+            "grammar_accuracy": "Đánh giá dựa trên mật độ lỗi phát hiện bởi LanguageTool."
+        },
+        "source": "offline"
+    }
 
 
 # ==========================================
@@ -124,68 +226,109 @@ def check_writing():
         data = request.json
         text = data.get('text', '')
         topic = data.get('topic', 'General Writing')
+        mode = data.get('mode', 'online') # Lấy mode từ Node.js
         
+        print(f"📝 Writing Check - Mode: {mode}")
+
         if not text: return jsonify({"error": "Chưa nhập nội dung!"}), 400
 
+        # 🟢 CHẾ ĐỘ OFFLINE (Bắt buộc cho Standard)
+        if mode == 'offline':
+            print("⚠️  Standard User: Skipping Gemini, using Heuristic Engine.")
+            # Ensure tool is initialized for offline mode if it failed globally
+            if tool is None:
+                try:
+                    local_tool = language_tool_python.LanguageTool('en-US', remote_server='https://api.languagetool.org/v2')
+                except Exception as e:
+                    print(f"❌ LanguageTool failed in offline mode: {e}. Cannot perform grammar check.")
+                    local_tool = None
+            else:
+                local_tool = tool
+
+            grammar_errors_raw = []
+            if local_tool:
+                matches = local_tool.check(text)
+                grammar_errors_raw = [{"word": m.context[m.offset:m.offset+m.errorLength], "error": m.message, "fix": (m.replacements[0] if m.replacements else "N/A")} for m in matches]
+            
+            result = _offline_writing_score(text, topic, grammar_errors_raw)
+            result["mistakes"] = grammar_errors_raw[:10] # Limit mistakes for display
+            return jsonify(result)
+
+        # 🔵 CHẾ ĐỘ ONLINE (Mặc định cho VIP/Admin)
         # 1. Chạy phân tích kỹ thuật
         tech_data = analyze_deep_tech(text)
-        grammar_errors = check_grammar_strict(text)
+        
+        # Check grammar errors
+        grammar_errors = []
+        if tool is not None:
+            try:
+                matches = tool.check(text)
+                grammar_errors = [{"word": m.context[m.offset:m.offset+m.errorLength], "error": m.message, "fix": (m.replacements[0] if m.replacements else "N/A")} for m in matches]
+            except Exception as e:
+                print(f"⚠️  Grammar check failed: {e}")
+                grammar_errors = []
 
         # 2. Prompt Gemini
-        prompt = f"""
-        # ROLE & PERSONA
-        You are a Senior IELTS Examiner with 20 years of experience. You are known for being EXTREMELY STRICT and precise. You do not give high scores easily. You base your scoring on the official IELTS Writing Band Descriptors.
+        try:
+            prompt = f"""
+            # ROLE & PERSONA
+            You are a Senior IELTS Examiner with 20 years of experience. You are known for being EXTREMELY STRICT and precise. You do not give high scores easily. You base your scoring on the official IELTS Writing Band Descriptors.
 
-        # INPUT DATA
-        1. TOPIC: "{topic}"
-        2. STUDENT ESSAY: "{text}"
-        
-        # SCIENTIFIC EVIDENCE (FROM COMPUTER ANALYSIS) - DO NOT IGNORE:
-        - Strict Grammar Errors Found: {len(grammar_errors)} errors. 
-          (Details: {str(grammar_errors[:3])}...) -> If > 3 errors, GRA cannot be above 7.0.
-        - Readability Score (Flesch): {tech_data['math']['reading_ease']} 
-          (Target for Band 7+ is 30-50. If > 60, it's too simple/childish).
-        - Repetitive Sentence Starters: {list(tech_data['nlp']['starters'].keys()) if tech_data['nlp']['starters'] else 'None'} 
-          (If present, PENALIZE Coherence & Cohesion heavily).
+            # INPUT DATA
+            1. TOPIC: "{topic}"
+            2. STUDENT ESSAY: "{text}"
+            
+            # SCIENTIFIC EVIDENCE (FROM COMPUTER ANALYSIS) - DO NOT IGNORE:
+            - Strict Grammar Errors Found: {len(grammar_errors)} errors. 
+              (Details: {str(grammar_errors[:3])}...) -> If > 3 errors, GRA cannot be above 7.0.
+            - Readability Score (Flesch): {tech_data['math']['reading_ease']} 
+              (Target for Band 7+ is 30-50. If > 60, it's too simple/childish).
+            - Repetitive Sentence Starters: {list(tech_data['nlp']['starters'].keys()) if tech_data['nlp']['starters'] else 'None'} 
+              (If present, PENALIZE Coherence & Cohesion heavily).
 
-        # YOUR TASK
-        Analyze the essay deepy and provide a strict evaluation in VIETNAMESE.
+            # YOUR TASK
+            Analyze the essay deepy and provide a strict evaluation in VIETNAMESE.
 
-        # STEPS TO ANALYZE:
-        1. **Task Response:** Did they answer ALL parts of the prompt? Is the position clear?
-        2. **Coherence:** Is the flow logical? Did they use linking words effectively or mechanically? (Check the Repetitive Starters evidence).
-        3. **Lexical Resource:** Are they using 'easy' words (good, bad, nice) or 'academic' words (detrimental, beneficial)? 
-        4. **Grammar:** Look at the Computer Evidence provided above. Don't be lenient.
+            # STEPS TO ANALYZE:
+            1. **Task Response:** Did they answer ALL parts of the prompt? Is the position clear?
+            2. **Coherence:** Is the flow logical? Did they use linking words effectively or mechanically? (Check the Repetitive Starters evidence).
+            3. **Lexical Resource:** Are they using 'easy' words (good, bad, nice) or 'academic' words (detrimental, beneficial)? 
+            4. **Grammar:** Look at the Computer Evidence provided above. Don't be lenient.
 
-        # OUTPUT FORMAT (JSON ONLY):
-        {{
-            "overall_score": "Band [Score]",
-            "radar_chart": {{ "TR": [Score], "CC": [Score], "LR": [Score], "GRA": [Score] }},
-            "system_feedback": [
-                "Máy tính phát hiện {len(grammar_errors)} lỗi ngữ pháp cần sửa ngay.",
-                "Độ khó văn bản: {tech_data['math']['grade_level']} (Mục tiêu: College Level).",
-                "Cảnh báo lặp từ đầu câu: {list(tech_data['nlp']['starters'].keys()) if tech_data['nlp']['starters'] else 'Không có - Tốt'}"
-            ],
-            "topic_vocab_suggestion": [
-                {{
-                    "word": "[Advanced Word related to Topic]",
-                    "meaning": "[Nghĩa Tiếng Việt]",
-                    "context": "[Ví dụ câu dùng từ này thay cho từ user đã dùng]"
-                }}
-            ],
-            "detailed_analysis": {{
-                "task_response": "[Nhận xét gắt gao về TR bằng Tiếng Việt]",
-                "coherence_cohesion": "[Nhận xét về sự mạch lạc bằng Tiếng Việt]",
-                "lexical_resource": "[Chê từ vựng nghèo nàn hoặc khen từ vựng hay bằng Tiếng Việt]",
-                "grammar_accuracy": "[Phân tích lỗi ngữ pháp dựa trên báo cáo máy tính bằng Tiếng Việt]"
-            }},
-            "better_version": "[Rewrite the essay to strict Band 9.0 Standard - Academic Style]"
-        }}
-        """
+            # OUTPUT FORMAT (JSON ONLY):
+            {{
+                "overall_score": "Band [Score]",
+                "radar_chart": {{ "TR": [Score], "CC": [Score], "LR": [Score], "GRA": [Score] }},
+                "system_feedback": [
+                    "Máy tính phát hiện {len(grammar_errors)} lỗi ngữ pháp cần sửa ngay.",
+                    "Độ khó văn bản: {tech_data['math']['grade_level']} (Mục tiêu: College Level).",
+                    "Cảnh báo lặp từ đầu câu: {list(tech_data['nlp']['starters'].keys()) if tech_data['nlp']['starters'] else 'Không có - Tốt'}"
+                ],
+                "topic_vocab_suggestion": [
+                    {{
+                        "word": "[Advanced Word related to Topic]",
+                        "meaning": "[Nghĩa Tiếng Việt]",
+                        "context": "[Ví dụ câu dùng từ này thay cho từ user đã dùng]"
+                    }}
+                ],
+                "detailed_analysis": {{
+                    "task_response": "[Nhận xét gắt gao về TR bằng Tiếng Việt]",
+                    "coherence_cohesion": "[Nhận xét về sự mạch lạc bằng Tiếng Việt]",
+                    "lexical_resource": "[Chê từ vựng nghèo nàn hoặc khen từ vựng hay bằng Tiếng Việt]",
+                    "grammar_accuracy": "[Phân tích lỗi ngữ pháp dựa trên báo cáo máy tính bằng Tiếng Việt]"
+                }},
+                "better_version": "[Rewrite the essay to strict Band 9.0 Standard - Academic Style]"
+            }}
+            """
 
-        # Gọi API Gemini với client mới (với backoff để tránh quota errors)
-        response = genai_generate_with_backoff(MODEL_NAME, prompt)
-        return response.text.replace('```json', '').replace('```', '').strip(), 200
+            # Gọi API Gemini với client mới (với backoff để tránh quota errors)
+            response = genai_generate_with_backoff(MODEL_NAME, prompt)
+            return response.text.replace('```json', '').replace('```', '').strip(), 200
+        except Exception as ai_err:
+            print(f"⚠️ Writing AI failure -> Fallback to Offline Engine: {ai_err}")
+            # Kích hoạt phao cứu sinh
+            offline_result = _offline_writing_score(text, topic, grammar_errors)
+            return json.dumps(offline_result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -195,7 +338,7 @@ def check_writing():
 # 🎤 API 2: SPEAKING (WHISPER + GEMINI)
 # ==========================================
 @app.route('/api/speaking/check', methods=['POST'])
-def check_speaking():
+def evaluate_speaking(): # Renamed from check_speaking as per instruction
     try:
         start_time = time.time()
         
@@ -205,25 +348,46 @@ def check_speaking():
 
         if 'audio' not in request.files: return jsonify({"error": "No file"}), 400
         audio_file = request.files['audio']
+        mode = request.form.get('mode', 'online') # Lấy mode từ Node.js
         
         # 1. Lưu file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             audio_file.save(tmp.name)
             tmp_path = tmp.name
 
+        print(f"🎤 Speaking Check - Mode: {mode}")
         print(f"👂 Whisper đang nghe file: {tmp_path}...")
 
+        # 🟢 CHẾ ĐỘ OFFLINE
+        if mode == 'offline':
+            print("⚠️  Mode Offline: Using Offline Speaking Engine.")
+            # Transcribe audio for offline mode
+            transcript = ''
+            try:
+                whisper_result = whisper_model.transcribe(tmp_path)
+                transcript = whisper_result.get('text', '').strip()
+            except Exception as whisper_err:
+                print(f"❌ Whisper transcription failed in offline mode: {whisper_err}. Using empty transcript.")
+            
+            result = _offline_speaking_score(transcript)
+            result["source"] = "offline"
+            os.remove(tmp_path) # Clean up temp file
+            return jsonify(result)
+
+        # 🔵 CHẾ ĐỘ ONLINE
         # 2. WHISPER TRANSCRIBE
         result = whisper_model.transcribe(tmp_path)
         transcript = result["text"]
         print(f"📝 Transcript: {transcript}")
         
-        # Cleanup
-        os.remove(tmp_path)
-
         # 3. GỬI CHO GEMINI
-        uploaded_file = genai.upload_file(tmp_path)
-        
+        # SỬA LỖI: Dùng client.files.upload(file=...) cho SDK mới
+        try:
+            uploaded_file = client.files.upload(file=tmp_path)
+        except Exception as upload_err:
+            print(f"⚠️ Upload Gemini thất bại: {upload_err}")
+            uploaded_file = None
+
         prompt = f"""
         # ROLE
         Act as a ruthless IELTS Speaking Examiner and a Phonetic Expert. Your job is to find every single mistake in the user's speech.
@@ -268,9 +432,12 @@ def check_speaking():
         }}
         """
 
-        # Upload file và gọi API
-        uploaded_file = client.files.upload(path=tmp_path)
-        response = genai_generate_with_backoff(MODEL_NAME, [prompt, uploaded_file])
+        # Gọi API với cả prompt và file đã upload (nếu có)
+        contents = [prompt]
+        if uploaded_file:
+            contents.append(uploaded_file)
+            
+        response = genai_generate_with_backoff(MODEL_NAME, contents)
         
         # Dọn dẹp
         os.remove(tmp_path)
@@ -886,6 +1053,7 @@ def evaluate_speaking_practice():
       phase        : 'warmup' | 'main' | 'followup'
       sample_answer: đáp án mẫu (tùy chọn, dùng offline fallback)
       frontend_data: JSON string { wpm, hesitation_count, rhythm_std, duration_sec }
+      mode         : 'online' | 'offline' (chế độ đánh giá)
     """
     try:
         if whisper_model is None:
@@ -933,7 +1101,8 @@ def evaluate_speaking_practice():
         online_ok = False
         result = {}
         try:
-            uploaded_file = client.files.upload(path=tmp_path)
+            # SỬA LỖI: Dùng file= thay vì path=
+            uploaded_file = client.files.upload(file=tmp_path)
 
             phase_instruction = {
                 'warmup': 'This is a warm-up question (easy ice-breaker, 10-15 seconds expected).',

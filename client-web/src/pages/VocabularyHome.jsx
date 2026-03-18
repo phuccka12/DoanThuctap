@@ -9,7 +9,7 @@ import {
   FaCity, FaHeartbeat, FaGlobe, FaPalette, FaFutbol, FaMusic,
   FaSearch, FaStar, FaTrophy, FaFire,
 } from 'react-icons/fa';
-import { FiLoader } from 'react-icons/fi';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const ICON_MAP = {
   FaLeaf, FaLaptopCode, FaCity, FaHeartbeat, FaGlobe,
@@ -212,7 +212,7 @@ export default function VocabularyHome() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <FiLoader className="animate-spin text-3xl text-purple-400" />
+            <LoadingCat size={200} text="Đang tải các chủ đề từ vựng..." />
           </div>
         ) : error ? (
           <div className="text-center py-20">

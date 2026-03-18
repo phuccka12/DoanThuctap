@@ -7,6 +7,7 @@ import {
 import { FaCrown, FaRocket, FaGem, FaShieldAlt } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import userBillingService from '../services/userBillingService';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const THEME = {
   gray:   { bg: 'from-gray-800/60 to-gray-900/40', border: 'border-gray-600/40', accent: 'text-gray-300',   badge: 'bg-gray-500/20 text-gray-300' },
@@ -58,7 +59,7 @@ export default function MySubscription() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <FiLoader className="animate-spin text-purple-400" size={36} />
+        <LoadingCat size={250} text="Đang tải thông tin gói cước..." />
       </div>
     );
   }
@@ -89,8 +90,8 @@ export default function MySubscription() {
               <p className="text-gray-400 text-sm mt-1">Quản lý gói cước và lịch sử thanh toán</p>
             </div>
           </div>
-          <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-lg transition">
-            <FiRefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-lg transition overflow-hidden">
+            {loading ? <LoadingCat size={24} text={null} /> : <FiRefreshCw size={15} />}
           </button>
         </div>
 

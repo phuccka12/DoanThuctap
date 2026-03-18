@@ -10,17 +10,13 @@ import {
   FiAlertTriangle, FiSkipForward,
 } from 'react-icons/fi';
 import { FaCoins, FaHeart } from 'react-icons/fa';
+import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import LearnLayout from '../components/learn/LearnLayout';
 import SharedTopicCard from '../components/shared/TopicCard';
+import LoadingCat from '../components/shared/LoadingCat';
+import { motion } from 'framer-motion';
 
-const API_BASE = 'http://localhost:3001/api';
-
-const authAxios = axios.create({ baseURL: API_BASE });
-authAxios.interceptors.request.use((cfg) => {
-  const token = localStorage.getItem('token');
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
-  return cfg;
-});
+import axiosInstance from '../utils/axiosConfig';
 
 // ─── Phase constants ──────────────────────────────────────────────────────────
 const PHASE = {
@@ -103,7 +99,7 @@ function TopicsPhase({ onSelect, onBrowseAll, progress }) {
   const [error,   setError]   = useState(false);
 
   useEffect(() => {
-    authAxios.get('/listening/topics')
+    axiosInstance.get('/listening/topics')
       .then(r => {
         const list = r.data?.data?.topics || r.data?.data || [];
         setTopics(list);
@@ -118,43 +114,40 @@ function TopicsPhase({ onSelect, onBrowseAll, progress }) {
 
   return (
     <div className="space-y-8">
-      {/* Hero Banner */}
-      <div className="relative rounded-2xl overflow-hidden bg-linear-to-r from-[#0f1f3d] via-[#1a103d] to-[#0a1628] border border-purple-500/20 p-8">
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="absolute text-5xl select-none" style={{
-              top: `${15 + i * 12}%`, left: `${5 + i * 15}%`, transform: `rotate(${i * 20}deg)`,
-            }}>🎧</div>
-          ))}
-        </div>
-        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-3 bg-purple-600/30 rounded-xl">
-                <FiHeadphones size={28} className="text-purple-300" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Luyện nghe IELTS</h1>
-                <p className="text-purple-300/70 text-sm">Nghe – Hiểu – Chinh phục</p>
-              </div>
+      {/* Hero Banner Redesigned for Sync */}
+      <div className="glass-panel p-8 relative overflow-hidden group">
+        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-cyan-500 via-blue-500 to-indigo-500" />
+        <div className="absolute top-[-20%] right-[-10%] w-[300px] h-[300px] bg-cyan-500/5 rounded-full blur-[80px] group-hover:scale-110 transition-transform duration-1000" />
+        
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-20 h-20 bg-linear-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-cyan-500/20 rotate-3">
+              <FiHeadphones size={36} className="text-white" />
             </div>
-            <div className="flex gap-3 flex-wrap">
-              <span className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/30 text-purple-300 rounded-full text-xs">
-                📚 {totalCount} chủ đề
-              </span>
-              <span className="px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 rounded-full text-xs">
-                ✅ {doneCount} đã hoàn thành
-              </span>
+            <div className="text-center md:text-left">
+              <h1 className="text-3xl font-black text-white tracking-tight mb-2">Luyện nghe IELTS</h1>
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <div className="flex items-center gap-2 text-cyan-400 font-black text-[10px] uppercase tracking-widest">
+                  <FiList /> {totalCount} chủ đề
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase tracking-widest">
+                  <FiCheck /> {doneCount} Hoàn thành
+                </div>
+              </div>
             </div>
           </div>
-          <div className="w-full md:w-56 shrink-0">
-            <div className="flex justify-between text-xs text-gray-400 mb-1.5">
-              <span>Tiến độ tổng thể</span>
-              <span className="text-purple-300 font-semibold">{overallPct}%</span>
+          
+          <div className="w-full md:w-64 space-y-3 bg-white/5 p-5 rounded-2xl border border-white/5">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tiến độ tổng</span>
+              <span className="text-cyan-400 font-black text-xs">{overallPct}%</span>
             </div>
-            <div className="w-full h-2.5 bg-gray-700/60 rounded-full overflow-hidden">
-              <div className="h-full bg-linear-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-700"
-                style={{ width: `${overallPct}%` }} />
+            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+               <motion.div 
+                 initial={{ width: 0 }}
+                 animate={{ width: `${overallPct}%` }}
+                 className="h-full bg-linear-to-r from-cyan-500 to-blue-500"
+               />
             </div>
           </div>
         </div>
@@ -162,8 +155,8 @@ function TopicsPhase({ onSelect, onBrowseAll, progress }) {
 
       {/* Topic grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-3 text-gray-400">
-          <FiRefreshCw size={22} className="animate-spin" /> Đang tải chủ đề…
+        <div className="flex flex-col items-center justify-center py-20">
+          <LoadingCat size={180} text="Đang tải chủ đề bài nghe..." />
         </div>
       ) : topics.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
@@ -218,7 +211,7 @@ function ListPhase({ topic, onSelect, onBack }) {
     const params = { limit: 30 };
     if (topic?._id) params.topic = topic._id;
     if (level)      params.level = level;
-    authAxios.get('/listening', { params })
+    axiosInstance.get('/listening', { params })
       .then(r => {
         const d = r.data?.data || r.data;
         setPassages(d?.passages || d?.docs || []);
@@ -266,8 +259,8 @@ function ListPhase({ topic, onSelect, onBack }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
-          <FiRefreshCw size={20} className="animate-spin" /> Đang tải…
+        <div className="flex flex-col items-center justify-center py-16">
+          <LoadingCat size={140} text="Đang tải danh sách bài nghe..." />
         </div>
       ) : passages.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
@@ -456,6 +449,12 @@ function PracticePhase({ passage, onSubmit, onBack }) {
   const [current,    setCurrent]    = useState(0);
   const [duration,   setDuration]   = useState(0);
 
+  // ── Timer Logic ──
+  const startTimeRef = useRef(null);
+  useEffect(() => {
+    if (!startTimeRef.current) startTimeRef.current = Date.now();
+  }, []);
+
   const setAnswer = (qId, val) => setAnswers(a => ({ ...a, [qId]: val }));
 
   const toggle = () => {
@@ -478,11 +477,15 @@ function PracticePhase({ passage, onSubmit, onBack }) {
   const handleSubmit = async () => {
     setSubmitting(true); setError('');
     try {
-      const payload = passage.questions.map(q => ({
-        questionId: q._id,
-        answer: answers[q._id] || '',
-      }));
-      const r = await authAxios.post(`/listening/${passage._id}/submit`, { answers: payload });
+      const payload = {
+        answers: passage.questions.map(q => ({
+          questionId: q._id,
+          answer: answers[q._id] || '',
+        })),
+        timeSpentSec: Math.round((Date.now() - (startTimeRef.current || Date.now())) / 1000)
+      };
+      const r = await axiosInstance.post(`/listening/${passage._id}/submit`, payload);
+      dashboardRefreshEmitter.emit();
       onSubmit(r.data?.data || r.data);
     } catch {
       setError('Nộp bài thất bại. Vui lòng thử lại.');
@@ -596,7 +599,7 @@ function PracticePhase({ passage, onSubmit, onBack }) {
         </button>
         <button onClick={handleSubmit} disabled={submitting || answered === 0}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all shadow-lg shadow-purple-500/20">
-          {submitting ? <FiRefreshCw size={16} className="animate-spin" /> : <FiCheck size={16} />}
+          {submitting ? <LoadingCat size={40} /> : <FiCheck size={16} />}
           {submitting ? 'Đang nộp bài…' : `Nộp bài (${answered}/${total})`}
         </button>
       </div>

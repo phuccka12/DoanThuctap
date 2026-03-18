@@ -1,4 +1,5 @@
 const ListeningPassage = require('../models/ListeningPassage');
+const LessonProgress = require('../models/LessonProgress');
 const { rewardExercise } = require('../utils/rewardHelper');
 const Pet = require('../models/Pet');
 
@@ -145,7 +146,7 @@ exports.getOne = async (req, res) => {
 // ── POST nộp bài — chấm điểm ────────────────────────────────────────────────
 exports.submit = async (req, res) => {
   try {
-    const { answers } = req.body;
+    const { answers, timeSpentSec = 0 } = req.body;
     // answers: [{ questionId, answer }]
 
     const passage = await ListeningPassage.findOne({ _id: req.params.id, is_active: true });
@@ -178,47 +179,35 @@ exports.submit = async (req, res) => {
     // IELTS band estimate (0–9)
     const band    = total > 0 ? Math.round((correct / total) * 9 * 10) / 10 : 0;
 
-    // ── Gamification: Coins + Pet HP ────────────────────────────────────────
+    // ── AWARD COINS & EXP ──────────────────
     let reward = null;
-    const userId = req.userId;
     if (userId) {
       try {
-        // Tính số coin theo accuracy
-        const coinAmount = Math.round((percent / 100) * 20); // tối đa 20 coins / bài
-        const coinResult = await rewardExercise(userId, 'listening', { customAmount: coinAmount });
-
-        // Pet HP: mất HP tỉ lệ với số câu sai
-        const wrongCount = total - correct;
-        let hpChange = 0;
-        let petAfter = null;
-        if (wrongCount > 0 && total > 0) {
-          const pet = await Pet.findOne({ user: userId });
-          if (pet) {
-            const damage = Math.round((wrongCount / total) * 15); // tối đa -15 HP
-            pet.hunger = Math.min(100, pet.hunger + damage);      // hunger tăng = HP giảm
-            await pet.save();
-            hpChange  = -damage;
-            petAfter  = { hunger: pet.hunger, coins: pet.coins };
-          }
-        } else {
-          // Tất cả đúng: thêm happiness
-          const pet = await Pet.findOne({ user: userId });
-          if (pet) {
-            pet.happiness = Math.min(100, pet.happiness + 5);
-            await pet.save();
-            petAfter = { hunger: pet.hunger, coins: pet.coins, happiness: pet.happiness };
-          }
-        }
-
-        reward = {
-          coinsEarned:  coinResult.earned,
-          totalToday:   coinResult.totalToday,
-          capReached:   coinResult.capReached,
-          hpChange,
-          petAfter,
-        };
+        const { rewardExercise } = require('../utils/rewardHelper');
+        reward = await rewardExercise(userId, 'listening');
       } catch (e) {
-        console.error('Gamification error:', e.message);
+        console.error('Reward exercise error:', e.message);
+      }
+    }
+
+    // ── Save Progress to LessonProgress (Unifying polymorphic table) ────
+    if (userId) {
+      try {
+        // We use a separate document per passage for listening (like stories)
+        // to allow multiple practice records.
+        await LessonProgress.create({
+          userId,
+          passageId: passage._id,
+          passageType: 'listening',
+          score: percent,
+          timeSpentSec: Number(timeSpentSec) || 0,
+          completedAt: new Date(),
+          rewarded: true, 
+          coinsEarned: reward?.earned || 0,
+          expEarned: reward?.expGain || Math.floor(correct * 5),
+        });
+      } catch (e) {
+        console.error('Save progress error:', e.message);
       }
     }
 

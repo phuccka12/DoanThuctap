@@ -80,7 +80,7 @@ const topicSchema = new mongoose.Schema({
 });
 
 // Auto-generate slug from name before saving
-topicSchema.pre('save', async function() {
+topicSchema.pre('save', async function () {
   if (this.isModified('name')) {
     this.slug = slugify(this.name, { lower: true, strict: true });
   }

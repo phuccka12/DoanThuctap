@@ -80,6 +80,13 @@ const userSchema = new mongoose.Schema(
 
     failed_login_attempts: { type: Number, default: 0 },
     lock_until: { type: Date, default: null },
+
+    // User settings
+    settings: {
+      ai_voice: { type: String, default: 'female' }, // 'male' / 'female'
+      ai_speed: { type: Number, default: 1.0 },    // 0.5 to 2.0
+      notifications_enabled: { type: Boolean, default: true },
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );

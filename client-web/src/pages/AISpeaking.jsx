@@ -1,13 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { useReactMediaRecorder } from "react-media-recorder";
-import axios from 'axios';
-import { useTheme } from '../context/ThemeContext';
+import axiosInstance from '../utils/axiosConfig';
+import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { 
-  FaMicrophone, FaStop, FaPaperPlane, FaFire, FaTrophy, FaStar, 
+import {
+  FaMicrophone, FaStop, FaPaperPlane, FaFire, FaTrophy, FaStar,
   FaChartLine, FaComments, FaBookReader, FaVolumeUp, FaSpellCheck,
-  FaCheckCircle, FaExclamationTriangle, FaLightbulb, FaRocket, FaMedal
+  FaCheckCircle, FaExclamationTriangle, FaLightbulb, FaRocket, FaMedal,
+  FaCoins, FaChevronLeft
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 import { Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -29,49 +33,18 @@ ChartJS.register(
 );
 
 const AISpeaking = () => {
-  const { isDark } = useTheme();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [audioFile, setAudioFile] = useState(null);
 
-  // Theme colors
-  const themeColors = useMemo(() => ({
-    light: {
-      page: 'bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50',
-      card: 'bg-white',
-      border: 'border-purple-200',
-      text: 'text-slate-800',
-      sub: 'text-slate-600',
-      input: 'bg-white border-purple-200 text-slate-800',
-      hover: 'hover:bg-purple-50',
-      soft: 'bg-purple-50',
-      accent: 'text-purple-600',
-      recording: 'bg-gradient-to-r from-red-500 to-pink-500',
-      ready: 'bg-gradient-to-r from-emerald-500 to-teal-500',
-    },
-    dark: {
-      page: 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900',
-      card: 'bg-slate-800/50',
-      border: 'border-slate-700',
-      text: 'text-white',
-      sub: 'text-slate-300',
-      input: 'bg-slate-700/50 border-slate-600 text-white',
-      hover: 'hover:bg-slate-700',
-      soft: 'bg-slate-700/30',
-      accent: 'text-purple-400',
-      recording: 'bg-gradient-to-r from-red-600 to-pink-600',
-      ready: 'bg-gradient-to-r from-emerald-600 to-teal-600',
-    }
-  }), []);
+  const stats = user?.gamification_data || { streak: 0, level: 1, coins: 0 };
 
-  const theme = isDark ? themeColors.dark : themeColors.light;
-
-  // Cấu hình ghi âm
-  const { status, startRecording, stopRecording, mediaBlobUrl } = useReactMediaRecorder({ 
+  const { status, startRecording, stopRecording, mediaBlobUrl } = useReactMediaRecorder({
     audio: true,
     blobPropertyBag: { type: "audio/wav" },
     onStop: (blobUrl, blob) => {
-      console.log("🛑 Đã dừng ghi âm.");
       const file = new File([blob], "recording.wav", { type: "audio/wav" });
       setAudioFile(file);
     }
@@ -82,7 +55,7 @@ const AISpeaking = () => {
       alert("Chưa có file ghi âm! Hãy nói lại.");
       return;
     }
-    
+
     setLoading(true);
     setResult(null);
 
@@ -97,26 +70,20 @@ const AISpeaking = () => {
       const formData = new FormData();
       formData.append("audio", fileToSend);
 
-      console.log("🚀 Đang gửi file sang Python...");
-      
-      const res = await axios.post('http://127.0.0.1:5000/api/speaking/check', formData, {
+      const res = await axiosInstance.post('/ai/speaking', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
-      console.log("✅ Dữ liệu Python trả về:", res.data);
-      setResult(res.data);
 
+      setResult(res.data);
     } catch (error) {
       console.error("❌ Lỗi:", error);
-      alert("Lỗi kết nối Server! Xem Console (F12) để biết chi tiết.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // Radar chart configuration
   const radarData = useMemo(() => {
     if (!result?.radar_chart) return null;
-    
     return {
       labels: ['Fluency', 'Lexical', 'Grammar', 'Pronunciation'],
       datasets: [{
@@ -127,425 +94,246 @@ const AISpeaking = () => {
           result.radar_chart.Grammar || 0,
           result.radar_chart.Pronunciation || 0
         ],
-        backgroundColor: isDark ? 'rgba(168, 85, 247, 0.2)' : 'rgba(139, 92, 246, 0.2)',
-        borderColor: isDark ? 'rgba(168, 85, 247, 1)' : 'rgba(139, 92, 246, 1)',
+        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+        borderColor: 'rgba(168, 85, 247, 1)',
         borderWidth: 2,
-        pointBackgroundColor: isDark ? 'rgba(168, 85, 247, 1)' : 'rgba(139, 92, 246, 1)',
+        pointBackgroundColor: 'rgba(168, 85, 247, 1)',
         pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: isDark ? 'rgba(168, 85, 247, 1)' : 'rgba(139, 92, 246, 1)',
       }]
     };
-  }, [result, isDark]);
-
-  const radarOptions = {
-    scales: {
-      r: {
-        min: 0,
-        max: 9,
-        ticks: {
-          stepSize: 1,
-          color: isDark ? '#94a3b8' : '#64748b',
-        },
-        grid: {
-          color: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(203, 213, 225, 0.3)',
-        },
-        pointLabels: {
-          color: isDark ? '#e2e8f0' : '#334155',
-          font: {
-            size: 12,
-            weight: 'bold',
-          }
-        }
-      }
-    },
-    plugins: {
-      legend: {
-        display: false
-      }
-    },
-    maintainAspectRatio: true,
-  };
-
-  // Status badge component
-  const StatusBadge = ({ status }) => {
-    const statusConfig = {
-      idle: { icon: FaCheckCircle, text: 'Ready to Record', color: 'text-emerald-500', bg: isDark ? 'bg-emerald-500/20' : 'bg-emerald-50' },
-      recording: { icon: FaMicrophone, text: 'Recording...', color: 'text-red-500', bg: isDark ? 'bg-red-500/20' : 'bg-red-50' },
-      stopped: { icon: FaCheckCircle, text: 'Recording Complete', color: 'text-purple-500', bg: isDark ? 'bg-purple-500/20' : 'bg-purple-50' }
-    };
-
-    const config = statusConfig[status] || statusConfig.idle;
-    const Icon = config.icon;
-
-    return (
-      <div className={cn(
-        "inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm",
-        config.bg,
-        config.color
-      )}>
-        <Icon className={status === 'recording' ? 'animate-pulse' : ''} />
-        {config.text}
-      </div>
-    );
-  };
-
-  // Score card component
-  const ScoreCard = ({ label, value, icon: Icon, isDark }) => (
-    <div className={cn(
-      "relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:scale-105",
-      isDark 
-        ? "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 hover:border-purple-500" 
-        : "bg-gradient-to-br from-white to-purple-50 border-purple-200 hover:border-purple-400"
-    )}>
-      <div className="flex items-center justify-between mb-2">
-        <span className={cn("text-sm font-medium", isDark ? "text-slate-400" : "text-slate-600")}>{label}</span>
-        <Icon className={cn("text-xl", isDark ? "text-purple-400" : "text-purple-500")} />
-      </div>
-      <div className={cn("text-3xl font-bold", isDark ? "text-white" : "text-slate-800")}>
-        {value}<span className="text-lg opacity-60">/9.0</span>
-      </div>
-      <div className={cn(
-        "absolute bottom-0 left-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500",
-        `w-[${(value / 9) * 100}%]`
-      )} style={{ width: `${(value / 9) * 100}%` }} />
-    </div>
-  );
-
-  // Mistake card component
-  const MistakeCard = ({ item, isDark }) => (
-    <div className={cn(
-      "rounded-xl border-l-4 p-4 mb-3 transition-all duration-300 hover:scale-[1.02]",
-      isDark 
-        ? "bg-slate-800/50 border-red-500 hover:bg-slate-800" 
-        : "bg-white border-red-500 hover:shadow-md"
-    )}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className={cn("font-bold text-lg", isDark ? "text-red-400" : "text-red-600")}>
-          {item.word}
-        </span>
-        <span className={cn(
-          "text-xs px-2 py-1 rounded-full font-semibold",
-          isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"
-        )}>
-          Error
-        </span>
-      </div>
-      <div className={cn("text-sm mb-1", isDark ? "text-slate-300" : "text-slate-600")}>
-        <FaExclamationTriangle className="inline mr-2 text-orange-500" />
-        {item.error}
-      </div>
-      <div className={cn("text-sm font-semibold", isDark ? "text-emerald-400" : "text-emerald-600")}>
-        <FaLightbulb className="inline mr-2" />
-        {item.fix}
-      </div>
-    </div>
-  );
+  }, [result]);
 
   return (
-    <div className={cn("min-h-screen p-6 transition-colors duration-300", theme.page)}>
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className={cn(
-          "rounded-3xl border p-8 mb-6 relative overflow-hidden",
-          theme.card,
-          theme.border
-        )}>
-          <div className={cn(
-            "absolute top-0 left-0 w-full h-2",
-            "bg-gradient-to-r from-purple-500 via-pink-500 to-red-500"
-          )} />
-          
-          <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="min-h-screen bg-[#0F1117] relative flex flex-col p-4 md:p-8 overflow-y-auto font-sans">
+      {/* Background Blobs */}
+      <div className="absolute top-[-5%] right-[-5%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[100px] animate-float" />
+      <div className="absolute bottom-[-5%] left-[-5%] w-[40%] h-[40%] bg-rose-600/10 rounded-full blur-[100px] animate-float-delayed" />
+
+      <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col z-10">
+        {/* Unified Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-panel p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6"
+        >
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+              title="Quay lại Dashboard"
+            >
+              <FaChevronLeft />
+            </button>
+            <div className="w-14 h-14 bg-linear-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <FaMicrophone className="text-white text-2xl" />
+            </div>
             <div>
-              <h1 className={cn("text-4xl font-bold mb-2", theme.text)}>
-                <FaMicrophone className="inline mr-3 text-purple-500" />
-                IELTS Speaking Coach
-              </h1>
-              <p className={theme.sub}>Master your speaking skills with AI-powered feedback</p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full font-semibold",
-                isDark ? "bg-gradient-to-r from-orange-500/20 to-red-500/20" : "bg-gradient-to-r from-orange-100 to-red-100"
-              )}>
-                <FaFire className="text-orange-500 text-xl" />
-                <span className={theme.text}>7 Day Streak</span>
-              </div>
-              <div className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full font-semibold",
-                isDark ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20" : "bg-gradient-to-r from-yellow-100 to-amber-100"
-              )}>
-                <FaTrophy className="text-yellow-500 text-xl" />
-                <span className={theme.text}>Level 15</span>
-              </div>
+              <h1 className="text-2xl font-black text-white tracking-tight">Coach Phát âm AI</h1>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Master your IELTS Speaking</p>
             </div>
           </div>
-        </div>
 
-        {/* Recording Section */}
-        <div className={cn(
-          "rounded-3xl border p-8 mb-6",
-          theme.card,
-          theme.border
-        )}>
-          <div className="text-center">
-            <StatusBadge status={status} />
-            
-            <div className="my-8">
-              <div className={cn(
-                "w-40 h-40 mx-auto rounded-full flex items-center justify-center relative",
-                status === 'recording' ? theme.recording : theme.ready,
-                "shadow-2xl"
-              )}>
-                {status === 'recording' && (
-                  <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-30" />
-                )}
-                <FaMicrophone className="text-white text-6xl relative z-10" />
-              </div>
+          <div className="flex items-center gap-4 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
+              <FaFire className="text-orange-500" />
+              <span className="text-white font-black text-sm">{stats.streak} Ngày</span>
             </div>
+            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
+              <FaTrophy className="text-yellow-500" />
+              <span className="text-white font-black text-sm">Level {stats.level}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
+              <FaCoins className="text-amber-400" />
+              <span className="text-white font-black text-sm">{stats.coins} Xu</span>
+            </div>
+          </div>
+        </motion.div>
 
-            <div className="flex gap-4 justify-center mb-6">
-              <button
+        {/* Main Recording Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card p-10 mb-8 flex flex-col items-center text-center relative overflow-hidden"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-purple-500 via-pink-500 to-rose-500" />
+          
+          <div className="mb-8">
+            <div className={cn(
+              "w-44 h-44 rounded-full flex items-center justify-center relative transition-all duration-500 shadow-2xl",
+              status === 'recording' ? "bg-linear-to-br from-rose-500 to-pink-600 scale-110" : "bg-white/5 border border-white/10"
+            )}>
+              {status === 'recording' && (
+                <div className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-30" />
+              )}
+              <FaMicrophone className={cn("text-6xl transition-colors", status === 'recording' ? "text-white" : "text-purple-500/50")} />
+            </div>
+          </div>
+
+          <div className="mb-8 space-y-2">
+            <h2 className="text-xl font-black text-white">Sẵn sàng phân tích giọng nói?</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">Hãy nói một đoạn ngắn để AI đánh giá các tiêu chí IELTS: Phát âm, Từ vựng, Ngữ pháp và Độ trôi chảy.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-4 justify-center w-full max-w-md">
+            {status !== 'recording' ? (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={startRecording}
-                disabled={status === 'recording'}
-                className={cn(
-                  "px-8 py-4 rounded-2xl font-bold text-white shadow-lg transition-all duration-300",
-                  status === 'recording' 
-                    ? "bg-slate-400 cursor-not-allowed" 
-                    : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 hover:scale-105",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
+                className="flex-1 min-w-[200px] py-4 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-purple-500/20 flex items-center justify-center gap-3"
               >
-                <FaMicrophone className="inline mr-2" />
-                Start Recording
-              </button>
-              
-              <button
-                onClick={stopRecording}
-                disabled={status !== 'recording'}
-                className={cn(
-                  "px-8 py-4 rounded-2xl font-bold text-white shadow-lg transition-all duration-300",
-                  status !== 'recording'
-                    ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 hover:scale-105",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                <FaStop className="inline mr-2" />
-                Stop Recording
-              </button>
-            </div>
-
-            {(status === 'stopped' || mediaBlobUrl) && (
-              <div className={cn("rounded-2xl border p-6", theme.soft, theme.border)}>
-                <audio 
-                  src={mediaBlobUrl} 
-                  controls 
-                  className="w-full mb-4"
-                  style={{ 
-                    borderRadius: '12px',
-                    filter: isDark ? 'invert(0.9) hue-rotate(180deg)' : 'none'
-                  }}
-                />
-                <button
-                  onClick={handleCheck}
-                  disabled={loading}
-                  className={cn(
-                    "px-10 py-4 rounded-2xl font-bold text-white shadow-lg transition-all duration-300",
-                    loading
-                      ? "bg-slate-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:scale-105",
-                    "disabled:opacity-50"
-                  )}
-                >
-                  {loading ? (
-                    <>
-                      <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                      AI Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <FaPaperPlane className="inline mr-2" />
-                      Get Feedback
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Results Section */}
-        {result && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Overall Score */}
-            <div className={cn(
-              "rounded-3xl border p-8 text-center relative overflow-hidden",
-              theme.card,
-              theme.border
-            )}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-full -translate-y-32 translate-x-32" />
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-blue-500/10 to-purple-500/10 rounded-full translate-y-32 -translate-x-32" />
-              
-              <div className="relative z-10">
-                <FaTrophy className="text-6xl mx-auto mb-4 text-yellow-500" />
-                <h2 className={cn("text-5xl font-bold mb-2", theme.text)}>
-                  {result.overall_score || "Band 0.0"}
-                </h2>
-                <p className={cn("text-lg", theme.sub)}>Overall IELTS Speaking Score</p>
-              </div>
-            </div>
-
-            {/* Transcript */}
-            <div className={cn(
-              "rounded-3xl border p-8",
-              theme.card,
-              theme.border
-            )}>
-              <div className="flex items-center gap-3 mb-4">
-                <FaComments className={cn("text-2xl", theme.accent)} />
-                <h3 className={cn("text-2xl font-bold", theme.text)}>Your Speech Transcript</h3>
-              </div>
-              <p className={cn(
-                "text-lg italic leading-relaxed p-6 rounded-2xl",
-                isDark ? "bg-slate-700/30" : "bg-purple-50"
-              )}>
-                "{result.transcript_display || result.transcript}"
-              </p>
-            </div>
-
-            {/* Scores Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <ScoreCard 
-                label="Fluency" 
-                value={result.radar_chart?.Fluency || 0} 
-                icon={FaChartLine}
-                isDark={isDark}
-              />
-              <ScoreCard 
-                label="Lexical Resource" 
-                value={result.radar_chart?.Lexical || 0} 
-                icon={FaBookReader}
-                isDark={isDark}
-              />
-              <ScoreCard 
-                label="Grammar" 
-                value={result.radar_chart?.Grammar || 0} 
-                icon={FaSpellCheck}
-                isDark={isDark}
-              />
-              <ScoreCard 
-                label="Pronunciation" 
-                value={result.radar_chart?.Pronunciation || 0} 
-                icon={FaVolumeUp}
-                isDark={isDark}
-              />
-            </div>
-
-            {/* Radar Chart */}
-            {radarData && (
-              <div className={cn(
-                "rounded-3xl border p-8",
-                theme.card,
-                theme.border
-              )}>
-                <h3 className={cn("text-2xl font-bold mb-6 text-center", theme.text)}>
-                  <FaStar className="inline mr-2 text-yellow-500" />
-                  Performance Overview
-                </h3>
-                <div className="max-w-md mx-auto">
-                  <Radar data={radarData} options={radarOptions} />
-                </div>
-              </div>
-            )}
-
-            {/* Mistakes Timeline */}
-            {result.mistakes_timeline && result.mistakes_timeline.length > 0 ? (
-              <div className={cn(
-                "rounded-3xl border p-8",
-                theme.card,
-                theme.border
-              )}>
-                <div className="flex items-center gap-3 mb-6">
-                  <FaExclamationTriangle className="text-2xl text-red-500" />
-                  <h3 className={cn("text-2xl font-bold", theme.text)}>Areas for Improvement</h3>
-                </div>
-                {result.mistakes_timeline.map((item, idx) => (
-                  <MistakeCard key={idx} item={item} isDark={isDark} />
-                ))}
-              </div>
+                <FaMicrophone /> Bắt đầu ghi âm
+              </motion.button>
             ) : (
-              <div className={cn(
-                "rounded-3xl border p-8 text-center",
-                isDark ? "bg-gradient-to-br from-emerald-900/20 to-teal-900/20" : "bg-gradient-to-br from-emerald-50 to-teal-50",
-                isDark ? "border-emerald-700" : "border-emerald-200"
-              )}>
-                <FaRocket className="text-6xl mx-auto mb-4 text-emerald-500" />
-                <h3 className={cn("text-2xl font-bold mb-2", theme.text)}>Perfect Performance!</h3>
-                <p className={theme.sub}>No significant errors detected. Keep up the great work!</p>
-              </div>
-            )}
-
-            {/* Detailed Feedback */}
-            {result.detailed_feedback && (
-              <div className={cn(
-                "rounded-3xl border p-8",
-                theme.card,
-                theme.border
-              )}>
-                <div className="flex items-center gap-3 mb-6">
-                  <FaLightbulb className="text-2xl text-yellow-500" />
-                  <h3 className={cn("text-2xl font-bold", theme.text)}>Examiner's Comments</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className={cn("p-4 rounded-xl", isDark ? "bg-slate-700/30" : "bg-purple-50")}>
-                    <p className={cn("font-semibold mb-2", theme.text)}>
-                      <FaBookReader className="inline mr-2 text-purple-500" />
-                      Vocabulary & Grammar:
-                    </p>
-                    <p className={theme.sub}>{result.detailed_feedback.vocab_grammar}</p>
-                  </div>
-                  <div className={cn("p-4 rounded-xl", isDark ? "bg-slate-700/30" : "bg-blue-50")}>
-                    <p className={cn("font-semibold mb-2", theme.text)}>
-                      <FaVolumeUp className="inline mr-2 text-blue-500" />
-                      Pronunciation:
-                    </p>
-                    <p className={theme.sub}>{result.detailed_feedback.pronunciation}</p>
-                  </div>
-                  <div className={cn("p-4 rounded-xl", isDark ? "bg-slate-700/30" : "bg-green-50")}>
-                    <p className={cn("font-semibold mb-2", theme.text)}>
-                      <FaChartLine className="inline mr-2 text-green-500" />
-                      Fluency:
-                    </p>
-                    <p className={theme.sub}>{result.detailed_feedback.fluency}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Better Version */}
-            {result.better_version && (
-              <div className={cn(
-                "rounded-3xl border p-8",
-                isDark ? "bg-gradient-to-br from-purple-900/20 to-pink-900/20" : "bg-gradient-to-br from-purple-50 to-pink-50",
-                isDark ? "border-purple-700" : "border-purple-200"
-              )}>
-                <div className="flex items-center gap-3 mb-4">
-                  <FaMedal className="text-2xl text-purple-500" />
-                  <h3 className={cn("text-2xl font-bold", theme.text)}>Band 9.0 Reference</h3>
-                </div>
-                <p className={cn(
-                  "text-lg italic leading-relaxed p-6 rounded-2xl",
-                  isDark ? "bg-slate-800/50" : "bg-white"
-                )}>
-                  {result.better_version}
-                </p>
-              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={stopRecording}
+                className="flex-1 min-w-[200px] py-4 bg-linear-to-r from-rose-500 to-pink-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-500/20 animate-pulse flex items-center justify-center gap-3"
+              >
+                <FaStop /> Dừng ghi âm
+              </motion.button>
             )}
           </div>
-        )}
+
+          {/* Feedback Button (Post-Recording) */}
+          <AnimatePresence>
+            {(status === 'stopped' || mediaBlobUrl) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="mt-8 w-full max-w-lg space-y-4"
+              >
+                <div className="glass-panel p-4 flex flex-col items-center">
+                  <audio src={mediaBlobUrl} controls className="w-full h-10 mb-4 brightness-90 contrast-125 invert opacity-70" />
+                  {loading ? (
+                    <div className="py-2">
+                       <LoadingCat size={150} text="Chờ một chút để AI phân tích..." />
+                    </div>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleCheck}
+                      disabled={loading}
+                      className="w-full py-4 bg-linear-to-r from-emerald-500 to-teal-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3"
+                    >
+                      <FaPaperPlane />
+                      Nhận xét ngay
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Results Area */}
+        <AnimatePresence>
+          {result && (
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8 pb-10"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Overall Band */}
+                <div className="glass-card p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
+                  <FaTrophy className="text-5xl text-yellow-500 mb-4" />
+                  <h3 className="text-6xl font-black text-white mb-2 tracking-tighter">{result.overall_score || "0.0"}</h3>
+                  <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Overall Band Score</p>
+                </div>
+
+                {/* Radar Chart */}
+                <div className="glass-card p-6 flex flex-col items-center justify-center">
+                  <h4 className="text-xs font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <FaChartLine className="text-purple-500" /> Biểu đồ kỹ năng
+                  </h4>
+                  <div className="w-full max-w-[280px]">
+                    {radarData && <Radar 
+                      data={radarData} 
+                      options={{
+                        scales: { r: { 
+                          min: 0, max: 9, 
+                          ticks: { display: false },
+                          grid: { color: 'rgba(255,255,255,0.05)' },
+                          angleLines: { color: 'rgba(255,255,255,0.05)' },
+                          pointLabels: { color: 'rgba(255,255,255,0.5)', font: { size: 10, weight: 'bold' } }
+                        }},
+                        plugins: { legend: { display: false } }
+                      }} 
+                    />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Transcript */}
+              <div className="glass-card p-8 group">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                    <FaComments className="text-indigo-400" />
+                  </div>
+                  <h3 className="text-lg font-black text-white tracking-tight">Văn bản ghi âm</h3>
+                </div>
+                <div className="relative">
+                  <p className="text-slate-300 italic text-lg leading-relaxed bg-white/5 p-8 rounded-3xl border border-white/5">
+                    "{result.transcript_display || result.transcript}"
+                  </p>
+                  <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <FaVolumeUp className="text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Mistakes Section */}
+              {result.mistakes_timeline?.length > 0 && (
+                <div className="glass-card p-8">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center">
+                      <FaExclamationTriangle className="text-rose-400" />
+                    </div>
+                    <h3 className="text-lg font-black text-white tracking-tight">Các điểm cần cải thiện</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {result.mistakes_timeline.map((item, idx) => (
+                      <div key={idx} className="glass-panel p-5 border-l-4 border-l-rose-500/50 hover:bg-white/5 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-rose-400 font-black text-lg">{item.word}</span>
+                          <span className="text-[10px] font-black bg-rose-500/10 text-rose-300 px-3 py-1 rounded-full uppercase tracking-widest">Error</span>
+                        </div>
+                        <p className="text-slate-400 text-xs mb-3 font-medium leading-relaxed">{item.error}</p>
+                        <div className="bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 flex items-start gap-3">
+                          <FaLightbulb className="text-emerald-500 mt-1 shrink-0" />
+                          <p className="text-emerald-400 text-xs font-bold leading-relaxed">{item.fix}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Band 9.0 Content */}
+              {result.better_version && (
+                <div className="glass-card p-8 bg-linear-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 border-indigo-500/20">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-linear-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <FaMedal className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white tracking-tight">Phiên bản Band 9.0 mẫu</h3>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Học hỏi cách diễn đạt thượng đẳng</p>
+                    </div>
+                  </div>
+                  <p className="text-slate-200 italic leading-relaxed bg-white/5 p-8 rounded-3xl border border-white/5 shadow-inner">
+                    {result.better_version}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

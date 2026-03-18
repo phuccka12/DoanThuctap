@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTheme } from '../context/ThemeContext';
 import { useAuth }  from '../context/AuthContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
-import { getReadingTopics, getReadingPassages, getReadingPassageById } from '../services/learningService';
+import { getReadingTopics, getReadingPassages, getReadingPassageById, submitReading } from '../services/learningService';
+import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import LearnLayout from '../components/learn/LearnLayout';
 import {
   FaBookOpen, FaClock, FaLayerGroup, FaTrophy,
@@ -10,6 +11,7 @@ import {
   FaRedo, FaArrowRight, FaSearch, FaGamepad, FaTags,
 } from 'react-icons/fa';
 import { FiLoader } from 'react-icons/fi';
+import LoadingCat from '../components/shared/LoadingCat';
 import SharedTopicCard from '../components/shared/TopicCard';
 
 // ─── Phase constants ─────────────────────────────────────────────────────────
@@ -475,7 +477,9 @@ function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress }
           </h2>
 
         {loading ? (
-          <div className="flex justify-center py-24"><FiLoader className="animate-spin text-indigo-400" size={32} /></div>
+          <div className="flex justify-center py-24">
+            <LoadingCat size={200} text="Đang tải các chủ đề..." />
+          </div>
         ) : (topics.length === 0 && uncategorized === 0) ? (
           <div className="text-center py-24 text-gray-400">
             <FaBookOpen size={40} className="mx-auto mb-3 opacity-30" />
@@ -605,7 +609,9 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex justify-center py-24"><FiLoader className="animate-spin text-indigo-400" size={32} /></div>
+        <div className="flex justify-center py-24">
+          <LoadingCat size={200} text="Đang tìm bài đọc phù hợp..." />
+        </div>
       ) : passages.length === 0 ? (
         <div className="text-center py-24 text-gray-400">
           <FaBookOpen size={40} className="mx-auto mb-3 opacity-30" />
@@ -1080,6 +1086,7 @@ export default function ReadingPractice() {
   const [loading,       setLoading]       = useState(false);
   const [result,        setResult]        = useState(null);
   const [showModal,     setShowModal]     = useState(false);
+  const startTimeRef = useRef(null);
 
   // ── Topic completion tracking (localStorage, per-user) ────────────────────
   const [topicProgress, setTopicProgress] = useState({});
@@ -1109,6 +1116,7 @@ export default function ReadingPractice() {
       const res  = await getReadingPassageById(preview._id);
       const full = res.data.data;
       setPassage(full);
+      startTimeRef.current = Date.now();
       setPhase((full?.vocab_highlights || []).length > 0 ? PHASE.VOCAB : PHASE.READING);
     } catch {
       setPassage(preview);
@@ -1143,6 +1151,21 @@ export default function ReadingPractice() {
   useEffect(() => {
     if (phase === PHASE.RESULT) {
       setShowModal(true);
+
+      const submitFinish = async () => {
+        if (!passage || !result) return;
+        try {
+          const timeSec = Math.round((Date.now() - (startTimeRef.current || Date.now())) / 1000);
+          await submitReading(passage._id, { 
+            answers: result.answers || {}, 
+            timeSpentSec: timeSec 
+          });
+          dashboardRefreshEmitter.emit();
+        } catch (e) {
+          console.error("Auto submit reading error:", e);
+        }
+      };
+      submitFinish();
 
       // Persist best score for this topic (per-user key)
       if (passage) {

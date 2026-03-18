@@ -1,5 +1,9 @@
 const WritingScenario = require('../models/WritingScenario');
 const Topic = require('../models/Topic');
+const WritingScenarioProgress = require('../models/WritingScenarioProgress');
+const WritingScenarioSubmission = require('../models/WritingScenarioSubmission');
+const Pet = require('../models/Pet');
+const economyService = require('../services/economyService');
 
 /**
  * Writing Scenario Controller
@@ -49,6 +53,85 @@ exports.getAllScenariosAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting scenarios:', error);
+    res.status(500).json({
+      message: 'Lỗi server khi lấy danh sách scenarios'
+    });
+  }
+};
+
+// User: Get all active scenarios
+exports.getAllScenariosUser = async (req, res) => {
+  try {
+    const { search, scenario_type } = req.query;
+    const query = { is_active: true };
+    
+    if (search) {
+      query.$text = { $search: search };
+    }
+    
+    if (scenario_type) {
+      query.scenario_type = scenario_type;
+    }
+    
+    const scenarios = await WritingScenario.find(query)
+      .select('-forbidden_words -rubric.tone_match.description -rubric.vocabulary.description -rubric.creativity.description -rubric.grammar.description')
+      .populate('topics', 'name level icon_image_url')
+      .sort({ created_at: -1 });
+    
+    res.json({
+      message: 'Lấy danh sách scenarios thành công',
+      data: { scenarios }
+    });
+  } catch (error) {
+    console.error('Error getting scenarios (user):', error);
+    res.status(500).json({
+      message: 'Lỗi server khi lấy danh sách scenarios'
+    });
+  }
+};
+
+// User: Get all scenarios with progress
+exports.getAllScenariosUser = async (req, res) => {
+  try {
+    const { search, scenario_type } = req.query;
+    const query = { is_active: true };
+    
+    if (search) {
+      query.$text = { $search: search };
+    }
+    
+    if (scenario_type) {
+      query.scenario_type = scenario_type;
+    }
+    
+    const scenarios = await WritingScenario.find(query)
+      .select('-forbidden_words -rubric.tone_match.description -rubric.vocabulary.description -rubric.creativity.description -rubric.grammar.description')
+      .populate('topics', 'name level icon_image_url')
+      .sort({ created_at: -1 })
+      .lean();
+
+    // Get user progress if logged in
+    let progressData = [];
+    if (req.userId) {
+      progressData = await WritingScenarioProgress.find({ userId: req.userId }).lean();
+    }
+
+    const progressMap = progressData.reduce((acc, p) => {
+      acc[p.scenarioId.toString()] = p;
+      return acc;
+    }, {});
+
+    const enrichedScenarios = scenarios.map(s => ({
+      ...s,
+      userProgress: progressMap[s._id.toString()] || null
+    }));
+    
+    res.json({ 
+      message: 'Lấy danh sách scenarios thành công',
+      data: { scenarios: enrichedScenarios }
+    });
+  } catch (error) {
+    console.error('Error getting scenarios (user):', error);
     res.status(500).json({
       message: 'Lỗi server khi lấy danh sách scenarios'
     });
@@ -329,6 +412,342 @@ exports.validateSubmission = async (req, res) => {
     console.error('Error validating submission:', error);
     res.status(500).json({
       message: 'Lỗi server khi kiểm tra'
+    });
+  }
+};
+
+// ─── optional Gemini AI ───────────────────────────────────────────────────────
+let genAI = null;
+try {
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+} catch (_) { /* package not installed — AI evaluation disabled */ }
+
+// ... (các hàm khác giữ nguyên)
+
+// Evaluate submission with AI
+exports.evaluateSubmission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, timeSpentSec = 0 } = req.body;
+    
+    if (!text || text.trim().length < 10) {
+      return res.status(400).json({
+        message: 'Bài viết quá ngắn để đánh giá'
+      });
+    }
+
+    const scenario = await WritingScenario.findById(id);
+    if (!scenario) {
+      return res.status(404).json({
+        message: 'Không tìm thấy scenario'
+      });
+    }
+
+    // 🟢 KIỂM TRA QUOTA & QUYỀN TRUY CẬP
+    const aiService = require('../services/aiService');
+    const quota = await aiService.checkQuota(req.userId, 'writing');
+    if (!quota.allowed) {
+        return res.status(403).json({ 
+            message: quota.reason, 
+            code: 'QUOTA_EXCEEDED',
+            limitReached: true 
+        });
+    }
+
+    // Increment usage count for the scenario itself
+    scenario.usage_count += 1;
+    await scenario.save();
+    
+    // Ghi nhận lượt sử dụng AI
+    await aiService.incrementUsage(req.userId, 'writing');
+
+    if (!genAI) {
+      return res.status(500).json({
+        message: 'AI Evaluation chưa được cấu hình (Thiếu API Key)'
+      });
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    const prompt = `
+      Bạn là một AI đóng vai Persona để chấm điểm bài viết của học sinh.
+      
+      # CONTEXT (Bối cảnh):
+      - Bối cảnh: ${scenario.context_description}
+      - Tình huống: ${scenario.situation_prompt}
+      - Loại bài viết: ${scenario.scenario_type}
+      
+      # AI PERSONA (Người nhận bài/Chấm bài):
+      - Vai trò: ${scenario.ai_persona.role}
+      - Tính cách: ${scenario.ai_persona.personality}
+      - Phong cách phản hồi: ${scenario.ai_persona.feedback_style}
+      - Template phản hồi: ${scenario.ai_persona.response_template || '{{feedback}} Score: {{score}}/10'}
+      
+      # GAME RULES (Luật chơi):
+      - Từ cấm (Forbidden): ${scenario.forbidden_words.join(', ') || 'Không có'}
+      - Từ bắt buộc (Required): ${scenario.required_keywords.join(', ') || 'Không có'}
+      - Tone mục tiêu: ${scenario.target_tone} (Intensity: ${scenario.tone_intensity}/10)
+      
+      # RUBRIC (Tiêu chí chấm điểm - Trọng số):
+      - Tone Match: ${scenario.rubric.tone_match.weight}% (${scenario.rubric.tone_match.description})
+      - Vocabulary (Keywords): ${scenario.rubric.vocabulary.weight}% (${scenario.rubric.vocabulary.description})
+      - Creativity: ${scenario.rubric.creativity.weight}% (${scenario.rubric.creativity.description})
+      - Grammar: ${scenario.rubric.grammar.weight}% (${scenario.rubric.grammar.description})
+      
+      # USER SUBMISSION (Bài viết của bạn):
+      "${text}"
+      
+      # YÊU CẦU:
+      1. Đánh giá bài viết dựa trên các tiêu chí trên.
+      2. Phân tích điểm mạnh, điểm yếu và gợi ý sửa lỗi bằng TIẾNG VIỆT.
+      3. RIÊNG phần "better_version" PHẢI LÀ TIẾNG ANH (vì người dùng đang học tiếng Anh).
+      4. Phải sử dụng "Template phản hồi" để tạo ra nội dung cho trường "persona_feedback". Thay thế {{score}} bằng điểm overall, {{feedback}} bằng nhận xét chung, {{encouragement}} bằng lời động viên.
+      5. Toàn bộ nhận xét (feedback, suggestions) phải đúng phong cách và tính cách của Persona.
+      6. Trả về JSON theo định dạng sau:
+      {
+        "overall_score": 0-100,
+        "radar_chart": {
+          "tone": 0-10,
+          "vocab": 0-10,
+          "creativity": 0-10,
+          "grammar": 0-10
+        },
+        "persona_feedback": "Nội dung phản hồi theo đúng TEMPLATE và VĂN PHONG của Persona (Tiếng Việt)",
+        "detailed_analysis": {
+          "pros": ["Điểm mạnh 1", "Điểm mạnh 2"],
+          "cons": ["Điểm yếu 1", "Điểm yếu 2"],
+          "suggestions": ["Gợi ý sửa 1", "Gợi ý sửa 2"]
+        },
+        "better_version": "Bản viết hay hơn hoàn toàn bằng TIẾNG ANH"
+      }
+    `;
+
+    let result;
+    try {
+      result = await model.generateContent(prompt);
+    } catch (aiError) {
+      console.error('Gemini AI Error:', aiError);
+      
+      // Handle Service Unavailable (503)
+      if (aiError.status === 503 || aiError.message?.includes('503')) {
+        return res.status(503).json({
+          message: 'Dịch vụ AI đang bận (503). Ní vui lòng đợi vài giây rồi thử lại nhé! 🧘‍♂️'
+        });
+      }
+
+      // Handle Quota (429)
+      if (aiError.status === 429 || aiError.message?.includes('429')) {
+        return res.status(429).json({
+          message: 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi 1 phút nhé! ⏳'
+        });
+      }
+
+      throw aiError; // Pass to general catch
+    }
+
+    const response = await result.response;
+    const responseText = response.text();
+    
+    // Parse JSON from AI response
+    let evaluation;
+    try {
+      // Clean up common AI JSON mistakes
+      let cleanedText = responseText.trim();
+      
+      // Remove markdown code blocks if present
+      cleanedText = cleanedText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        let jsonStr = jsonMatch[0];
+        
+        // Remove trailing commas before closing braces/brackets
+        jsonStr = jsonStr.replace(/,\s*([\}\]])/g, '$1');
+        
+        try {
+          evaluation = JSON.parse(jsonStr);
+        } catch (innerError) {
+          console.error('Initial JSON parse failed, attempting loose parse:', innerError);
+          // Fallback: try to fix common quote issues or other minor syntax errors if possible
+          // For now, if it fails, throw to the outer catch
+          throw innerError;
+        }
+      } else {
+        throw new Error('AI response does not contain a JSON object');
+      }
+    } catch (parseError) {
+      console.error('Error parsing AI evaluation (Final):', parseError);
+      return res.status(500).json({
+        message: 'AI trả về định dạng không hợp lệ. Ní thử nộp lại hoặc chỉnh sửa nội dung bài viết một chút nhé!'
+      });
+    }
+
+    // Update scenario average score
+    const totalCompletions = (scenario.completion_count || 0) + 1;
+    scenario.average_score = (((scenario.average_score || 0) * (scenario.completion_count || 0)) + (evaluation.overall_score || 0)) / totalCompletions;
+    scenario.completion_count = totalCompletions;
+    await scenario.save();
+
+    // ── AWARD COINS & EXP ──────────────────
+    let rewardResult = { earned: 0, expGain: 0, pet: null };
+    const scoreNum = evaluation.overall_score || 0;
+    
+    if (req.userId) {
+      // Determine base coins based on difficulty (5-10 range)
+      const baseCoins = await economyService.getNum('economy_reward_writing', 30);
+      const earnAmount = Math.round(baseCoins * (scoreNum / 100));
+
+      if (earnAmount > 0) {
+        try {
+          const coinResult = await economyService.earnCoins(req.userId, 'writing_scenario', earnAmount);
+          rewardResult.earned = coinResult.earned;
+          rewardResult.pet = coinResult.pet;
+        } catch (coinErr) {
+          console.error('Error awarding coins:', coinErr);
+        }
+      }
+
+      // Award Pet EXP
+      try {
+        const pet = rewardResult.pet || await Pet.findOne({ user: req.userId });
+        if (pet) {
+          const petState = await economyService.getPetState(pet);
+          const buffMult = await economyService.getPetBuffMultiplier(pet, 'writing');
+          const baseExp = await economyService.getNum('economy_reward_exp_writing', 50); 
+          const expGain = petState.expLocked ? 0 : Math.round(baseExp * (scoreNum / 100) * petState.expMultiplier * buffMult);
+
+          if (expGain > 0) {
+            pet.growthPoints += expGain;
+            const expNeeded = await economyService.getExpNeeded(pet);
+            while (pet.growthPoints >= expNeeded) {
+              pet.growthPoints -= expNeeded;
+              pet.level += 1;
+            }
+            await pet.save();
+            rewardResult.expGain = expGain;
+            rewardResult.pet = pet;
+          }
+        }
+      } catch (petErr) {
+        console.error('Error awarding pet exp:', petErr);
+      }
+
+      // Save User Progress
+      try {
+        let progress = await WritingScenarioProgress.findOne({ userId: req.userId, scenarioId: id });
+        if (!progress) {
+          progress = new WritingScenarioProgress({
+            userId: req.userId,
+            scenarioId: id,
+            bestScore: scoreNum,
+            isCompleted: scoreNum >= 50, 
+            attempts: 1,
+            timeSpentSec: timeSpentSec,
+            lastSubmissionText: text,
+            rewarded: true, 
+            coinsEarned: rewardResult.earned,
+            expEarned: rewardResult.expGain,
+            completedAt: scoreNum >= 50 ? new Date() : null
+          });
+        } else {
+          progress.attempts += 1;
+          if (scoreNum > (progress.bestScore || 0)) {
+            progress.bestScore = scoreNum;
+          }
+          if (scoreNum >= 50) {
+            progress.isCompleted = true;
+            if (!progress.completedAt) progress.completedAt = new Date();
+          }
+          progress.lastSubmissionText = text;
+          progress.coinsEarned += rewardResult.earned;
+          progress.expEarned += rewardResult.expGain;
+          progress.timeSpentSec = (progress.timeSpentSec || 0) + timeSpentSec;
+        }
+        await progress.save();
+
+        // ── SAVE SUBMISSION HISTORY ──────────
+        try {
+          await WritingScenarioSubmission.create({
+            userId: req.userId,
+            scenarioId: id,
+            content: text,
+            evaluation: evaluation,
+            reward: {
+              coins: rewardResult.earned,
+              exp: rewardResult.expGain
+            }
+          });
+        } catch (historyErr) {
+          console.error('Error saving submission history:', historyErr);
+        }
+      } catch (progErr) {
+        console.error('Error saving progress:', progErr);
+      }
+    }
+
+    const petDoc = rewardResult.pet || (req.userId ? await Pet.findOne({ user: req.userId }).lean() : null);
+    const petState = petDoc ? await economyService.getPetState(petDoc) : null;
+
+    res.json({
+      message: 'Đánh giá hoàn tất',
+      data: {
+        evaluation,
+        reward: {
+          coins: rewardResult.earned,
+          exp: rewardResult.expGain,
+          petState,
+          pet: petDoc ? { 
+            coins: petDoc.coins, 
+            level: petDoc.level, 
+            growthPoints: petDoc.growthPoints,
+            petType: petDoc.petType 
+          } : null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error evaluating submission:', error);
+    
+    if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
+      return res.status(429).json({
+        message: 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi khoảng 1 phút nhé! ⏳'
+      });
+    }
+
+    res.status(500).json({
+      message: 'Lỗi server khi đánh giá bài viết. Ní thử lại sau nhé!'
+    });
+  }
+};
+
+// User: Get submission history for a specific scenario
+exports.getScenarioHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.userId) {
+      return res.status(401).json({ message: 'Bạn cần đăng nhập để xem lịch sử' });
+    }
+
+    const submissions = await WritingScenarioSubmission.find({
+      userId: req.userId,
+      scenarioId: id
+    })
+    .sort({ createdAt: -1 })
+    .limit(50); // Limit to last 50 attempts
+
+    res.json({
+      message: 'Lấy lịch sử bài viết thành công',
+      data: submissions
+    });
+  } catch (error) {
+    console.error('Error getting scenario history:', error);
+    res.status(500).json({
+      message: 'Lỗi server khi lấy lịch sử bài viết'
     });
   }
 };

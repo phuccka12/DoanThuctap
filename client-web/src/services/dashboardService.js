@@ -43,10 +43,10 @@ const dashboardService = {
       const response = await axiosInstance.get(`${API_URL}/analytics/time-spent`, {
         params: { period }
       });
-      return response.data;
+      return response.data.data || { total: 0, breakdown: [], activityHeatmap: [] };
     } catch (error) {
       console.error('Error fetching time spent:', error);
-      return { total: 0, breakdown: [] };
+      return { total: 0, breakdown: [], activityHeatmap: [] };
     }
   },
 
@@ -94,6 +94,19 @@ const dashboardService = {
       return response.data;
     } catch (error) {
       console.error('Error updating placement test status:', error);
+      throw error;
+    }
+  },
+
+  // Lấy lịch sử nhận/trừ xu của user
+  getCoinHistory: async (limit = 20, page = 1) => {
+    try {
+      const response = await axiosInstance.get(`${API_URL}/user/coins/history`, {
+        params: { limit, page }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching coin history:', error);
       throw error;
     }
   }

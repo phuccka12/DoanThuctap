@@ -14,4 +14,7 @@ router.get('/list', protect, readingPassageController.getPassagesForPractice);
 // Get single passage for practice (full data incl. vocab_highlights + questions)
 router.get('/:id', protect, readingPassageController.getPassageForPractice);
 
+// Submit reading practice results
+router.post('/:id/submit', protect, readingPassageController.submitReading);
+
 module.exports = router;

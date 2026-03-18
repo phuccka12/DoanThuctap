@@ -1,5 +1,6 @@
 const ReadingPassage = require('../models/ReadingPassage');
 const Topic = require('../models/Topic');
+const LessonProgress = require('../models/LessonProgress');
 const mongoose = require('mongoose');
 
 /**
@@ -745,6 +746,71 @@ exports.getPassagesForPractice = async (req, res) => {
 };
 
 // ── USER-FACING: get single passage for practice ─────────────────────────────
+// ── USER-FACING: submit reading practice ─────────────────────────────────────
+exports.submitReading = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { answers, timeSpentSec = 0 } = req.body;
+
+    const passage = await ReadingPassage.findOne({ _id: id, is_active: true });
+    if (!passage) return res.status(404).json({ message: 'Không tìm thấy bài đọc' });
+
+    // Simple grading
+    let correct = 0;
+    const total = passage.questions.length;
+    
+    const details = passage.questions.map(q => {
+      const submitted = answers?.find(a => String(a.questionId) === String(q._id));
+      const isCorrect = submitted?.answer?.trim().toLowerCase() === q.correct_answer?.trim().toLowerCase();
+      if (isCorrect) correct++;
+      
+      return {
+        questionId: q._id,
+        isCorrect,
+        correctAnswer: q.correct_answer
+      };
+    });
+
+    const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    // ── AWARD COINS & EXP ──────────────────
+    let reward = null;
+    if (req.userId) {
+      const { rewardExercise } = require('../utils/rewardHelper');
+      reward = await rewardExercise(req.userId, 'reading');
+    }
+
+    // Save Progress
+    if (req.userId) {
+      await LessonProgress.create({
+        userId: req.userId,
+        passageId: id,
+        passageType: 'reading',
+        score: percent,
+        timeSpentSec: Number(timeSpentSec) || 0,
+        completedAt: new Date(),
+        rewarded: true,
+        coinsEarned: reward?.earned || 0,
+        expEarned: reward?.expGain || (correct * 10)
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        percent,
+        correct,
+        total,
+        details,
+        reward
+      }
+    });
+  } catch (err) {
+    console.error('submitReading error:', err);
+    res.status(500).json({ message: 'Lỗi server khi nộp bài' });
+  }
+};
+
 exports.getPassageForPractice = async (req, res) => {
   try {
     const passage = await ReadingPassage.findOne({ _id: req.params.id, is_active: true })

@@ -38,6 +38,10 @@ import VocabularyLearn  from './pages/VocabularyLearn';
 import ReadingPractice from './pages/ReadingPractice';
 // Speaking Practice module
 import SpeakingPractice from './pages/SpeakingPractice';
+// Writing Scenario module
+import WritingScenarioLobby from './pages/WritingScenarioLobby';
+import WritingScenarioPractice from './pages/WritingScenarioPractice';
+import LoadingCat from './components/shared/LoadingCat';
 
 // Admin Pages
 import AdminRoute from './components/AdminRoute';
@@ -72,8 +76,8 @@ function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0F1117]">
+        <LoadingCat size={250} text="Đang chuẩn bị dữ liệu..." />
       </div>
     );
   }
@@ -122,10 +126,8 @@ function MaintenanceGuard({ children }) {
 
     setStatus('checking');
     let cancelled = false;
-    // Dùng /auth/me — route này đi qua maintenance middleware
-    // maintenance ON + standard/vip token → 503 → redirect /maintenance
-    // maintenance OFF hoặc admin token → 200 → render bình thường
-    axiosInstance.get('/auth/me')
+    // Dùng /auth/ping — route này công khai, tránh lỗi 401 khi chưa login
+    axiosInstance.get('/auth/ping')
       .then(() => { if (!cancelled) setStatus('ok'); })
       .catch(err => {
         if (cancelled) return;
@@ -142,8 +144,8 @@ function MaintenanceGuard({ children }) {
 
   if (status === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0F1117]">
+        <LoadingCat size={250} text="Đang kiểm tra trạng thái máy chủ..." />
       </div>
     );
   }
@@ -203,6 +205,11 @@ function App() {
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Profile defaultTab="settings" />
             </ProtectedRoute>
           } />
           <Route path="/ai-writing" element={
@@ -299,6 +306,18 @@ function App() {
           <Route path="/speaking-practice" element={
             <ProtectedRoute>
               <SpeakingPractice />
+            </ProtectedRoute>
+          } />
+
+          {/* Writing Scenario module */}
+          <Route path="/writing-scenarios" element={
+            <ProtectedRoute>
+              <WritingScenarioLobby />
+            </ProtectedRoute>
+          } />
+          <Route path="/writing-scenario/:id" element={
+            <ProtectedRoute>
+              <WritingScenarioPractice />
             </ProtectedRoute>
           } />
           

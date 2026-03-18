@@ -4,6 +4,8 @@
  * PUT  /api/user/profile  — update editable profile fields
  */
 const User = require('../models/User');
+const Pet = require('../models/Pet');
+const CoinLog = require('../models/CoinLog');
 
 // Allowed editable fields (whitelist)
 const EDITABLE = ['user_name', 'phone', 'date_of_birth', 'address', 'bio', 'current_band', 'avatar'];
@@ -13,6 +15,13 @@ exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password_hash');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // [SINGLE SOURCE OF TRUTH] Sync coins, level, exp, streak from Pet directly
+    const userPet = await Pet.findOne({ user: req.userId });
+    const realCoins = userPet ? userPet.coins : (user.gamification_data?.gold || 0);
+    const realLevel = userPet ? (userPet.level || 1) : (user.gamification_data?.level || 1);
+    const realExp = userPet ? (userPet.growthPoints || 0) : (user.gamification_data?.exp || 0);
+    const realStreak = userPet ? (userPet.streakCount || 0) : (user.gamification_data?.streak || 0);
 
     return res.json({
       success: true,
@@ -36,14 +45,17 @@ exports.getProfile = async (req, res) => {
         learning_preferences: user.learning_preferences || {},
         // gamification
         gamification: {
-          level:  user.gamification_data?.level  || 1,
-          exp:    user.gamification_data?.exp    || 0,
-          streak: user.gamification_data?.streak || 0,
-          gold:   user.gamification_data?.gold   || 0,
+          level:  realLevel,
+          exp:    realExp,
+          streak: realStreak,
+          gold:   realCoins,
+          coins:  realCoins
         },
         // placement
         placement_test_completed: user.placement_test_completed || false,
         placement_test_result:    user.placement_test_result    || null,
+        // settings
+        settings: user.settings || { ai_voice: 'female', ai_speed: 1.0, notifications_enabled: true },
       },
     });
   } catch (err) {
@@ -75,6 +87,16 @@ exports.updateProfile = async (req, res) => {
     if (exam_date            !== undefined) user.learning_preferences.exam_date            = exam_date || null;
     if (focus_skills         !== undefined) user.learning_preferences.focus_skills         = focus_skills || [];
 
+    // Update settings if provided
+    const { settings } = req.body;
+    if (settings) {
+      if (!user.settings) user.settings = {};
+      if (settings.ai_voice !== undefined) user.settings.ai_voice = settings.ai_voice;
+      if (settings.ai_speed !== undefined) user.settings.ai_speed = settings.ai_speed;
+      if (settings.notifications_enabled !== undefined) user.settings.notifications_enabled = settings.notifications_enabled;
+      user.markModified('settings');
+    }
+
     user.markModified('learning_preferences');
     await user.save();
 
@@ -98,10 +120,40 @@ exports.updateProfile = async (req, res) => {
           streak: user.gamification_data?.streak || 0,
           gold:   user.gamification_data?.gold   || 0,
         },
+        settings: user.settings || {},
       },
     });
   } catch (err) {
     console.error('[userController] updateProfile error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
+// ─── GET coin history ─────────────────────────────────────────────────────────
+exports.getCoinHistory = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * limit;
+
+    const history = await CoinLog.find({ user: req.userId })
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await CoinLog.countDocuments({ user: req.userId });
+
+    return res.json({
+      success: true,
+      data: history,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    console.error('[userController] getCoinHistory error:', err);
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };

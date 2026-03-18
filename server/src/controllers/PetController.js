@@ -1,5 +1,5 @@
-const Pet        = require('../models/Pet');
-const User       = require('../models/User');
+const Pet = require('../models/Pet');
+const User = require('../models/User');
 const PetSpecies = require('../models/PetSpecies');
 const {
   earnCoins,
@@ -35,10 +35,10 @@ async function applyLevelUp(pet) {
 
 /** Build response đầy đủ: pet + state + evolution image */
 async function buildPetResponse(pet) {
-  const state   = await getPetState(pet);
+  const state = await getPetState(pet);
   let evolutionImage = '';
   if (pet.speciesRef) {
-    const species  = await PetSpecies.findById(pet.speciesRef).lean();
+    const species = await PetSpecies.findById(pet.speciesRef).lean();
     evolutionImage = resolvePetEvolution(pet, species);
   }
   return { ...pet.toObject(), state, evolutionImage };
@@ -89,12 +89,12 @@ exports.checkin = async (req, res) => {
     const isFrozen = pet.streakFrozenUntil && new Date(pet.streakFrozenUntil) > now;
     let newStreak = 1;
     if (pet.lastCheckinAt) {
-      const last      = new Date(pet.lastCheckinAt);
+      const last = new Date(pet.lastCheckinAt);
       const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
       if (
         last.getUTCFullYear() === yesterday.getUTCFullYear() &&
-        last.getUTCMonth()    === yesterday.getUTCMonth()    &&
-        last.getUTCDate()     === yesterday.getUTCDate()
+        last.getUTCMonth() === yesterday.getUTCMonth() &&
+        last.getUTCDate() === yesterday.getUTCDate()
       ) {
         newStreak = pet.streakCount + 1;
       } else if (isFrozen) {
@@ -104,14 +104,14 @@ exports.checkin = async (req, res) => {
       }
     }
 
-    pet.streakCount   = newStreak;
+    pet.streakCount = newStreak;
     pet.lastCheckinAt = now;
 
     // Growth points reward
     const bonus = Math.floor(Math.min(50, pet.streakCount / 2));
     pet.growthPoints += 10 + bonus;
-    pet.happiness     = Math.min(100, pet.happiness + 5);
-    pet.hunger        = Math.max(0, pet.hunger - 5);
+    pet.happiness = Math.min(100, pet.happiness + 5);
+    pet.hunger = Math.max(0, pet.hunger - 5);
 
     // Level up
     await applyLevelUp(pet);
@@ -193,7 +193,7 @@ exports.feedDirect = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       $inc: { 'gamification_data.gold': -FEED_COST },
     });
-    pet.hunger    = Math.max(0, pet.hunger - 30);
+    pet.hunger = Math.max(0, pet.hunger - 30);
     pet.happiness = Math.min(100, pet.happiness + 5);
     await pet.save();
 
@@ -202,11 +202,11 @@ exports.feedDirect = async (req, res) => {
 
     const petData = await buildPetResponse(pet);
     return res.json({
-      success:   true,
-      message:   `Đã cho ăn! -${FEED_COST} 🪙`,
-      costPaid:  FEED_COST,
+      success: true,
+      message: `Đã cho ăn! -${FEED_COST} 🪙`,
+      costPaid: FEED_COST,
       userGold,
-      pet:       petData,
+      pet: petData,
     });
   } catch (err) {
     console.error('feedDirect error:', err);
@@ -223,9 +223,9 @@ exports.play = async (req, res) => {
     const pet = await Pet.findOne({ user: userId });
     if (!pet) return res.status(404).json({ success: false, message: 'Chưa có thú cưng' });
 
-    const now          = new Date();
-    const cooldownMin  = Number(process.env.PET_PLAY_COOLDOWN_MIN || 10);
-    const cooldownMs   = cooldownMin * 60 * 1000;
+    const now = new Date();
+    const cooldownMin = Number(process.env.PET_PLAY_COOLDOWN_MIN || 10);
+    const cooldownMs = cooldownMin * 60 * 1000;
     if (pet.lastPlayedAt && (now - new Date(pet.lastPlayedAt) < cooldownMs)) {
       const waitMs = cooldownMs - (now - new Date(pet.lastPlayedAt));
       return res.status(429).json({ success: false, message: 'Còn trong cooldown chơi', retryAfterMs: waitMs });
@@ -238,8 +238,8 @@ exports.play = async (req, res) => {
     }
 
     pet.lastPlayedAt = now;
-    pet.happiness    = Math.min(100, pet.happiness + 15);
-    pet.hunger       = Math.min(100, pet.hunger + 5);
+    pet.happiness = Math.min(100, pet.happiness + 15);
+    pet.hunger = Math.min(100, pet.hunger + 5);
     pet.growthPoints += 2;
 
     await applyLevelUp(pet);
@@ -289,16 +289,16 @@ exports.rename = async (req, res) => {
 
 // Map trứng → petType khi nở
 const EGG_TO_PET = {
-  fire:    'dragon',  // Trứng Lửa → Rồng (Dino đỏ GIF)
-  ice:     'frog',    // Trứng Băng → Ếch Băng (pixel sprite)
-  leaf:    'pig',     // Trứng Lá  → Heo Lá (pixel sprite)
+  fire: 'dragon',  // Trứng Lửa → Rồng (Dino đỏ GIF)
+  ice: 'frog',    // Trứng Băng → Ếch Băng (pixel sprite)
+  leaf: 'pig',     // Trứng Lá  → Heo Lá (pixel sprite)
   default: 'slime',   // Default (skip)  → Slime
 };
 
 const EGG_NAMES = {
-  fire:    'Rồng Lửa',
-  ice:     'Mèo Băng',
-  leaf:    'Corgi Lá',
+  fire: 'Rồng Lửa',
+  ice: 'Mèo Băng',
+  leaf: 'Corgi Lá',
   default: 'Slime',
 };
 
@@ -324,7 +324,7 @@ exports.chooseEgg = async (req, res) => {
     }
 
     pet.egg_type = egg_type;
-    pet.hatched  = false; // chưa nở
+    pet.hatched = false; // chưa nở
     await pet.save();
 
     return res.json({ success: true, message: `Đã chọn trứng ${egg_type}!`, egg_type });
@@ -359,9 +359,9 @@ exports.hatch = async (req, res) => {
     const petName = EGG_NAMES[eggType] || 'Slime';
 
     pet.petType = petType;
-    pet.hatched  = true;
+    pet.hatched = true;
     pet.happiness = 100;
-    pet.hunger    = 0;
+    pet.hunger = 0;
     await pet.save();
 
     // Thưởng 200 coins khi ấp nở
@@ -369,12 +369,12 @@ exports.hatch = async (req, res) => {
 
     const petData = await buildPetResponse(pet);
     return res.json({
-      success:    true,
-      message:    `🎉 ${petName} đã gia nhập đội của bạn!`,
+      success: true,
+      message: `🎉 ${petName} đã gia nhập đội của bạn!`,
       petName,
       petType,
       coinsEarned: earned,
-      pet:        petData,
+      pet: petData,
     });
   } catch (err) {
     console.error('hatch error:', err);

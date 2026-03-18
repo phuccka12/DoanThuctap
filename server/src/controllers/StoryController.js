@@ -131,8 +131,8 @@ function computeNgramSimilarity(reference, candidate) {
 
 // -------------------------------------------------------------------------
 
-async function gradeTranslationWithGemini(vi, en_sample, userAnswer) {
-  if (!GEMINI_API_KEY) {
+async function gradeTranslationWithGemini(vi, en_sample, userAnswer, mode = 'online') {
+  if (!GEMINI_API_KEY || mode === 'offline') {
     const { unigramScore, bigramScore, combined } = computeNgramSimilarity(
       en_sample,
       userAnswer || ''
@@ -334,6 +334,12 @@ exports.submitPartTranslations = async (req, res) => {
     if (!part) return res.status(404).json({ success: false, message: 'Không tìm thấy phần này' });
 
     // Grade each submitted sentence in parallel
+    const aiService = require('../services/aiService');
+    const quota = await aiService.checkQuota(req.userId, 'translation');
+    if (!quota.allowed) {
+      return res.status(403).json({ success: false, message: quota.reason });
+    }
+
     const gradedResults = await Promise.all(
       part.sentences.map(async sentence => {
         const submitted = answers.find(a => a.order === sentence.order);
@@ -349,7 +355,7 @@ exports.submitPartTranslations = async (req, res) => {
           };
         }
 
-        const grade = await gradeTranslationWithGemini(sentence.vi, sentence.en_sample, userAnswer);
+        const grade = await gradeTranslationWithGemini(sentence.vi, sentence.en_sample, userAnswer, quota.mode);
         return {
           order:      sentence.order,
           vi:         sentence.vi,
@@ -383,7 +389,7 @@ exports.submitPartTranslations = async (req, res) => {
 exports.completeStoryPart = async (req, res) => {
   try {
     const { storyId, partNum } = req.params;
-    const { partScore = 0 } = req.body;          // 0–10, sent from frontend after grading
+    const { partScore = 0, timeSpentSec = 0 } = req.body;          // 0–10, sent from frontend after grading
 
     const story = await Story.findOne({ _id: storyId, is_active: true }).lean();
     if (!story) return res.status(404).json({ success: false, message: 'Không tìm thấy câu chuyện' });
@@ -419,10 +425,12 @@ exports.completeStoryPart = async (req, res) => {
         storyId,
         current_story_part: Number(partNum),
         score:              Math.round(partScore * 10), // convert 0-10 → 0-100
+        timeSpentSec,
         completedAt:        new Date(),
       });
     } else {
       prog.score       = Math.round(partScore * 10);
+      prog.timeSpentSec = (prog.timeSpentSec || 0) + timeSpentSec;
       prog.completedAt = new Date();
       prog.attemptCount += 1;
     }

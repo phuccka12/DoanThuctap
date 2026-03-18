@@ -5,6 +5,7 @@ import { cn, theme, darkTheme } from '../utils/dashboardTheme';
 import { getLessonsForTopic } from '../services/learningService';
 import LearnLayout from '../components/learn/LearnLayout';
 import { FaLock, FaCheckCircle, FaSpinner, FaPlay, FaChevronRight, FaTrophy } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const ICON_NAME_MAP = {
   'book-open': '📖', 'book': '📚', 'books': '📚',
@@ -69,13 +70,8 @@ export default function TopicDetail() {
   if (loading) {
     return (
       <LearnLayout breadcrumbs={[{ label: 'Chủ đề' }]}>
-        <div className="flex flex-col items-center justify-center min-h-64 gap-4">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-[#6C5CE7]/10 flex items-center justify-center">
-              <FaSpinner className="text-[#6C5CE7] text-2xl animate-spin" />
-            </div>
-          </div>
-          <p className={cn('text-sm font-medium', t.sub)}>Đang tải bài học…</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <LoadingCat size={250} text="Đang tải nội dung bài học..." />
         </div>
       </LearnLayout>
     );

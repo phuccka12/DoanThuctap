@@ -9,6 +9,7 @@ import {
   FaStar, FaFilter, FaSearch, FaTimes, FaUndo, FaTrophy,
   FaCoins, FaBolt,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const THEMES = [
@@ -115,8 +116,8 @@ function CompletedStoryModal({ story, onClose, onReplay, navigate }) {
 
         <div className="px-6 pb-6 space-y-4">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <FaSpinner className="animate-spin text-indigo-400 text-2xl" />
+            <div className="flex justify-center py-4">
+              <LoadingCat size={150} text="Đang tải..." />
             </div>
           ) : (
             <>
@@ -416,9 +417,8 @@ export default function StoryLobby() {
 
         {/* Grid */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <FaSpinner className="text-purple-400 text-3xl animate-spin" />
-            <p className="text-gray-400 text-sm">Đang tải kho câu chuyện…</p>
+          <div className="flex flex-col items-center justify-center py-16">
+            <LoadingCat size={250} text="Đang chuẩn bị kho câu chuyện cho bạn..." />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">

@@ -13,6 +13,11 @@ export const navGroups = [
       { key: "dashboard",    label: "Tổng quan",      icon: <FaHome />,           badge: null       },
       { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"       },
       { key: "topics",       label: "Kho Chủ đề",      icon: <FaGraduationCap />,  badge: null       },
+    ],
+  },
+  {
+    title: "KHO TÀI LIỆU",
+    items: [
       { key: "vocabulary",   label: "Từ Vựng",         icon: <FaLayerGroup />,     badge: "NEW"      },
       { key: "reading",      label: "Bài Đọc",          icon: <FaNewspaper />,      badge: "NEW"      },
       { key: "grammar",      label: "Ngữ pháp",        icon: <FaBook />,           badge: "NEW"      },
@@ -20,19 +25,24 @@ export const navGroups = [
     ],
   },
   {
-    title: "LUYỆN THI & CHẤM ĐIỂM",
+    title: "LUYỆN TẬP KỸ NĂNG",
     items: [
-      { key: "writing",           label: "Luyện Writing",     icon: <FaPenFancy />,         badge: "AI"  },
       { key: "listening",         label: "Luyện Listening",   icon: <FaHeadphones />,       badge: "AI"  },
       { key: "speaking-practice", label: "Luyện Speaking",    icon: <FaMicrophone />,       badge: "AI"  },
+      { key: "writing",           label: "Luyện Writing",     icon: <FaPenFancy />,         badge: "AI"  },
+    ],
+  },
+  {
+    title: "TÍNH NĂNG AI",
+    items: [
+      { key: "writing-scenarios", label: "Nhiệm vụ Viết",     icon: <FaPenFancy />,         badge: "AI"  },
       { key: "speaking",          label: "AI Speaking",       icon: <FaMicrophoneAlt />,    badge: "AI"  },
       { key: "conversation",      label: "Hội thoại AI",      icon: <FaComments />,         badge: "AI"  },
     ],
   },
   {
-    title: "CÁ NHÂN & KẾT QUẢ",
+    title: "CÁ NHÂN",
     items: [
-      { key: "feedback", label: "Kết quả & Sửa lỗi", icon: <FaClipboardCheck />, badge: null },
       { key: "profile",  label: "Hồ sơ",              icon: <FaUser />,           badge: null },
       { key: "settings", label: "Cài đặt",             icon: <FaCog />,            badge: null },
     ],

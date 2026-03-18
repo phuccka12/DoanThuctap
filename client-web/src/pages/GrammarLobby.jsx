@@ -8,6 +8,7 @@ import {
   FaBook, FaSearch, FaFilter, FaPlay, FaSpinner,
   FaTimes, FaBolt, FaGraduationCap,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const LEVEL_META = {
   beginner:     { label: 'Sơ cấp',   color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
@@ -89,7 +90,7 @@ export default function GrammarLobby() {
         {/* Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <FaSpinner className="animate-spin text-purple-500 text-2xl" />
+            <LoadingCat size={200} text="Đang tải lộ trình ngữ pháp..." />
           </div>
         ) : lessons.length === 0 ? (
           <div className={cn('text-center py-20', t.sub)}>

@@ -8,6 +8,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosConfig';
+import LoadingCat from '../components/shared/LoadingCat';
 
 // ─── Question Bank ────────────────────────────────────────────────────────────
 const VOCAB_QUESTIONS = [
@@ -472,11 +473,7 @@ export default function PlacementTest() {
           {/* ── SUBMITTING ── */}
           {screen === 'submitting' && (
             <div className="text-center space-y-6 py-12">
-              <div className="w-20 h-20 mx-auto rounded-full bg-linear-to-br from-[#6C5CE7] to-[#00CEC9] flex items-center justify-center shadow-lg">
-                <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-800">AI đang chấm bài...</h2>
-              <p className="text-gray-500 text-sm">Một chút thôi nhé! 🧠</p>
+              <LoadingCat size={200} text="AI đang chấm bài của bạn... Chờ chút nhé! 🧠" />
             </div>
           )}
 

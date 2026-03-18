@@ -1,7 +1,9 @@
-// Reset Password Page - Dark Theme
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaExclamationCircle, FaArrowRight, FaShieldAlt } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -18,7 +20,7 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!token) {
-      setError('Token không hợp lệ');
+      setError('Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại link đặt lại mật khẩu.');
     }
   }, [token]);
 
@@ -27,11 +29,11 @@ export default function ResetPassword() {
     setError('');
 
     if (password !== confirmPassword) {
-      return setError('Mật khẩu không khớp');
+       return setError('Mật khẩu xác nhận không trùng khớp.');
     }
 
     if (password.length < 6) {
-      return setError('Mật khẩu phải có ít nhất 6 ký tự');
+      return setError('Mật khẩu mới phải có ít nhất 6 ký tự.');
     }
 
     setLoading(true);
@@ -41,164 +43,174 @@ export default function ResetPassword() {
         new_password: password,
       });
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => navigate('/login'), 3500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Đặt lại mật khẩu thất bại');
+      setError(err.response?.data?.message || 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1d29] flex items-center justify-center p-4">
-      <div className="w-full max-w-md mx-auto">
-        {/* Header Card */}
-        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 rounded-t-2xl p-6 text-white relative overflow-hidden">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Đặt lại mật khẩu</h2>
-              <p className="text-sm text-white/80">Nhập mật khẩu mới của bạn</p>
-            </div>
+    <div className="min-h-screen bg-[#0F1117] relative flex items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Subtle Background Blobs – Unique for Reset Password */}
+      <div className="absolute top-[-15%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[120px] animate-float" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[45%] h-[45%] bg-purple-600/10 rounded-full blur-[100px] animate-float" style={{ animationDelay: '-8s' }} />
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-[440px] z-10"
+      >
+        {/* Glass Card */}
+        <div className="backdrop-blur-xl bg-white/[0.03] border border-white/10 rounded-[2.5rem] shadow-2xl p-8 md:p-10 relative overflow-hidden group">
+          {/* Subtle top light effect */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-linear-to-r from-transparent via-white/20 to-transparent" />
+          
+          <div className="text-center mb-10">
+            <motion.div 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+              className="w-16 h-16 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/20 -rotate-3 group-hover:rotate-0 transition-transform duration-500"
+            >
+              <FaShieldAlt className="text-white text-2xl" />
+            </motion.div>
+            <h2 className="text-3xl font-black text-white tracking-tight mb-2">Đặt lại mật khẩu</h2>
+            <p className="text-slate-400 text-sm font-medium">Tạo một mật khẩu mới mạnh mẽ để bảo vệ tài khoản của bạn.</p>
           </div>
-        </div>
 
-        {/* Form Card */}
-        <div className="bg-[#252b3b] rounded-b-2xl p-6 shadow-2xl">
-          {success ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Thành công!</h3>
-              <p className="text-gray-400 mb-6">
-                Mật khẩu của bạn đã được đặt lại. Đang chuyển đến trang đăng nhập...
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              {/* Password Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Mật khẩu mới
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-3 bg-white/95 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Xác nhận mật khẩu
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-3 bg-white/95 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading || !token}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 mt-6"
+          <AnimatePresence mode="wait">
+            {success ? (
+              <motion.div 
+                key="success"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-6"
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Đang xử lý...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Đặt lại mật khẩu
-                  </>
+                <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FaCheckCircle className="text-emerald-500 text-4xl" />
+                </div>
+                <h3 className="text-xl font-black text-white mb-2">Thành công!</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4">
+                  Mật khẩu của bạn đã được thay đổi thành công. Hệ thống sẽ tự động chuyển về trang đăng nhập trong giây lát. 🚀
+                </p>
+                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 3.5 }}
+                    className="h-full bg-emerald-500"
+                  />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.form 
+                key="form"
+                onSubmit={handleSubmit} 
+                className="space-y-6"
+              >
+                {!token && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl text-xs font-bold flex items-center gap-3 mb-4">
+                    <FaExclamationCircle className="flex-shrink-0" />
+                    {error}
+                  </div>
                 )}
-              </button>
+                
+                {error && token && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl text-xs font-bold flex items-center gap-3"
+                  >
+                    <FaExclamationCircle className="flex-shrink-0" />
+                    {error}
+                  </motion.div>
+                )}
 
-              {/* Back to Login */}
-              <div className="text-center pt-4">
-                <Link to="/login" className="text-blue-400 hover:text-blue-300 text-sm">
-                  ← Quay lại đăng nhập
-                </Link>
-              </div>
-            </form>
-          )}
+                {/* Password Input */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mật khẩu mới</label>
+                  <div className="relative group/input">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-500 transition-colors">
+                      <FaLock />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 outline-none focus:border-indigo-500 focus:bg-white/[0.08] transition-all font-medium text-sm"
+                      required
+                      disabled={!token}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                    >
+                      {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password Input */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Xác nhận mật khẩu</label>
+                  <div className="relative group/input">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-indigo-500 transition-colors">
+                      <FaLock />
+                    </div>
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 outline-none focus:border-indigo-500 focus:bg-white/[0.08] transition-all font-medium text-sm"
+                      required
+                      disabled={!token}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                    >
+                      {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={loading || !token}
+                  className="w-full bg-linear-to-r from-indigo-600 to-purple-600 text-white font-black text-xs py-3 rounded-2xl shadow-xl shadow-indigo-600/10 hover:shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4 uppercase tracking-widest"
+                >
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                       <LoadingCat size={40} text={null} />
+                       <span>ĐANG CẬP NHẬT...</span>
+                    </div>
+                  ) : (
+                    <>
+                      Đặt lại mật khẩu <FaArrowRight className="text-[10px]" />
+                    </>
+                  )}
+                </motion.button>
+
+                <div className="pt-6 text-center">
+                  <Link to="/login" className="text-slate-500 hover:text-white text-xs font-bold transition-colors underline-offset-4 hover:underline">
+                    Hủy và quay lại Đăng nhập
+                  </Link>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

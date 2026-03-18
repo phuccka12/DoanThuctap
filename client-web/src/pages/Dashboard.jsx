@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import dashboardService from "../services/dashboardService";
 import PetWidget from "../components/PetWidget";
+import { dashboardRefreshEmitter } from "../utils/dashboardRefresh";
 
 import { cn, theme, darkTheme } from "../utils/dashboardTheme";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
@@ -24,6 +25,7 @@ import {
   CoinBadge,
   StreakFlame,
 } from "../components/dashboard/DashboardCards";
+import LoadingCat from "../components/shared/LoadingCat";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const t = isDark ? darkTheme : theme;
 
@@ -54,8 +57,8 @@ export default function Dashboard() {
             dashboardService.getReminders(),
             dashboardService.getUserGoals(),
           ]);
-  const userInfo = userProfile.user || userProfile;
-  const learningPrefs = userInfo.learning_preferences || {};
+        const userInfo = userProfile.user || userProfile;
+        const learningPrefs = userInfo.learning_preferences || {};
         setDashboardData({
           user: {
             name: userInfo.user_name || "Student",
@@ -85,14 +88,22 @@ export default function Dashboard() {
             })(),
           },
           todayTasks: todayTasks.map((task) => ({
+            id: task.id,
             title: task.title,
             subtitle: task.subtitle || task.description,
             percent: task.progress || 0,
+            type: task.type,
+            actionUrl: task.actionUrl,
+            actionText: task.actionText,
+            reward: task.reward,
+            lessonId: task.lessonId,
+            lessonType: task.lessonType,
           })),
           weeklyTimeSpent: {
             total: timeSpent.total || 0,
             breakdown: timeSpent.breakdown || [],
           },
+          activityHeatmap: timeSpent.activityHeatmap || [],
           latestScores: latestScores.map((s) => {
             const value = s.score ?? s.value ?? s.band ?? 0;
             // Friendly label: prefer explicit label, fallback to name/test_name/title + date
@@ -123,13 +134,88 @@ export default function Dashboard() {
     navigate('/placement-test');
   };
 
+  // ─── REAL-TIME DASHBOARD REFRESH ───────────────────────────────────────────
+  const refreshDashboard = async () => {
+    if (isRefreshing || !user) return;
+    try {
+      setIsRefreshing(true);
+      const [userProfile, todayTasks, timeSpent, latestScores] = await Promise.all([
+        dashboardService.getUserProfile(),
+        dashboardService.getTodayTasks(),
+        dashboardService.getTimeSpent("week"),
+        dashboardService.getLatestScores(3),
+      ]);
+      
+      const userInfo = userProfile.user || userProfile;
+      
+      // Update only changed data (optimistic update)
+      setDashboardData(prev => ({
+        ...prev,
+        stats: {
+          ...prev.stats,
+          streak: userInfo.gamification_data?.streak || 0,
+          totalXP: userInfo.gamification_data?.exp || 0,
+          level: userInfo.gamification_data?.level || 1,
+          coins: userInfo.gamification_data?.coins ?? userInfo.gamification_data?.gold ?? 0,
+        },
+        todayTasks: todayTasks.map((task) => ({
+          id: task.id,
+          title: task.title,
+          subtitle: task.subtitle || task.description,
+          percent: task.progress || 0,
+          type: task.type,
+          actionUrl: task.actionUrl,
+          actionText: task.actionText,
+          reward: task.reward,
+          lessonId: task.lessonId,
+          lessonType: task.lessonType,
+        })),
+        weeklyTimeSpent: {
+          total: timeSpent.total || 0,
+          breakdown: timeSpent.breakdown || [],
+        },
+        activityHeatmap: timeSpent.activityHeatmap || [],
+        latestScores: latestScores.map((s) => {
+          const value = s.score ?? s.value ?? s.band ?? 0;
+          const date = s.date || s.test_date || s.createdAt || s.timestamp;
+          const prettyDate = date ? ` - ${new Date(date).toLocaleDateString()}` : "";
+          const name = s.label || s.test_name || s.name || s.title || s.type || s.skill;
+          return { score: value, label: name ? `${name}${prettyDate}` : `Test${prettyDate}` };
+        }),
+      }));
+    } catch (err) {
+      console.error("Error refreshing dashboard:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Auto-refresh every 30 seconds for Real-Time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (dashboardData) {
+        refreshDashboard();
+      }
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [dashboardData, user, isRefreshing]);
+
+  // Listen for external refresh events (e.g., from LessonPlayer after completing lesson)
+  useEffect(() => {
+    const unsubscribe = dashboardRefreshEmitter.on(() => {
+      if (!isRefreshing) {
+        console.log('[Dashboard] Refresh triggered from external source');
+        refreshDashboard();
+      }
+    });
+    return unsubscribe;
+  }, [isRefreshing]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-violet-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#6C5CE7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-700">Loading your dashboard...</p>
-        </div>
+      <div className="min-h-screen bg-[#0F1117] flex items-center justify-center">
+        <LoadingCat size={300} text="Đang tải dữ liệu học tập..." />
       </div>
     );
   }
@@ -221,24 +307,67 @@ export default function Dashboard() {
               <UpNextCard
                 title={dashboardData.todayTasks[0].title}
                 skill={dashboardData.todayTasks[0].subtitle || "IELTS"}
-                duration="~15 phút"
-                onClick={() => navigate("/learn")}
+                duration={dashboardData.todayTasks[0].lessonType === 'continue' ? "Tiếp tục" : "Bắt đầu"}
+                onClick={() => {
+                  if (dashboardData.todayTasks[0].actionUrl) {
+                    navigate(dashboardData.todayTasks[0].actionUrl);
+                  } else {
+                    navigate("/learn");
+                  }
+                }}
+                actionText={dashboardData.todayTasks[0].actionText || "Bắt đầu"}
               />
             )}
 
             {/* ── 2-col: Daily quests + Skill bars ── */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-              {/* Daily quests with coins */}
-              <DailyQuestCard
-                quests={dashboardData.todayTasks.map((task, i) => ({
-                  title: task.title,
-                  progress: task.percent,
-                  total: 100,
-                  reward: [50, 30, 20][i] ?? 10,
-                  isDone: task.percent >= 100,
-                }))}
-              />
+              {/* Daily quests with action buttons */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-800">🎯 Nhiệm vụ hôm nay</h3>
+                  <button
+                    onClick={refreshDashboard}
+                    disabled={isRefreshing}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-sm font-medium transition-all",
+                      isRefreshing 
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed" 
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    )}
+                  >
+                    {isRefreshing ? "🔄..." : "🔄 Cập nhật"}
+                  </button>
+                </div>
+                {dashboardData.todayTasks.map((task, idx) => (
+                  <div key={task.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-semibold text-gray-800">{task.title}</p>
+                        <p className="text-xs text-gray-500">{task.subtitle}</p>
+                      </div>
+                      {task.reward && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">{task.reward}</span>}
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                      <div
+                        className="bg-linear-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(task.percent, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">{task.percent}%</span>
+                      {task.actionUrl && (
+                        <button
+                          onClick={() => navigate(task.actionUrl)}
+                          className="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium transition-all"
+                        >
+                          {task.actionText || "Bắt đầu"} →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               {/* Skill breakdown */}
               <Card theme={t}>
@@ -248,27 +377,35 @@ export default function Dashboard() {
                   theme={t}
                 />
                 <div>
-                  {(dashboardData.weeklyTimeSpent.breakdown.length > 0
+                  {(dashboardData.weeklyTimeSpent.breakdown && dashboardData.weeklyTimeSpent.breakdown.length > 0
                     ? dashboardData.weeklyTimeSpent.breakdown
                     : [
-                        { label: "Writing",   value: 0, color: "#6366F1" },
-                        { label: "Speaking",  value: 0, color: "#8B5CF6" },
-                        { label: "Reading",   value: 0, color: "#06B6D4" },
-                        { label: "Listening", value: 0, color: "#3B82F6" },
-                      ]
+                      { label: "Lessons", value: 0, color: "#6366F1" },
+                      { label: "Writing", value: 0, color: "#8B5CF6" },
+                      { label: "Speaking", value: 0, color: "#10B981" },
+                      { label: "Reading", value: 0, color: "#06B6D4" },
+                      { label: "Listening", value: 0, color: "#3B82F6" },
+                      { label: "Vocabulary", value: 0, color: "#F59E0B", isCount: true },
+                      { label: "Translation", value: 0, color: "#EC4899" },
+                    ]
                   ).map((skill, idx) => (
                     <SkillBar
                       key={idx}
                       label={skill.label}
                       value={skill.value}
-                      total={dashboardData.weeklyTimeSpent.total || 1}
+                      total={skill.isCount ? (skill.target || 100) : (dashboardData.weeklyTimeSpent.total || 1)}
                       color={skill.color || "#6366F1"}
+                      isCount={skill.isCount}
                     />
                   ))}
                 </div>
 
                 {/* Activity heatmap at bottom of skill card */}
-                <ActivityHeatmap activeDays={dashboardData.stats.activityWeek} />
+                <ActivityHeatmap activeDays={
+                  dashboardData.activityHeatmap.length > 0 
+                  ? dashboardData.activityHeatmap.map(d => d.minutes > 0) 
+                  : dashboardData.stats.activityWeek
+                } />
               </Card>
             </div>
 
@@ -276,12 +413,12 @@ export default function Dashboard() {
             <Card theme={t}>
               <CardHeader title="Luyện tập nhanh" theme={t} />
               <div className="flex flex-wrap gap-2">
-                <Pill emoji="✍️" label="Writing"      onClick={() => navigate("/ai-writing")} />
-                <Pill emoji="�" label="Listening"    onClick={() => navigate("/ai-listening")} />
-                <Pill emoji="�🎙️" label="Speaking"     onClick={() => navigate("/ai-speaking")} />
+                <Pill emoji="✍️" label="Writing" onClick={() => navigate("/ai-writing")} />
+                <Pill emoji="�" label="Listening" onClick={() => navigate("/ai-listening")} />
+                <Pill emoji="�🎙️" label="Speaking" onClick={() => navigate("/ai-speaking")} />
                 <Pill emoji="💬" label="Conversation" onClick={() => navigate("/ai-conversation")} />
-                <Pill emoji="📝" label="Mock Test"    onClick={() => navigate("/mock-tests")} />
-                <Pill emoji="📚" label="Từ vựng"      onClick={() => navigate("/learn")} />
+                <Pill emoji="📝" label="Mock Test" onClick={() => navigate("/mock-tests")} />
+                <Pill emoji="📚" label="Từ vựng" onClick={() => navigate("/learn")} />
               </div>
             </Card>
           </div>

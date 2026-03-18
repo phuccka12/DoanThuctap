@@ -9,42 +9,43 @@ import {
   FaRedo, FaCheckCircle, FaArrowRight, FaFire, FaTrophy, FaBrain,
   FaSearch, FaChevronRight, FaGraduationCap,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const LEVEL_META = {
-  beginner:     { label: 'Cơ bản',    color: 'bg-emerald-500/15 text-emerald-600 border border-emerald-400/40' },
-  intermediate: { label: 'Trung cấp', color: 'bg-amber-500/15   text-amber-600   border border-amber-400/40'   },
-  advanced:     { label: 'Nâng cao',  color: 'bg-rose-500/15    text-rose-600    border border-rose-400/40'    },
+  beginner: { label: 'Cơ bản', color: 'bg-emerald-500/15 text-emerald-600 border border-emerald-400/40' },
+  intermediate: { label: 'Trung cấp', color: 'bg-amber-500/15   text-amber-600   border border-amber-400/40' },
+  advanced: { label: 'Nâng cao', color: 'bg-rose-500/15    text-rose-600    border border-rose-400/40' },
 };
-const DAY_SHORT   = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-const SKILL_META  = {
-  reading:    { icon: '📖', label: 'Đọc',     color: 'text-blue-400',    bg: 'bg-blue-500/15    border-blue-400/30'    },
-  listening:  { icon: '🎧', label: 'Nghe',    color: 'text-purple-400',  bg: 'bg-purple-500/15  border-purple-400/30'  },
+const DAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const SKILL_META = {
+  reading: { icon: '📖', label: 'Đọc', color: 'text-blue-400', bg: 'bg-blue-500/15    border-blue-400/30' },
+  listening: { icon: '🎧', label: 'Nghe', color: 'text-purple-400', bg: 'bg-purple-500/15  border-purple-400/30' },
   vocabulary: { icon: '📝', label: 'Từ vựng', color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-400/30' },
-  writing:    { icon: '✍️',  label: 'Viết',    color: 'text-yellow-400',  bg: 'bg-yellow-500/15  border-yellow-400/30'  },
-  speaking:   { icon: '🎙️', label: 'Nói',     color: 'text-rose-400',    bg: 'bg-rose-500/15    border-rose-400/30'    },
-  quiz:       { icon: '🧩', label: 'Quiz',    color: 'text-orange-400',  bg: 'bg-orange-500/15  border-orange-400/30'  },
-  video:      { icon: '🎬', label: 'Video',   color: 'text-sky-400',     bg: 'bg-sky-500/15     border-sky-400/30'     },
-  general:    { icon: '📚', label: 'Học',     color: 'text-gray-400',    bg: 'bg-gray-500/10    border-gray-400/20'    },
+  writing: { icon: '✍️', label: 'Viết', color: 'text-yellow-400', bg: 'bg-yellow-500/15  border-yellow-400/30' },
+  speaking: { icon: '🎙️', label: 'Nói', color: 'text-rose-400', bg: 'bg-rose-500/15    border-rose-400/30' },
+  quiz: { icon: '🧩', label: 'Quiz', color: 'text-orange-400', bg: 'bg-orange-500/15  border-orange-400/30' },
+  video: { icon: '🎬', label: 'Video', color: 'text-sky-400', bg: 'bg-sky-500/15     border-sky-400/30' },
+  general: { icon: '📚', label: 'Học', color: 'text-gray-400', bg: 'bg-gray-500/10    border-gray-400/20' },
 };
 const getSkillMeta = s => SKILL_META[s] || SKILL_META.general;
 
 export default function Learn() {
-  const navigate      = useNavigate();
-  const { isDark }    = useTheme();
-  const t             = isDark ? darkTheme : theme;
+  const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const t = isDark ? darkTheme : theme;
 
-  const [topics,      setTopics]      = useState([]);
-  const [plan,        setPlan]        = useState(null);
-  const [loading,     setLoading]     = useState(true);
+  const [topics, setTopics] = useState([]);
+  const [plan, setPlan] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [planLoading, setPlanLoading] = useState(false);
-  const [activeTab,   setActiveTab]   = useState('topics');
-  const [search,      setSearch]      = useState('');
+  const [activeTab, setActiveTab] = useState('topics');
+  const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
 
   useEffect(() => {
     Promise.all([
       getTopics().then(r => setTopics(r.data.data || [])),
-      getCurrentPlan().then(r => setPlan(r.data.data)).catch(() => {}),
+      getCurrentPlan().then(r => setPlan(r.data.data)).catch(() => { }),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -54,30 +55,32 @@ export default function Learn() {
       const res = await generatePlan();
       setPlan(res.data.data);
       setActiveTab('plan');
-    } catch { /* ignore */ }
-    finally { setPlanLoading(false); }
+    } catch (err) {
+      console.error('[Learn] generatePlan error:', err);
+      if (err.response?.status === 403) {
+        alert(err.response.data.message || 'Bạn cần nâng cấp gói cước để sử dụng tính năng này! 🚀');
+      } else {
+        alert('Có lỗi xảy ra khi tạo lộ trình. Vui lòng thử lại sau!');
+      }
+    } finally {
+      setPlanLoading(false);
+    }
   };
 
-  const completedTopics  = topics.filter(tp => (tp.progress ?? 0) === 100).length;
+  const completedTopics = topics.filter(tp => (tp.progress ?? 0) === 100).length;
   const inProgressTopics = topics.filter(tp => (tp.progress ?? 0) > 0 && (tp.progress ?? 0) < 100).length;
 
   const filteredTopics = topics.filter(topic => {
     const matchSearch = !search || topic.name?.toLowerCase().includes(search.toLowerCase()) || topic.description?.toLowerCase().includes(search.toLowerCase());
-    const matchLevel  = filterLevel === 'all' || topic.level === filterLevel;
+    const matchLevel = filterLevel === 'all' || topic.level === filterLevel;
     return matchSearch && matchLevel;
   });
 
   if (loading) {
     return (
       <LearnLayout>
-        <div className="flex flex-col items-center justify-center min-h-64 gap-4">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-[#6C5CE7]/10 flex items-center justify-center">
-              <FaGraduationCap className="text-[#6C5CE7] text-2xl" />
-            </div>
-            <div className="absolute -inset-1 rounded-2xl border-2 border-[#6C5CE7]/30 animate-ping" />
-          </div>
-          <p className={cn('text-sm font-medium', t.sub)}>Đang tải kho bài học…</p>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <LoadingCat size={250} text="Đang chuẩn bị kho bài học cho bạn..." />
         </div>
       </LearnLayout>
     );
@@ -144,7 +147,7 @@ export default function Learn() {
               disabled={planLoading}
               className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white text-[#6C5CE7] text-sm font-black shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-60"
             >
-              {planLoading ? <FaSpinner className="animate-spin" /> : <FaBrain />}
+              {planLoading ? <LoadingCat size={24} /> : <FaBrain />}
               {planLoading ? 'Đang tạo lộ trình…' : 'Tạo lộ trình AI'}
             </button>
             {plan && (
@@ -164,8 +167,8 @@ export default function Learn() {
       {/* ══ TAB BAR ══════════════════════════════════════════════════════ */}
       <div className={cn('flex gap-1 p-1 rounded-2xl mb-5 w-fit', isDark ? 'bg-white/5' : 'bg-black/5')}>
         {[
-          { key: 'topics', label: '📚 Chủ đề',      count: topics.length },
-          { key: 'plan',   label: '🗓️ Lộ trình AI', count: plan?.dayItems?.length ?? 0 },
+          { key: 'topics', label: '📚 Chủ đề', count: topics.length },
+          { key: 'plan', label: '🗓️ Lộ trình AI', count: plan?.dayItems?.length ?? 0 },
         ].map(({ key, label, count }) => (
           <button
             key={key}
@@ -209,10 +212,10 @@ export default function Learn() {
             </div>
             <div className={cn('flex gap-1 p-1 rounded-2xl border shadow-sm', t.border, t.card)}>
               {[
-                { val: 'all',          label: 'Tất cả'    },
-                { val: 'beginner',     label: 'Cơ bản'    },
+                { val: 'all', label: 'Tất cả' },
+                { val: 'beginner', label: 'Cơ bản' },
                 { val: 'intermediate', label: 'Trung cấp' },
-                { val: 'advanced',     label: 'Nâng cao'  },
+                { val: 'advanced', label: 'Nâng cao' },
               ].map(({ val, label }) => (
                 <button
                   key={val}
@@ -333,7 +336,7 @@ function getTopicIcon(icon_name) {
 }
 
 function TopicCard({ topic, onClick, t, isDark }) {
-  const pct  = topic.progress ?? 0;
+  const pct = topic.progress ?? 0;
   const done = pct === 100;
   const meta = LEVEL_META[topic.level] || LEVEL_META.beginner;
   const lessonsCount = topic.lessons_count ?? topic.totalLessons ?? 0;
@@ -346,12 +349,12 @@ function TopicCard({ topic, onClick, t, isDark }) {
         topic.isLocked
           ? cn('opacity-50 cursor-not-allowed', t.border, t.card)
           : cn(
-              'cursor-pointer hover:-translate-y-2 hover:shadow-2xl',
-              done
-                ? 'border-emerald-400/50 bg-emerald-500/5 hover:shadow-emerald-500/15'
-                : 'hover:border-[#6C5CE7]/50 hover:shadow-[#6C5CE7]/15',
-              t.border, t.card
-            )
+            'cursor-pointer hover:-translate-y-2 hover:shadow-2xl',
+            done
+              ? 'border-emerald-400/50 bg-emerald-500/5 hover:shadow-emerald-500/15'
+              : 'hover:border-[#6C5CE7]/50 hover:shadow-[#6C5CE7]/15',
+            t.border, t.card
+          )
       )}
     >
       {/* Cover */}
@@ -359,15 +362,15 @@ function TopicCard({ topic, onClick, t, isDark }) {
         {topic.cover_image
           ? <img src={topic.cover_image} alt={topic.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
           : <div className={cn(
-              'w-full h-full flex items-center justify-center text-6xl',
-              isDark
-                ? 'bg-linear-to-br from-[#6C5CE7]/25 via-[#a855f7]/15 to-[#1a1040]'
-                : 'bg-linear-to-br from-[#A29BFE]/30 via-[#6C5CE7]/10 to-[#EDE9FE]'
-            )}>
-              <span className="drop-shadow-lg group-hover:scale-125 transition-transform duration-500 inline-block">
-                {getTopicIcon(topic.icon_name)}
-              </span>
-            </div>
+            'w-full h-full flex items-center justify-center text-6xl',
+            isDark
+              ? 'bg-linear-to-br from-[#6C5CE7]/25 via-[#a855f7]/15 to-[#1a1040]'
+              : 'bg-linear-to-br from-[#A29BFE]/30 via-[#6C5CE7]/10 to-[#EDE9FE]'
+          )}>
+            <span className="drop-shadow-lg group-hover:scale-125 transition-transform duration-500 inline-block">
+              {getTopicIcon(topic.icon_name)}
+            </span>
+          </div>
         }
         <div className={cn(
           'absolute inset-0',
@@ -433,18 +436,18 @@ function TopicCard({ topic, onClick, t, isDark }) {
 
 /* ── Week Plan ───────────────────────────────────────────────────────────── */
 function WeekPlan({ plan, navigate, t, isDark, onRegenerate, planLoading }) {
-  const today    = new Date().getDay();
+  const today = new Date().getDay();
   const todayIdx = today === 0 ? 6 : today - 1;
 
-  const doneCount  = plan.dayItems?.filter(i => i.status === 'completed').length ?? 0;
+  const doneCount = plan.dayItems?.filter(i => i.status === 'completed').length ?? 0;
   const totalCount = plan.dayItems?.length ?? 7;
-  const pct        = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+  const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
   const scoreItems = plan.dayItems?.filter(i => i.similarityScore > 0) ?? [];
-  const avgSim     = scoreItems.length
+  const avgSim = scoreItems.length
     ? (scoreItems.reduce((s, i) => s + i.similarityScore, 0) / scoreItems.length).toFixed(2)
     : '—';
-  const weekDates  = getWeekDates(plan.weekStart);
+  const weekDates = getWeekDates(plan.weekStart);
 
   return (
     <div className="space-y-5">
@@ -500,9 +503,9 @@ function WeekPlan({ plan, navigate, t, isDark, onRegenerate, planLoading }) {
           </div>
 
           <div className="grid grid-cols-3 gap-3 mt-4">
-            <MiniStat icon="🔥" label="Streak"      value={`${doneCount} ngày`}   isDark={isDark} t={t} />
-            <MiniStat icon="🏆" label="Hoàn thành"  value={`${doneCount}/${totalCount}`} isDark={isDark} t={t} />
-            <MiniStat icon="🧠" label="AI Match"    value={avgSim}                isDark={isDark} t={t} />
+            <MiniStat icon="🔥" label="Streak" value={`${doneCount} ngày`} isDark={isDark} t={t} />
+            <MiniStat icon="🏆" label="Hoàn thành" value={`${doneCount}/${totalCount}`} isDark={isDark} t={t} />
+            <MiniStat icon="🧠" label="AI Match" value={avgSim} isDark={isDark} t={t} />
           </div>
         </div>
       </div>
@@ -531,9 +534,9 @@ function WeekPlan({ plan, navigate, t, isDark, onRegenerate, planLoading }) {
       <div className={cn('flex flex-wrap gap-4 items-center px-5 py-3.5 rounded-2xl border text-xs', t.border, isDark ? 'bg-white/3' : 'bg-gray-50/80')}>
         <span className={cn('font-bold', t.sub)}>Chú thích:</span>
         {[
-          { color: 'bg-[#6C5CE7]',   label: 'Hôm nay'    },
+          { color: 'bg-[#6C5CE7]', label: 'Hôm nay' },
           { color: 'bg-emerald-500', label: 'Hoàn thành' },
-          { color: 'bg-purple-500',  label: 'AI pick'    },
+          { color: 'bg-purple-500', label: 'AI pick' },
           { color: isDark ? 'bg-gray-600' : 'bg-gray-300', label: 'Chưa học' },
         ].map(({ color, label }) => (
           <span key={label} className="flex items-center gap-1.5 text-gray-500">
@@ -549,12 +552,27 @@ function WeekPlan({ plan, navigate, t, isDark, onRegenerate, planLoading }) {
 /* ── Day Card ────────────────────────────────────────────────────────────── */
 function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, navigate, t, isDark }) {
   // topic-based plan: navigate to topic page; fallback to lesson for legacy plans
-  const dest = topic ? `/learn/topics/${topic._id}` : lesson ? `/learn/lessons/${lesson._id}` : null;
-  const hasContent = !!(topic || lesson);
-  const title = topic ? topic.name : lesson ? lesson.title : null;
+  const itemType = item.itemType || (topic ? 'topic' : 'lesson');
+  
+  let dest = null;
+  switch (itemType) {
+    case 'topic': dest = `/learn/topics/${item.itemId || (topic ? topic._id : '')}`; break;
+    case 'reading': dest = '/reading'; break;
+    case 'speaking': dest = '/speaking-practice'; break;
+    case 'writing': dest = '/ai-writing'; break;
+    case 'listening': dest = '/ai-listening'; break;
+    case 'vocabulary': dest = item.topicId ? `/vocabulary/${item.topicId}/learn` : '/vocabulary'; break;
+    case 'grammar': dest = `/grammar/${item.itemId}`; break;
+    case 'story': dest = `/stories/${item.itemId}/parts/1`; break;
+    default: dest = topic ? `/learn/topics/${topic._id}` : lesson ? `/learn/lessons/${lesson._id}` : null;
+  }
+
+  const hasContent = !!(topic || lesson || item.content || item.itemId);
+  const title = topic ? topic.name : lesson ? lesson.title : (item.content?.title || item.content?.name || item.content?.word || item.content?.question_text || item.content?.prompt || 'Bài học AI');
+  
   const subtitle = topic
     ? (topic.level ? `📊 ${topic.level}` : null)
-    : lesson?.duration ? `⏱ ${lesson.duration}ph` : null;
+    : lesson?.duration ? `⏱ ${lesson.duration}ph` : (itemType !== 'topic' ? `✨ Luyện ${itemType}` : null);
 
   return (
     <div
@@ -573,7 +591,7 @@ function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, n
         'h-1.5',
         isToday ? 'bg-linear-to-r from-[#6C5CE7] to-[#a855f7]'
           : isDone ? 'bg-emerald-500'
-          : isDark ? 'bg-white/5' : 'bg-gray-100'
+            : isDark ? 'bg-white/5' : 'bg-gray-100'
       )} />
 
       <div className="p-3 flex-1 flex flex-col">
@@ -586,12 +604,12 @@ function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, n
           </div>
           {isDone
             ? <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-                <FaCheckCircle className="text-white text-[10px]" />
-              </div>
+              <FaCheckCircle className="text-white text-[10px]" />
+            </div>
             : isToday
               ? <div className="w-6 h-6 rounded-full bg-[#6C5CE7] flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                </div>
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              </div>
               : null
           }
         </div>

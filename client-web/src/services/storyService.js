@@ -24,7 +24,9 @@ export const submitPartTranslations = (storyId, partNum, answers) =>
  * Mark a part as complete and claim rewards.
  * @param {string} storyId
  * @param {number} partNum
- * @param {number} partScore  0–10
+ * @param {object|number} payload { partScore, timeSpentSec } or partScore
  */
-export const completeStoryPart = (storyId, partNum, partScore) =>
-  axiosInstance.post(`${BASE}/${storyId}/parts/${partNum}/complete`, { partScore });
+export const completeStoryPart = (storyId, partNum, payload) => {
+  const body = typeof payload === 'object' ? payload : { partScore: payload };
+  return axiosInstance.post(`${BASE}/${storyId}/parts/${partNum}/complete`, body);
+};

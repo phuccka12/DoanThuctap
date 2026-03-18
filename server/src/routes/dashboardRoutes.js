@@ -9,6 +9,7 @@ router.use(protect);
 // Dashboard routes
 router.get('/dashboard', dashboardController.getDashboardData);
 router.get('/practice/today', dashboardController.getTodayTasks);
+router.get('/practice/today/refresh', dashboardController.getTodayTasks); // Real-time refresh endpoint
 router.get('/analytics/time-spent', dashboardController.getTimeSpent);
 router.get('/scores/latest', dashboardController.getLatestScores);
 router.get('/reminders', dashboardController.getReminders);

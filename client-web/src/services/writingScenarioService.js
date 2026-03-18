@@ -1,21 +1,24 @@
 import api from './api';
 
 const writingScenarioService = {
-  // Admin: Get all scenarios
+  // User: Get all scenarios
   getAllScenarios: async (params = {}) => {
-    const response = await api.get('/admin/writing-scenarios', { params });
+    const is_admin = params.is_admin;
+    delete params.is_admin;
+    const endpoint = is_admin ? '/admin/writing-scenarios' : '/writing-scenarios';
+    const response = await api.get(endpoint, { params });
     return response.data;
   },
 
-  // Admin: Get stats
+  // User: Get single scenario
+  getScenarioById: async (id) => {
+    const response = await api.get(`/writing-scenarios/${id}`);
+    return response.data;
+  },
+
+  // Admin: Get statistics
   getStats: async () => {
     const response = await api.get('/admin/writing-scenarios/stats');
-    return response.data;
-  },
-
-  // Admin: Get single scenario
-  getScenarioById: async (id) => {
-    const response = await api.get(`/admin/writing-scenarios/${id}`);
     return response.data;
   },
 
@@ -43,9 +46,21 @@ const writingScenarioService = {
     return response.data;
   },
 
-  // User: Validate submission
+  // User: Validate submission in real-time
   validateSubmission: async (id, text) => {
     const response = await api.post(`/writing-scenarios/${id}/validate`, { text });
+    return response.data;
+  },
+
+  // User: Final evaluation with AI
+  evaluateSubmission: async (id, text, timeSpentSec) => {
+    const res = await api.post(`/writing-scenarios/${id}/evaluate`, { text, timeSpentSec });
+    return res.data;
+  },
+
+  // User: Get submission history
+  getSubmissionHistory: async (id) => {
+    const response = await api.get(`/writing-scenarios/${id}/history`);
     return response.data;
   }
 };

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
 import { getLessonById, completeLesson, getLessonsForTopic } from '../services/learningService';
+import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import CompletionModal from '../components/learn/CompletionModal';
 import ReadingNode   from '../components/learn/nodes/ReadingNode';
 import ListeningNode from '../components/learn/nodes/ListeningNode';
@@ -14,6 +15,7 @@ import {
   FaCheckCircle, FaBookOpen, FaHeadphones,
   FaFont, FaEdit, FaMicrophone, FaVideo, FaPuzzlePiece,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 
 // ─── Node type meta ──────────────────────────────────────────────────────────
 const NODE_META = {
@@ -101,6 +103,10 @@ export default function LessonPlayer() {
       });
       setReward(res.data.data.reward);
       setShowModal(true);
+      
+      // ✅ Trigger Dashboard refresh (Real-Time update)
+      console.log('[LessonPlayer] Emitting dashboard refresh event');
+      dashboardRefreshEmitter.emit();
     } catch (err) {
       console.error('[LessonPlayer] submitLesson:', err);
     } finally {
@@ -143,10 +149,7 @@ export default function LessonPlayer() {
   if (loading) {
     return (
       <div className={cn('min-h-screen flex items-center justify-center', t.page)}>
-        <div className="text-center">
-          <FaSpinner className="text-[#6C5CE7] text-4xl animate-spin mx-auto mb-3" />
-          <p className={cn('text-sm', t.sub)}>Đang tải bài học…</p>
-        </div>
+        <LoadingCat size={300} text="Đang tải dữ liệu bài học..." />
       </div>
     );
   }
@@ -298,7 +301,7 @@ export default function LessonPlayer() {
               )}
             >
               {submitting
-                ? <><FaSpinner className="animate-spin" /> Đang xử lý…</>
+                ? <div className="flex items-center gap-2"><LoadingCat size={40} text={null} /> Đang xử lý…</div>
                 : isLastNode
                   ? <>🎉 Nộp bài</>
                   : <>Tiếp theo <FaChevronRight className="text-xs" /></>

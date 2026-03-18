@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { FiCheck, FiX, FiAlertCircle, FiLoader, FiArrowRight, FiHome, FiArrowLeft } from 'react-icons/fi';
 import { FaCrown } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import LoadingCat from '../components/shared/LoadingCat';
 
 const RESULT_MAP = {
   success: {
@@ -124,8 +125,7 @@ export default function PaymentResult() {
       {/* Loading khi đang verify VNPay params */}
       {verifying && (
         <div className="flex flex-col items-center gap-4 text-gray-300">
-          <FiLoader size={40} className="animate-spin text-purple-400" />
-          <p className="text-lg font-medium">Đang xác nhận thanh toán...</p>
+          <LoadingCat size={250} text="Đang xác nhận thanh toán..." />
         </div>
       )}
       {!verifying && (

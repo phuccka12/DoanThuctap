@@ -213,9 +213,26 @@ function AdminUsers() {
   };
 
   // VIEW USER DETAILS & ANALYTICS
-  const handleViewDetails = (user) => {
-    setSelectedUser(user);
-    setShowDetailsModal(true);
+  const handleViewDetails = async (user) => {
+    try {
+      setLoading(true);
+      const res = await adminService.getUserProfile(user._id);
+      const fullData = res.data.data;
+      
+      // Ghép stats vào user object để modal hiển thị
+      const userWithStats = {
+        ...fullData.user,
+        learning_progress: fullData.learning.progress_stats,
+        subscription: fullData.subscription
+      };
+      
+      setSelectedUser(userWithStats);
+      setShowDetailsModal(true);
+    } catch (err) {
+      alert('Không thể tải chi tiết người dùng');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // OPEN PROFILE DRAWER (Subscription / AI Usage / Learning)
@@ -930,6 +947,14 @@ function AdminUsers() {
                     <p className="text-white font-medium">{selectedUser.onboarding_completed ? '✅ Hoàn thành' : '❌ Chưa hoàn thành'}</p>
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                    <p className="text-gray-400 text-sm mb-1">Số điện thoại</p>
+                    <p className="text-white font-medium">{selectedUser.phone || '—'}</p>
+                  </div>
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+                    <p className="text-gray-400 text-sm mb-1">Địa chỉ</p>
+                    <p className="text-white font-medium">{selectedUser.address || '—'}</p>
+                  </div>
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
                     <p className="text-gray-400 text-sm mb-1">Ngày tạo</p>
                     <p className="text-white font-medium">{new Date(selectedUser.created_at).toLocaleString('vi-VN')}</p>
                   </div>
@@ -938,6 +963,13 @@ function AdminUsers() {
                     <p className="text-white font-medium">{new Date(selectedUser.updated_at).toLocaleString('vi-VN')}</p>
                   </div>
                 </div>
+                {/* Bio Block */}
+                {selectedUser.bio && (
+                  <div className="mt-4 bg-gray-900/40 rounded-lg p-4 border border-gray-700">
+                    <p className="text-gray-400 text-sm mb-2 uppercase font-bold text-[10px]">Tiểu sử (Bio)</p>
+                    <p className="text-gray-300 italic text-sm leading-relaxed">{selectedUser.bio}</p>
+                  </div>
+                )}
               </div>
 
               {/* Gamification Stats */}

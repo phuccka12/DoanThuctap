@@ -260,15 +260,40 @@ function AIUsageTab({ profile, userId, onRefresh }) {
 
 // ─── Tab 3: Learning Progress ─────────────────────────────────────────────────
 function LearningTab({ profile }) {
-  const { learning } = profile;
+  const { learning, user } = profile;
   const g = learning.gamification || {};
   const prefs = learning.preferences || {};
+  const stats = learning.progress_stats || {};
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* Placement Test Result (New) */}
+      {user.placement_test_completed && user.placement_test_result && (
+        <div className="bg-linear-to-br from-indigo-900/30 to-blue-900/20 border border-indigo-500/30 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2"><FiTrendingUp className="text-indigo-400" /> Kết quả Test đầu vào</h4>
+            <span className="px-3 py-1 bg-indigo-500 text-white text-xs font-black rounded-lg shadow-lg">KHUNG {user.placement_test_result.cefr_level}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+             {[
+               { l: 'Vocab', v: user.placement_test_result.vocab_score, m: 40, c: 'blue' },
+               { l: 'Reading', v: user.placement_test_result.reading_score, m: 35, c: 'purple' },
+               { l: 'Speaking', v: user.placement_test_result.speaking_score, m: 25, c: 'emerald' },
+             ].map(s => (
+               <div key={s.l} className="text-center">
+                 <div className={`text-lg font-black text-${s.c}-400`}>{s.v}<span className="text-[10px] text-gray-500">/{s.m}</span></div>
+                 <div className="text-[9px] text-gray-500 uppercase font-bold tracking-tighter">{s.l}</div>
+               </div>
+             ))}
+          </div>
+        </div>
+      )}
+
       {/* Gamification */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gamification</p>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <FiZap size={14} className="text-yellow-400" /> Thành tích & Gamification
+        </p>
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: 'Level', value: g.level ?? 1,   icon: '⭐', color: 'yellow' },
@@ -285,9 +310,27 @@ function LearningTab({ profile }) {
         </div>
       </div>
 
+      {/* Learning Stats (Real Data From Backend) */}
+      <div className="grid grid-cols-2 gap-3">
+         <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FiBookOpen className="text-blue-400" size={16} />
+              <span className="text-xs text-gray-400">Bài học xong</span>
+            </div>
+            <div className="text-2xl font-black text-white">{stats.completed_lessons || 0}</div>
+         </div>
+         <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FiActivity className="text-emerald-400" size={16} />
+              <span className="text-xs text-gray-400">Điểm TB /100</span>
+            </div>
+            <div className="text-2xl font-black text-emerald-400">{(stats.average_score || 0).toFixed(1)}</div>
+         </div>
+      </div>
+
       {/* Learning preferences */}
       <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-4">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Mục tiêu học tập</p>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Lộ trình & Mục tiêu</p>
         <div className="grid grid-cols-2 gap-2 text-sm">
           {[
             ['Mục tiêu', prefs.goal],
@@ -332,6 +375,53 @@ function LearningTab({ profile }) {
   );
 }
 
+// ─── Tab 0: Profile Info (Personal) ───────────────────────────────────────────
+function ProfileTab({ user }) {
+  return (
+    <div className="space-y-6">
+      <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-5">
+        <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FiUser className="text-blue-400" /> Thông tin liên hệ</h4>
+        <div className="space-y-4">
+          {[
+            { label: 'Số điện thoại', value: user.phone, icon: '📞' },
+            { label: 'Địa chỉ',      value: user.address, icon: '📍' },
+            { label: 'Ngày sinh',    value: user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString('vi-VN') : null, icon: '🎂' },
+          ].map(f => (
+            <div key={f.label} className="flex items-center gap-3 p-3 bg-gray-900/40 rounded-xl">
+              <span className="text-lg">{f.icon}</span>
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">{f.label}</p>
+                <p className="text-sm text-gray-200">{f.value || 'Chưa cập nhật'}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-5">
+        <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FiEdit3 className="text-purple-400" /> Tiểu sử / Bio</h4>
+        <p className="text-sm text-gray-400 italic leading-relaxed bg-gray-900/40 p-3 rounded-xl min-h-20">
+          {user.bio || 'Người dùng này chưa có tiểu sử...'}
+        </p>
+      </div>
+
+      <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-5">
+         <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><FiCheckCircle className="text-emerald-400" /> Trạng thái tài khoản</h4>
+         <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-gray-900/40 rounded-xl">
+               <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Xác thực Email</p>
+               <span className={user.email_verified ? 'text-green-400 text-xs font-bold' : 'text-gray-500 text-xs'}>{user.email_verified ? 'ĐÃ XÁC THỰC' : 'CHƯA XÁC THỰC'}</span>
+            </div>
+            <div className="p-3 bg-gray-900/40 rounded-xl">
+               <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Onboarding</p>
+               <span className={user.onboarding_completed ? 'text-blue-400 text-xs font-bold' : 'text-gray-500 text-xs'}>{user.onboarding_completed ? 'HOÀN THÀNH' : 'CHƯA LÀM'}</span>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Drawer ──────────────────────────────────────────────────────────────
 export default function UserProfileDrawer({ userId, onClose }) {
   const [profile, setProfile] = useState(null);
@@ -355,9 +445,10 @@ export default function UserProfileDrawer({ userId, onClose }) {
   useEffect(() => { if (userId) fetchProfile(); }, [userId]);
 
   const tabs = [
+    { id: 'profile',      label: 'Hồ sơ',     icon: FiUser },
     { id: 'subscription', label: 'Gói cước', icon: FiCreditCard },
     { id: 'ai_usage',     label: 'Hao tổn AI', icon: FiActivity },
-    { id: 'learning',     label: 'Học tập', icon: FiBookOpen },
+    { id: 'learning',     label: 'Học tập',   icon: FiBookOpen },
   ];
 
   return (
@@ -365,7 +456,7 @@ export default function UserProfileDrawer({ userId, onClose }) {
       <div className="w-full max-w-lg h-full bg-gray-900 border-l border-gray-700/50 flex flex-col shadow-2xl">
         {/* Header */}
         {profile && (
-          <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-700/50 bg-linear-to-r from-purple-900/30 to-gray-900 shrink-0">
+          <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-700/50 bg-linear-to-r from-purple-900/40 to-gray-900 shrink-0">
             <div className="w-12 h-12 rounded-full bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold text-white shrink-0">
               {profile.user?.avatar
                 ? <img src={profile.user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
@@ -405,6 +496,7 @@ export default function UserProfileDrawer({ userId, onClose }) {
             <div className="text-center py-16 text-gray-500">Không thể tải profile</div>
           ) : (
             <>
+              {activeTab === 'profile'      && <ProfileTab user={profile.user} />}
               {activeTab === 'subscription' && <SubscriptionTab profile={profile} plans={plans} userId={userId} onRefresh={fetchProfile} />}
               {activeTab === 'ai_usage'     && <AIUsageTab profile={profile} userId={userId} onRefresh={fetchProfile} />}
               {activeTab === 'learning'     && <LearningTab profile={profile} />}

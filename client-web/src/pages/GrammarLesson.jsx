@@ -20,6 +20,7 @@ import {
   FaSpinner, FaChevronRight, FaCheckCircle, FaCoins,
   FaBolt, FaLightbulb, FaExclamationTriangle,
 } from 'react-icons/fa';
+import LoadingCat from '../components/shared/LoadingCat';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -872,7 +873,7 @@ export default function GrammarLesson() {
     return (
       <LearnLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <FaSpinner className="animate-spin text-purple-500 text-3xl" />
+          <LoadingCat size={250} text="Đang chuẩn bị bài học ngữ pháp..." />
         </div>
       </LearnLayout>
     );
