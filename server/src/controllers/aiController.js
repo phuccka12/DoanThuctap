@@ -220,3 +220,15 @@ exports.handleConversation = async (req, res) => {
     }
 };
 
+// 5. Chức năng Lấy câu chào đầu tiên (Proxy)
+exports.getStartGreeting = async (req, res) => {
+    try {
+        const response = await axios.get(`${AI_SERVICE_URL}/api/speaking/start`);
+        res.json(response.data);
+    } catch (error) {
+        console.error("Lỗi lấy câu chào AI:", error.message);
+        res.status(500).json({ error: "AI Server không phản hồi câu chào." });
+    }
+};
+
+

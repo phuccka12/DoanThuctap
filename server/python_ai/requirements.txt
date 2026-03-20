@@ -1,9 +1,10 @@
 # ============================================
-# REQUIREMENTS.TXT - Python AI Backend
+# REQUIREMENTS.TXT - Python AI Backend (Modular)
 # ============================================
 # Dự án: AI English Learning App - IELTS Writing & Speaking Feedback
-# Backend: Flask + Google Gemini AI + Whisper + TTS
+# Backend: Flask + Google Gemini AI + Whisper + TTS + NLP
 # ============================================
+
 
 # --- WEB FRAMEWORK & SERVER ---
 Flask>=3.0.0
@@ -24,7 +25,9 @@ textstat>=0.7.3
 
 # --- SPEECH RECOGNITION & TTS ---
 openai-whisper>=20231117
+faster-whisper>=1.0.3
 edge-tts>=6.1.10
+
 
 # --- AUDIO/VIDEO PROCESSING ---
 ffmpeg-python>=0.2.0

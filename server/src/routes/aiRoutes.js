@@ -21,4 +21,7 @@ router.post('/recommend', aiController.getRecommendation);
 // POST /api/ai/conversation (Hội thoại AI - Proxy qua Python)
 router.post('/conversation', upload.single('audio'), aiController.handleConversation);
 
-module.exports = router;
+// GET /api/ai/start (Khởi tạo hội thoại - Proxy qua Python)
+router.get('/start', aiController.getStartGreeting);
+
+module.exports = router;
