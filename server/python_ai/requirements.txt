@@ -23,6 +23,8 @@ spacy>=3.7.0
 language-tool-python>=2.8.0
 pyspellchecker>=0.8.1
 textstat>=0.7.3
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
 
 # --- SPEECH RECOGNITION & TTS ---
 openai-whisper>=20231117

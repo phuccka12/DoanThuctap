@@ -37,6 +37,15 @@ def parse_json_safely(text, default_value=None):
         text_to_parse = re.sub(r',\s*}', '}', text_to_parse)
         text_to_parse = re.sub(r',\s*]', ']', text_to_parse)
 
+        # 🚀 [MỚI] Escape các ký tự điều khiển gây lỗi JSON (newline, tab) nằm TRONG dấu ngoặc kép
+        def escape_inside_quotes(match):
+            s = match.group(0)
+            content = s[1:-1]
+            content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+            return f'"{content}"'
+
+        text_to_parse = re.sub(r'"(?:\\.|[^"\\])*"', escape_inside_quotes, text_to_parse)
+
         # 4. Sử dụng JSONDecoder
         decoder = json.JSONDecoder()
         try:
@@ -44,7 +53,6 @@ def parse_json_safely(text, default_value=None):
             return obj
         except json.JSONDecodeError:
             # Nếu vẫn lỗi, thử dùng json.loads trên toàn bộ text đã clean
-            # (Có thể giúp nếu object bị bao bởi text linh tinh)
             end_idx = text_to_parse.rfind('}')
             if end_idx != -1:
                 return json.loads(text_to_parse[:end_idx+1])
