@@ -30,6 +30,9 @@ ChartJS.register(
   Legend
 );
 
+// Global Singleton to prevent overlapping audio across remounts/instances
+let activeAudio = null;
+
 const AIConversation = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +44,7 @@ const AIConversation = () => {
   const recognitionRef = useRef(null);
   const hasFetchedInitial = useRef(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState('en-GB-SoniaNeural'); // Mặc định Sonia (Nữ)
 
   const stats = user?.gamification_data || { streak: 0, level: 1, coins: 0 };
 
@@ -63,20 +67,36 @@ const AIConversation = () => {
 
   useEffect(() => {
     if (!hasFetchedInitial.current) {
-        fetchInitialGreeting();
         hasFetchedInitial.current = true;
+        fetchInitialGreeting();
     }
+    return () => {
+        if (activeAudio) {
+            activeAudio.pause();
+            activeAudio = null;
+        }
+    };
   }, []);
 
-  const fetchInitialGreeting = async () => {
+  const playAIResponse = (url) => {
+    // Stop any existing global audio
+    if (activeAudio) {
+        activeAudio.pause();
+        activeAudio.currentTime = 0;
+    }
+    const audio = new Audio(url);
+    activeAudio = audio;
+    audio.play().catch(e => console.error("Audio Play Error:", e));
+  };
+
+  const fetchInitialGreeting = async (voiceId = selectedVoice) => {
     setIsProcessing(true);
     try {
-      const res = await axiosInstance.get('/ai/start');
+      const res = await axiosInstance.get(`/ai/start?voice=${voiceId}`);
       const data = res.data;
       setMessages([{ role: 'ai', text: data.text }]);
       if (data.audio_url) {
-        const audio = new Audio(data.audio_url);
-        audio.play().catch(e => console.error("Audio Play Error:", e));
+        playAIResponse(data.audio_url);
       }
     } catch (error) {
       setMessages([{ role: 'ai', text: "Hello! Ready for your IELTS practice?" }]);
@@ -126,17 +146,23 @@ const AIConversation = () => {
       const formData = new FormData();
       formData.append("audio", audioFile);
       formData.append("history", JSON.stringify(messages));
+      formData.append("voice", selectedVoice); // Truyền giọng nói đã chọn
       const res = await axiosInstance.post('/ai/conversation', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const data = res.data;
       setMessages(prev => [...prev, 
-        { role: 'user', text: data.user_transcript, pitch: data.pitch_data, correction: data.correction },
+        { 
+          role: 'user', 
+          text: data.user_transcript, 
+          pitch: data.pitch_data, 
+          correction: data.correction,
+          analytics: data.analytics // Lưu trữ dữ liệu phân tích mới
+        },
         { role: 'ai', text: data.ai_response_text }
       ]);
       if (data.ai_audio_url) {
-        const audio = new Audio(data.ai_audio_url);
-        audio.play();
+        playAIResponse(data.ai_audio_url);
       }
     } catch (e) {
       console.error(e);
@@ -145,9 +171,9 @@ const AIConversation = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = (voiceId = selectedVoice) => {
     setMessages([]);
-    fetchInitialGreeting();
+    fetchInitialGreeting(voiceId);
   };
 
   return (
@@ -187,6 +213,28 @@ const AIConversation = () => {
           </div>
           
           <div className="flex items-center gap-3">
+             {/* Voice Switcher */}
+             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 mr-2">
+                <button 
+                  onClick={() => {
+                    setSelectedVoice('en-GB-SoniaNeural');
+                    handleReset('en-GB-SoniaNeural');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-SoniaNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  NỮ
+                </button>
+                <button 
+                  onClick={() => {
+                    setSelectedVoice('en-GB-RyanNeural');
+                    handleReset('en-GB-RyanNeural');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-RyanNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  NAM
+                </button>
+             </div>
+
              <div className="hidden sm:flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20">
                 <FaFire className="text-indigo-400" />
                 <span className="text-indigo-400 font-black text-xs">{stats.streak} Streak</span>
@@ -225,6 +273,31 @@ const AIConversation = () => {
                     <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="mt-3 bg-emerald-500/10 border border-emerald-500/10 px-4 py-2.5 rounded-2xl text-[11px] text-emerald-300 flex items-start gap-2 shadow-sm">
                       <FaLightbulb className="shrink-0 mt-0.5 text-emerald-400" />
                       <span>{msg.correction}</span>
+                    </motion.div>
+                  )}
+
+                  {msg.role === 'user' && msg.analytics && (
+                    <motion.div 
+                       initial={{ opacity: 0, y: 5 }} 
+                       animate={{ opacity: 1, y: 0 }}
+                       className="mt-3 flex flex-wrap gap-2"
+                    >
+                       <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Fluency</span>
+                          <span className="text-[11px] text-indigo-400 font-black">
+                             {Math.round((msg.analytics.lexical.word_count / (msg.analytics.fluency.total_duration || 1)) * 60)} WPM
+                          </span>
+                          <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                          <span className="text-[11px] text-rose-400 font-black">{msg.analytics.fluency.num_pauses} Pauses</span>
+                       </div>
+                       <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Vocab</span>
+                          <span className="text-[11px] text-emerald-400 font-black">
+                             {Math.round(msg.analytics.lexical.lexical_diversity * 100)}% Div
+                          </span>
+                          <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                          <span className="text-[11px] text-amber-400 font-black">{msg.analytics.lexical.adjectives_count} Adj</span>
+                       </div>
                     </motion.div>
                   )}
 

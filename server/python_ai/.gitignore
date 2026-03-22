@@ -35,6 +35,9 @@ logs/
 models/
 *.bin
 *.pt
+*.joblib
+*.csv
+!alex_features_ready.csv
 
 # IDE
 .vscode/

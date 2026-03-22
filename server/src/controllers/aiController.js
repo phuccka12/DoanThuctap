@@ -15,7 +15,74 @@ async function getUserPetState(userId) {
     return getPetState(pet);
 }
 
-// 1. Chức năng Chấm bài Writing
+// 1a. Chức năng Chấm bài Writing PRO (Hệ thống Async mới)
+exports.evaluateWriting = async (req, res) => {
+    try {
+        const { text, topic } = req.body;
+        const userId = req.userId;
+
+        // KIỂM TRA QUOTA
+        const quota = await aiService.checkQuota(userId, 'writing');
+        if (!quota.allowed) {
+            return res.status(403).json({ error: quota.reason });
+        }
+
+        // Gọi sang server Python để bắt đầu Task
+        const response = await axios.post(`${AI_SERVICE_URL}/api/ai/writing/evaluate`, { 
+            text, topic 
+        });
+
+        // Ghi nhận lượt sử dụng ngay khi bắt đầu (hoặc sau khi hoàn thành tùy logic)
+        await aiService.incrementUsage(userId, 'writing');
+
+        res.status(202).json(response.data);
+
+    } catch (error) {
+        console.error("Lỗi khởi tạo Writing Pro:", error.message);
+        res.status(500).json({ error: "Không thể kết nối AI Server." });
+    }
+};
+
+// 1b. Kiểm tra trạng thái Task chấm bài
+exports.getWritingStatus = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const response = await axios.get(`${AI_SERVICE_URL}/api/ai/writing/status/${taskId}`);
+        
+        // Nếu task đã hoàn thành, có thể thực hiện cộng thưởng ở đây (nếu chưa cộng lúc khởi tạo)
+        // Tuy nhiên để UI mượt thì nên cộng lúc khởi tạo hoặc có webhook (MVP cộng sớm cũng ok)
+        
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "Lỗi lấy trạng thái Task." });
+    }
+};
+
+// 1c. Sinh bài mẫu (Streaming Proxy)
+exports.generateModelEssay = async (req, res) => {
+    try {
+        const { topic, essay } = req.body;
+        
+        // Thiết lập header cho streaming
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        const response = await axios({
+            method: 'post',
+            url: `${AI_SERVICE_URL}/api/ai/writing/model-essay`,
+            data: { topic, essay },
+            responseType: 'stream'
+        });
+
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.error("Lỗi Proxy Model Essay:", error.message);
+        res.status(500).end("AI Server Error");
+    }
+};
+
+// 1. Chức năng Chấm bài Writing (Route cũ - đồng bộ)
 exports.checkWriting = async (req, res) => {
     try {
         const { text, topic } = req.body;
@@ -31,11 +98,11 @@ exports.checkWriting = async (req, res) => {
             });
         }
 
-        // Gọi sang Python kèm theo Mode (Online/Offline)
-        const response = await axios.post(`${AI_SERVICE_URL}/api/writing/check`, { 
+        // Gọi sang Python Writing Pro (Master Pipeline)
+        const response = await axios.post(`${AI_SERVICE_URL}/api/ai/writing/evaluate`, { 
             text, 
             topic,
-            mode: quota.mode // VIP: online, Standard: offline
+            mode: quota.mode 
         });
 
         // Ghi nhận lượt sử dụng
@@ -196,9 +263,12 @@ exports.handleConversation = async (req, res) => {
                 filename: req.file.originalname || 'voice_input.wav',
                 contentType: req.file.mimetype || 'audio/wav',
             });
-            // Gửi thêm history nếu có
+            // Gửi thêm history và voice nếu có
             if (req.body.history) {
                 form.append('history', req.body.history);
+            }
+            if (req.body.voice) {
+                form.append('voice', req.body.voice);
             }
 
             response = await axios.post(`${AI_SERVICE_URL}/api/speaking/conversation`, form, {
@@ -223,7 +293,9 @@ exports.handleConversation = async (req, res) => {
 // 5. Chức năng Lấy câu chào đầu tiên (Proxy)
 exports.getStartGreeting = async (req, res) => {
     try {
-        const response = await axios.get(`${AI_SERVICE_URL}/api/speaking/start`);
+        const { voice } = req.query;
+        const url = voice ? `${AI_SERVICE_URL}/api/speaking/start?voice=${voice}` : `${AI_SERVICE_URL}/api/speaking/start`;
+        const response = await axios.get(url);
         res.json(response.data);
     } catch (error) {
         console.error("Lỗi lấy câu chào AI:", error.message);

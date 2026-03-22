@@ -12,12 +12,20 @@ except:
     os.system("python -m spacy download en_core_web_sm")
     nlp = spacy.load("en_core_web_sm")
 
-print("⏳ Đang tải Grammar Engine (LanguageTool)...")
-try:
-    tool = language_tool_python.LanguageTool('en-US', remote_server='https://api.languagetool.org/v2')
-except Exception as e:
-    print(f"⚠️ Lỗi LanguageTool: {e}")
-    tool = None
+print("⏳ Đang cấu hình Grammar Engine (LanguageTool - Lazy Mode)...")
+tool = None
+def get_tool():
+    global tool
+    if tool is not None: return tool
+    try:
+        # Thử khởi tạo local mode (yêu cầu Java) hoặc bỏ qua nếu không có mạng
+        # Để tránh lỗi Resolution, chúng ta mặc định không dùng remote server trừ khi cần
+        tool = language_tool_python.LanguageTool('en-US')
+        return tool
+    except Exception as e:
+        print(f"ℹ️ LanguageTool local không sẵn sàng (Yêu cầu Java). Sẽ dùng Gemini/SpaCy thay thế.")
+        tool = False # Đánh dấu là đã thử nhưng fail
+        return None
 
 # --- DỮ LIỆU TỪ VỰNG & CẤU TRÚC ---
 ACADEMIC_WORD_LIST = {
@@ -43,6 +51,18 @@ LINKING_WORDS_LIST = {
     "notably", "significantly", "meanwhile", "simultaneously", "despite", "although", "whereas", "nonetheless", "subsequently", "accordingly",
     "similarly", "likewise", "not only", "but also", "in other words", "to clarify", "alternatively", "conversely", "hence", "thus"
 }
+
+# --- CƠ SỞ DỮ LIỆU COLLOCATION (PMI-lite) ---
+# Trong thực tế dùng PMI từ corpus lớn, ở đây dùng bộ lọc Heuristic cho IELTS
+COMMON_COLLOCATION_ERRORS = {
+    "do a mistake": "make a mistake",
+    "heavy success": "huge/great success",
+    "make a homework": "do homework",
+    "big interest": "great/keen interest",
+    "give an effort": "make an effort",
+    "highly clear": "crystal clear/perfectly clear"
+}
+ACADEMIC_COLLOCATIONS = ["highly beneficial", "profound impact", "significant contribution", "widely accepted", "strictly prohibited"]
 CEFR_FLESCH_MAP = {
     'A1': {'min': 70, 'max': 100, 'grade': 'Very Easy'},
     'A2': {'min': 60, 'max': 80, 'grade': 'Easy'},
@@ -55,41 +75,73 @@ CEFR_FLESCH_MAP = {
 
 FILLER_WORDS = ["uh", "um", "ah", "er", "you know", "basically", "actually", "kind of", "sort of", "i mean"]
 
-# --- MATCHER FOR COMPLEX SENTENCES ---
+# --- MATCHER FOR BAND 8+ STRUCTURES ---
 matcher = Matcher(nlp.vocab)
-matcher.add("COMPLEX_STRUCTURE", [
-    [{"POS": "SCONJ"}], # although, because, if, since
-    [{"TAG": "WDT"}],   # which, that
-    [{"TAG": "WP"}],    # who, what
-    [{"TAG": "WP$"}]    # whose
-])
+
+# 1. Complex Sentences (Subordinate clauses)
+matcher.add("COMPLEX_STRUCTURE", [[{"POS": "SCONJ"}], [{"TAG": "WDT"}], [{"TAG": "WP"}]])
+
+# 2. Inversion (Đảo ngữ): Trạng từ phủ định + Trợ động từ
+# VD: Never have I... / Seldom does he...
+matcher.add("INVERSION", [[
+    {"LOWER": {"IN": ["never", "seldom", "hardly", "rarely", "not only", "only by"]}},
+    {"POS": {"IN": ["AUX", "VERB"]}},
+    {"POS": "PRON"}
+]])
+
+# 3. Cleft Sentences (Câu chẻ): It + is/was + ... + that
+matcher.add("CLEFT_SENTENCE", [[
+    {"LOWER": "it"},
+    {"LOWER": {"IN": ["is", "was"]}},
+    {"POS": {"IN": ["NOUN", "PROPN", "ADJ"]}},
+    {"LOWER": {"IN": ["that", "who", "which"]}}
+]])
+
+# 4. Passive Voice (Bị động): be + VBN
+matcher.add("PASSIVE_VOICE", [[
+    {"LOWER": {"IN": ["is", "am", "are", "was", "were", "been", "being"]}},
+    {"TAG": "VBN"}
+]])
 
 # --- CÁC HÀM XỬ LÝ ---
 def analyze_deep_tech(text):
-    """Phân tích cấu trúc câu và số liệu"""
+    """Phân tích cấu trúc học thuật chuyên sâu (FGIF Upgrade)"""
     doc = nlp(text)
-    
-    # Phát hiện câu phức dùng Matcher
     matches = matcher(doc)
-    complex_count = len(set([match_id for match_id, start, end in matches]))
     
-    verbs = [token.text for token in doc if token.pos_ == "VERB"]
-    sentence_starters = [sent[0].text.lower() for sent in doc.sents]
-    repetitive_starters = {i:sentence_starters.count(i) for i in sentence_starters if sentence_starters.count(i) > 2}
+    unique_matches = {}
+    for match_id, start, end in matches:
+        m_name = nlp.vocab.strings[match_id]
+        unique_matches[m_name] = unique_matches.get(m_name, 0) + 1
+
+    # Thuật toán T-Unit (MLT): Mean Length of T-Unit
+    # Một T-Unit ≈ một sentence (đơn giản hóa cho local)
+    sentences = list(doc.sents)
+    total_words = len([t for t in doc if not t.is_punct])
+    mlt = total_words / len(sentences) if sentences else 0
+
+    # Collocation Check (PMI-lite)
+    colloc_errors = []
+    text_lower = text.lower()
+    for err, fix in COMMON_COLLOCATION_ERRORS.items():
+        if err in text_lower:
+            colloc_errors.append({"error": err, "suggestion": fix, "type": "collocation"})
 
     stats = {
         "reading_ease": textstat.flesch_reading_ease(text),
-        "grade_level": textstat.text_standard(text, float_output=False),
-        "verb_diversity": len(set(verbs)) / len(verbs) if verbs else 0,
-        "complex_structures_count": complex_count
+        "mlt_index": round(mlt, 2), # MLT càng cao câu càng chín
+        "structures": unique_matches,
+        "collocation_errors": colloc_errors,
+        "complex_ratio": unique_matches.get("COMPLEX_STRUCTURE", 0) / len(sentences) if sentences else 0
     }
-    return {"nlp": {"starters": repetitive_starters, "complex_count": complex_count}, "math": stats}
+    return {"nlp": unique_matches, "math": stats}
 
 def check_grammar(text):
     """Kiểm tra ngữ pháp bằng LanguageTool"""
-    if tool is None: return []
+    current_tool = get_tool()
+    if not current_tool: return []
     try:
-        matches = tool.check(text)
+        matches = current_tool.check(text)
         return [{"word": m.context[m.offset:m.offset+m.errorLength], "error": m.message, "fix": (m.replacements[0] if m.replacements else "N/A")} for m in matches]
     except Exception as e:
         print(f"⚠️ Lỗi Grammar Check: {e}")

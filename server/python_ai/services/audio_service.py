@@ -35,10 +35,10 @@ whisper_model = whisper.load_model("base")
 
 # Khởi tạo Faster-Whisper (Động cơ mới - Cực nhanh)
 if HAS_FASTER_WHISPER:
-    print("🚀 Đang tải Động cơ Faster-Whisper (tiny.en/base)...")
+    print("🚀 Đang tải Động cơ Faster-Whisper (small)...")
     try:
-        # Dùng tiny.en cho tốc độ tối thượng, hoặc base cho độ chính xác
-        faster_model = WhisperModel("base", device="cpu", compute_type="int8")
+        # Nâng cấp lên 'small' để tăng độ chính xác đáng kể so với 'base'
+        faster_model = WhisperModel("small", device="cpu", compute_type="int8")
     except Exception as e:
         print(f"⚠️ Lỗi Faster-Whisper: {e}")
         HAS_FASTER_WHISPER = False
@@ -70,8 +70,25 @@ def transcribe_audio(audio_path, model_type="base"):
 
         # 🟢 Sử dụng Faster-Whisper nếu khả dụng (Nhanh gấp 5-10 lần)
         if HAS_FASTER_WHISPER:
-            segments, info = faster_model.transcribe(processed_path, beam_size=5, language="en")
+            # vad_filter=True: Tự động lọc bỏ các đoạn không có tiếng người
+            # no_speech_threshold: Tăng lên 0.6 để tránh nhận diện nhầm tiếng ồn thành chữ
+            segments, info = faster_model.transcribe(
+                processed_path, 
+                beam_size=5, 
+                language="en", 
+                vad_filter=True, 
+                no_speech_threshold=0.6
+            )
             transcript = "".join([segment.text for segment in segments]).strip()
+            
+            # 🛡️ HALLUCINATION FILTER: Loại bỏ các mẫu Whisper hay bị lỗi khi im lặng
+            bad_patterns = [
+                "Thank you for watching", "Subtitles by", "Please subscribe", 
+                "Thanks for watching", "translated by", "Re-edited by"
+            ]
+            if any(p.lower() in transcript.lower() for p in bad_patterns):
+                transcript = ""
+                
             result = {"text": transcript}
         else:
             # Fallback về Whisper gốc

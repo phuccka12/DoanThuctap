@@ -15,21 +15,44 @@ def get_timestamp():
     return int(time.time())
 
 def parse_json_safely(text, default_value=None):
-    """Tìm cụm JSON đầu tiên xuất hiện trong text để parse (Dùng cho cả Gemini và Ollama)"""
+    """Tìm cụm JSON chính xác nhất trong text để parse (Sử dụng raw_decode + Clean up)"""
     import json
     import re
     if not text: return default_value
+    
     try:
-        # 1. Thử tìm khối JSON nằm trong dấu { } đầu tiên
-        match = re.search(r'(\{.*\})', text, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            return json.loads(json_str)
+        # 1. Tiền xử lý: Xóa các Markdown code blocks
+        text = re.sub(r'```json\s*', '', text)
+        text = re.sub(r'```\s*', '', text)
+        text = text.strip()
+
+        # 2. Tìm vị trí dấu {
+        start_idx = text.find('{')
+        if start_idx == -1: return default_value
         
-        # 2. Nếu không có { }, thử clean text và parse trực tiếp
-        clean_text = text.replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_text)
+        text_to_parse = text[start_idx:]
+        
+        # 3. Last ditch effort: Sửa các lỗi phổ biến (Trailing commas, unescaped newlines)
+        # Xóa trailing commas: ,} -> } và ,] -> ]
+        text_to_parse = re.sub(r',\s*}', '}', text_to_parse)
+        text_to_parse = re.sub(r',\s*]', ']', text_to_parse)
+
+        # 4. Sử dụng JSONDecoder
+        decoder = json.JSONDecoder()
+        try:
+            obj, _ = decoder.raw_decode(text_to_parse)
+            return obj
+        except json.JSONDecodeError:
+            # Nếu vẫn lỗi, thử dùng json.loads trên toàn bộ text đã clean
+            # (Có thể giúp nếu object bị bao bởi text linh tinh)
+            end_idx = text_to_parse.rfind('}')
+            if end_idx != -1:
+                return json.loads(text_to_parse[:end_idx+1])
+            raise
+
     except Exception as e:
-        print(f"⚠️ Lỗi Lọc JSON: {e}")
+        print(f"⚠️ Lỗi Phân tích JSON: {e}")
+        # Debug: In 100 ký tự đầu của text lỗi để dễ soi
+        if text: print(f"DEBUG JSON (starts with): {text[:100]}...")
         return default_value
 
