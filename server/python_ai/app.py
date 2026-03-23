@@ -536,11 +536,71 @@ def get_writing_status(task_id):
 def generate_model_essay():
     data = request.json
     topic = data.get('topic', '')
-    essay = data.get('essay', '') # Gửi kèm essay của user để AI biết "context"
+    essay = data.get('essay', '') 
     
-    prompt = f"Role: IELTS Expert. Write a Band 9.0 Model Essay for topic: {topic}. Base on user's ideas if relevant: {essay}"
+    # --- 1. GOLD STANDARDS (BAND 9.0 BENCHMARKS + DYNAMIC BALANCE) ---
+    GOLD_STANDARDS = {
+        "mlt": 22.0,      # Sentence maturity target
+        "mtld": 100.0,    # Lexical diversity target
+        "complex_ratio": 0.65, 
+        "inversions": 2,  
+        "passives": 4,     # Reduced slightly for more active, direct voice
+        "natural_flow": "High",
+        "tone": "Sophisticated yet Academic",
+        "syntactic_variety": "Dynamic Mix of short & long", # New
+        "collocation_density": "High (Natural > Obscure)"     # New
+    }
     
-    # Sử dụng stream để user thấy bài viết đang được "gõ"
+    # --- 2. GAP ANALYSIS (LOCAL NLP LAYER) ---
+    user_stats = {"mlt": 0, "mtld": 0, "complex_ratio": 0, "inversions": 0, "passives": 0}
+    
+    if essay.strip():
+        try:
+            analysis = writing_service.preprocess(essay)
+            stats = analysis.get('stats', {})
+            user_stats = {
+                "mlt": stats.get('mlt_index', 0),
+                "mtld": stats.get('mtld_diversity', 0),
+                "complex_ratio": stats.get('complex_sentence_ratio', 0),
+                "inversions": stats.get('structures', {}).get('INVERSION', 0),
+                "passives": stats.get('structures', {}).get('PASSIVE_VOICE', 0)
+            }
+        except Exception as e:
+            print(f"⚠️ Gap Analysis failed: {e}. Using baseline.")
+
+    # --- 3. DYNAMIC CONSTRAINT-BASED PROMPT (PARAMETER INJECTION + HUMAN NUANCE) ---
+    prompt = f"""
+    [OBJECTIVE: HIGH-PRECISION BAND 9.0 ESSAY GENERATION - HUMAN-LIKE UPGRADE]
+    You are a Senior Cambridge IELTS Professor. Your task is to generate a Band 9.0 Model Essay that sounds authoritative yet natural. 
+    You must bridge the gap between the User's current stats and the technical Gold Standards, while maintaining a 'Dynamic Balance'.
+
+    Topic: "{topic}"
+    User's Initial Draft Context (if any): "{essay}"
+
+    [TECHNICAL PARAMETERS & GAP ANALYSIS]:
+    1. SENTENCE MATURITY (MLT): 
+       - Current: {user_stats['mlt']} -> Target: > {GOLD_STANDARDS['mlt']}
+       - REQ: Mix sophisticated multi-clause structures with punchy short sentences for impact and breathing room.
+
+    2. LEXICAL DIVERSITY (MTLD): 
+       - Current: {user_stats['mtld']} -> Target: > {GOLD_STANDARDS['mtld']}
+       - REQ: Prioritize 'Natural Academic Collocations' (e.g., 'play a pivotal role', 'at the very heart of the matter') over obscure single 'big words'.
+
+    3. GRAMMATICAL SOPHISTICATION:
+       - Complex Ratio: {user_stats['complex_ratio']*100}% -> Target: > {GOLD_STANDARDS['complex_ratio']*100}%
+       - Inversions: {user_stats['inversions']} -> Target: {GOLD_STANDARDS['inversions']} (e.g., 'Not only...', 'Seldom...').
+       - Passive Voice: {user_stats['passives']} -> Use for objective distance, but maintain active voice for clarity.
+
+    [STYLISTIC GUIDELINES - CRITICAL FOR NATURAL FLOW]:
+    - AVOID ROBOTIC TONE: Do not just string high-level vocabulary together. Ensure semantic cohesion using reference words (this, these, such developments).
+    - RHYTHM: Create a 'flow'. Use varied sentence openings. Avoid starts like 'Moreover,' or 'Furthermore,' at the beginning of every paragraph.
+    - HEDGING & NUANCE: Acknowledge complexity. Use professional hedging like 'arguably', 'to some extent', or 'it is perhaps more accurate to suggest...'.
+    - TONE: Sophisticated, intellectual, yet readable. Avoid 'machine-sounding' overly-formal phrases.
+
+    [OUTPUT]: Output the essay ONLY. High-quality Band 9.0 that would impress a human examiner.
+    """
+    
+    # Stream the high-precision response
     def generate():
         for chunk in gemini_service.call_gemini_stream(prompt):
             if chunk: yield chunk
