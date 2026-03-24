@@ -112,17 +112,6 @@ export default function DashboardSidebar({ active, setActive, onLogout, theme: t
         ))}
       </nav>
 
-      {/* ── Upgrade card ──────────────────────────────────────── */}
-      <div className="mx-3 mb-4 rounded-xl bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] p-4">
-        <p className="text-white font-bold text-sm">Nâng cấp Premium</p>
-        <p className="text-white/70 text-xs mt-1 mb-3 leading-relaxed">Mở khóa AI không giới hạn & toàn bộ nội dung</p>
-        <button
-          onClick={() => navigate("/pricing")}
-          className="w-full py-2 rounded-lg bg-white text-[#6C5CE7] font-bold text-xs hover:shadow transition-all active:scale-[0.98]"
-        >
-          Xem gói cước →
-        </button>
-      </div>
 
       {/* ── Logout ────────────────────────────────────────────── */}
       <div className={cn("px-3 pb-5 border-t", isDark ? "border-white/5" : "border-slate-100")}>

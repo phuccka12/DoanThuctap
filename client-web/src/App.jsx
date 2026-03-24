@@ -29,6 +29,7 @@ import TopicDetail  from './pages/TopicDetail';
 import LessonPlayer from './pages/LessonPlayer';
 // RPG Story module
 import StoryLobby  from './pages/StoryLobby';
+import StoryDetail from './pages/StoryDetail';
 import StoryReader from './pages/StoryReader';
 // Vocabulary Learning module
 import VocabularyHome   from './pages/VocabularyHome';
@@ -157,10 +158,34 @@ function MaintenanceGuard({ children }) {
   return children;
 }
 
+// ─── Heartbeat Manager (Real-time study time tracking) ──────────────────────────
+function HeartbeatManager() {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Send heartbeat every 60 seconds
+    const sendHeartbeat = () => {
+      axiosInstance.post('/heartbeat').catch(() => { /* ignore */ });
+    };
+
+    const interval = setInterval(sendHeartbeat, 60000);
+    
+    // Initial heartbeat on login/mount
+    sendHeartbeat();
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <HeartbeatManager />
         <MaintenanceGuard>
         <Routes>
           {/* Public Routes */}
@@ -212,12 +237,12 @@ function App() {
               <Profile defaultTab="settings" />
             </ProtectedRoute>
           } />
-          <Route path="/ai-writing" element={
+          <Route path="/ai-writing/:id?" element={
             <ProtectedRoute>
               <AIWriting />
             </ProtectedRoute>
           } />
-          <Route path="/ai-speaking" element={
+          <Route path="/ai-speaking/:id?" element={
             <ProtectedRoute>
               <AISpeaking />
             </ProtectedRoute>
@@ -227,7 +252,7 @@ function App() {
               <AIConversation />
             </ProtectedRoute>
           } />
-          <Route path="/ai-listening" element={
+          <Route path="/ai-listening/:id?" element={
             <ProtectedRoute>
               <AIListening />
             </ProtectedRoute>
@@ -272,6 +297,11 @@ function App() {
               <StoryLobby />
             </ProtectedRoute>
           } />
+          <Route path="/stories/:storyId" element={
+            <ProtectedRoute>
+              <StoryDetail />
+            </ProtectedRoute>
+          } />
           <Route path="/stories/:storyId/parts/:partNum" element={
             <ProtectedRoute>
               <StoryReader />
@@ -296,14 +326,14 @@ function App() {
           } />
 
           {/* Reading Practice module */}
-          <Route path="/reading" element={
+          <Route path="/reading/:id?" element={
             <ProtectedRoute>
               <ReadingPractice />
             </ProtectedRoute>
           } />
 
           {/* Speaking Practice module */}
-          <Route path="/speaking-practice" element={
+          <Route path="/speaking-practice/:id?" element={
             <ProtectedRoute>
               <SpeakingPractice />
             </ProtectedRoute>
@@ -315,7 +345,7 @@ function App() {
               <WritingScenarioLobby />
             </ProtectedRoute>
           } />
-          <Route path="/writing-scenario/:id" element={
+          <Route path="/writing-scenario/:id?" element={
             <ProtectedRoute>
               <WritingScenarioPractice />
             </ProtectedRoute>

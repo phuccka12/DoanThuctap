@@ -5,69 +5,73 @@ import { cn, theme, darkTheme } from '../utils/dashboardTheme';
 import { getLessonById, completeLesson, getLessonsForTopic } from '../services/learningService';
 import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import CompletionModal from '../components/learn/CompletionModal';
-import ReadingNode   from '../components/learn/nodes/ReadingNode';
+import ReadingNode from '../components/learn/nodes/ReadingNode';
 import ListeningNode from '../components/learn/nodes/ListeningNode';
-import VocabNode     from '../components/learn/nodes/VocabNode';
-import QuizNode      from '../components/learn/nodes/QuizNode';
-import WritingNode   from '../components/learn/nodes/WritingNode';
+import VocabNode from '../components/learn/nodes/VocabNode';
+import QuizNode from '../components/learn/nodes/QuizNode';
+import WritingNode from '../components/learn/nodes/WritingNode';
 import {
   FaTimes, FaSpinner, FaChevronRight, FaChevronLeft,
   FaCheckCircle, FaBookOpen, FaHeadphones,
   FaFont, FaEdit, FaMicrophone, FaVideo, FaPuzzlePiece,
 } from 'react-icons/fa';
 import LoadingCat from '../components/shared/LoadingCat';
+import LessonIntro from '../components/shared/LessonIntro';
+import LearnLayout from '../components/learn/LearnLayout';
 
 // ─── Node type meta ──────────────────────────────────────────────────────────
 const NODE_META = {
-  reading:    { label: 'Đọc hiểu',   icon: '📖', color: 'text-blue-400',    bg: 'bg-blue-500/15 border-blue-400/30'     },
-  listening:  { label: 'Nghe',       icon: '🎧', color: 'text-purple-400',  bg: 'bg-purple-500/15 border-purple-400/30' },
-  vocabulary: { label: 'Từ vựng',    icon: '📝', color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-400/30'},
-  quiz:       { label: 'Quiz',       icon: '🧩', color: 'text-orange-400',  bg: 'bg-orange-500/15 border-orange-400/30' },
-  writing:    { label: 'Viết',       icon: '✍️',  color: 'text-yellow-400',  bg: 'bg-yellow-500/15 border-yellow-400/30' },
-  speaking:   { label: 'Nói',        icon: '🎙️', color: 'text-rose-400',    bg: 'bg-rose-500/15 border-rose-400/30'     },
-  video:      { label: 'Video',      icon: '🎬', color: 'text-sky-400',     bg: 'bg-sky-500/15 border-sky-400/30'       },
+  reading: { label: 'Đọc hiểu', icon: '📖', color: 'text-blue-400', bg: 'bg-blue-500/15 border-blue-400/30' },
+  listening: { label: 'Nghe', icon: '🎧', color: 'text-purple-400', bg: 'bg-purple-500/15 border-purple-400/30' },
+  vocabulary: { label: 'Từ vựng', icon: '📝', color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-400/30' },
+  quiz: { label: 'Quiz', icon: '🧩', color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-400/30' },
+  writing: { label: 'Viết', icon: '✍️', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-400/30' },
+  speaking: { label: 'Nói', icon: '🎙️', color: 'text-rose-400', bg: 'bg-rose-500/15 border-rose-400/30' },
+  video: { label: 'Video', icon: '🎬', color: 'text-sky-400', bg: 'bg-sky-500/15 border-sky-400/30' },
 };
 
 function getNodeMeta(type = '') {
   const tp = type.toLowerCase();
-  if (tp.includes('read'))                                  return NODE_META.reading;
-  if (tp.includes('listen') || tp.includes('audio'))       return NODE_META.listening;
-  if (tp.includes('vocab'))                                 return NODE_META.vocabulary;
-  if (tp.includes('quiz') || tp.includes('grammar'))       return NODE_META.quiz;
-  if (tp.includes('writ') || tp.includes('essay'))         return NODE_META.writing;
-  if (tp.includes('speak') || tp.includes('role'))         return NODE_META.speaking;
-  if (tp.includes('video'))                                 return NODE_META.video;
+  if (tp.includes('read')) return NODE_META.reading;
+  if (tp.includes('listen') || tp.includes('audio')) return NODE_META.listening;
+  if (tp.includes('vocab')) return NODE_META.vocabulary;
+  if (tp.includes('quiz') || tp.includes('grammar')) return NODE_META.quiz;
+  if (tp.includes('writ') || tp.includes('essay')) return NODE_META.writing;
+  if (tp.includes('speak') || tp.includes('role')) return NODE_META.speaking;
+  if (tp.includes('video')) return NODE_META.video;
   return { label: type || 'Học', icon: '📚', color: 'text-gray-400', bg: 'bg-gray-500/10 border-gray-400/20' };
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function LessonPlayer() {
   const { lessonId } = useParams();
-  const navigate     = useNavigate();
-  const { isDark }   = useTheme();
-  const t            = isDark ? darkTheme : theme;
+  const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const t = isDark ? darkTheme : theme;
 
-  const [lesson,       setLesson]       = useState(null);
-  const [nodes,        setNodes]        = useState([]);
+  const [lesson, setLesson] = useState(null);
+  const [nodes, setNodes] = useState([]);
   const [topicLessons, setTopicLessons] = useState([]);
-  const [current,      setCurrent]      = useState(0);
-  const [loading,      setLoading]      = useState(true);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [nodeAnswers,    setNodeAnswers]    = useState({});
-  const [nodeScores,     setNodeScores]     = useState({});
+  const [nodeAnswers, setNodeAnswers] = useState({});
+  const [nodeScores, setNodeScores] = useState({});
   const [completedNodes, setCompletedNodes] = useState(new Set());
 
   const [showModal, setShowModal] = useState(false);
-  const [reward,    setReward]    = useState(null);
+  const [showIntro, setShowIntro] = useState(true);
+  const [reward, setReward] = useState(null);
   const [startTime] = useState(Date.now());
 
   useEffect(() => {
     setLoading(true);
     getLessonById(lessonId)
       .then(async r => {
-        const les = r.data.data.lesson;
+        const les = r.data?.data?.lesson;
+        if (!les) throw new Error('Lesson not found');
         setLesson(les);
         setNodes(les?.nodes || []);
         const topicId = les?.topic_id?._id || les?.topic_id;
@@ -84,7 +88,7 @@ export default function LessonPlayer() {
 
   const handleNodeComplete = useCallback((nodeIdx, { score = 0, answers = {} } = {}) => {
     setNodeAnswers(prev => ({ ...prev, [nodeIdx]: answers }));
-    setNodeScores(prev  => ({ ...prev, [nodeIdx]: score  }));
+    setNodeScores(prev => ({ ...prev, [nodeIdx]: score }));
     setCompletedNodes(prev => new Set([...prev, nodeIdx]));
   }, []);
 
@@ -93,17 +97,17 @@ export default function LessonPlayer() {
   const submitLesson = useCallback(async () => {
     setSubmitting(true);
     try {
-      const scores   = Object.values(nodeScores);
+      const scores = Object.values(nodeScores);
       const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 100;
-      const elapsed  = Math.round((Date.now() - startTime) / 1000);
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
       const res = await completeLesson(lessonId, {
-        score:          avgScore,
+        score: avgScore,
         completedNodes: [...completedNodes].map(String),
-        timeSpentSec:   elapsed,
+        timeSpentSec: elapsed,
       });
       setReward(res.data.data.reward);
       setShowModal(true);
-      
+
       // ✅ Trigger Dashboard refresh (Real-Time update)
       console.log('[LessonPlayer] Emitting dashboard refresh event');
       dashboardRefreshEmitter.emit();
@@ -112,7 +116,7 @@ export default function LessonPlayer() {
     } finally {
       setSubmitting(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId, nodeScores, completedNodes, startTime]);
 
   // ── Auto-submit when ALL nodes are completed (e.g. single-node lessons) ──
@@ -140,9 +144,9 @@ export default function LessonPlayer() {
   };
 
   // Next lesson in this topic
-  const myIdx      = topicLessons.findIndex(l => l._id === lessonId);
+  const myIdx = topicLessons.findIndex(l => l._id === lessonId);
   const nextLesson = myIdx >= 0 ? topicLessons[myIdx + 1] || null : null;
-  const topicId    = lesson?.topic_id?._id || lesson?.topic_id;
+  const topicId = lesson?.topic_id?._id || lesson?.topic_id;
   const progressPct = nodes.length ? Math.round((completedNodes.size / nodes.length) * 100) : 0;
 
   // ── Loading state
@@ -154,23 +158,48 @@ export default function LessonPlayer() {
     );
   }
 
-  if (!lesson || nodes.length === 0) {
+  if (showIntro) {
+    // Group nodes by type for stats
+    const typeCount = nodes.reduce((acc, n) => {
+      const type = (n.type || n.node_type || 'other').toLowerCase();
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    const introStats = Object.entries(typeCount).map(([type, count]) => {
+      const meta = getNodeMeta(type);
+      return {
+        icon: meta.icon,
+        label: meta.label,
+        sub: `Chứa ${count} hoạt động tương tác.`,
+        type: 'Thành phần'
+      };
+    }).slice(0, 4); // Show max 4 types
+
     return (
-      <div className={cn('min-h-screen flex items-center justify-center text-center px-6', t.page)}>
-        <div>
-          <div className="text-6xl mb-4">😶</div>
-          <p className={cn('font-bold mb-2 text-lg', t.text)}>Bài học chưa có nội dung</p>
-          <p className={cn('text-sm mb-6', t.sub)}>Admin chưa thêm hoạt động cho bài học này.</p>
-          <button onClick={() => navigate(-1)}
-            className="px-6 py-2.5 bg-[#6C5CE7] hover:opacity-90 text-white rounded-xl text-sm font-semibold transition-all">
-            ← Quay lại
-          </button>
+      <LearnLayout breadcrumbs={[
+        { label: 'Lộ trình', path: '/learn' },
+        { label: lesson?.title || 'Bài học' }
+      ]}>
+        <div className="py-10">
+          <LessonIntro
+            title={lesson?.title}
+            description={lesson?.description || lesson?.topic_id?.description}
+            level={lesson?.level || 'intermediate'}
+            type="lesson"
+            isDark={isDark}
+            theme={t}
+            stats={introStats}
+            onStart={() => setShowIntro(false)}
+            tip="Hoàn thành tất cả các hoạt động trong bài để nhận được tối đa EXP và Coins nhé!"
+          />
         </div>
-      </div>
+      </LearnLayout>
     );
   }
 
-  const node        = nodes[current];
+  const node = nodes[current];
+  if (!node) return null;
   const currentMeta = getNodeMeta(node.type || node.node_type || '');
 
   return (
@@ -352,9 +381,9 @@ export default function LessonPlayer() {
 
               <div className="space-y-1.5">
                 {nodes.map((n, i) => {
-                  const meta  = getNodeMeta(n.type || n.node_type || '');
+                  const meta = getNodeMeta(n.type || n.node_type || '');
                   const isDone = completedNodes.has(i);
-                  const isAct  = i === current;
+                  const isAct = i === current;
 
                   return (
                     <button
@@ -371,9 +400,9 @@ export default function LessonPlayer() {
                     >
                       <div className={cn(
                         'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
-                        isAct   ? 'bg-[#6C5CE7] text-white'
-                        : isDone ? 'bg-emerald-500 text-white'
-                        : isDark  ? 'bg-white/10 text-gray-400' : 'bg-gray-100 text-gray-500'
+                        isAct ? 'bg-[#6C5CE7] text-white'
+                          : isDone ? 'bg-emerald-500 text-white'
+                            : isDark ? 'bg-white/10 text-gray-400' : 'bg-gray-100 text-gray-500'
                       )}>
                         {isDone ? <FaCheckCircle /> : i + 1}
                       </div>
@@ -418,16 +447,16 @@ function NodeRenderer({ node, nodeIdx, isDone, onComplete, t, isDark }) {
   const type = (node.type || node.node_type || '').toLowerCase();
   const common = { node, nodeIdx, onComplete };
 
-  if (type.includes('read'))                              return <ReadingNode   {...common} />;
+  if (type.includes('read')) return <ReadingNode   {...common} />;
   if (type.includes('listen') || type.includes('audio')) return <ListeningNode {...common} />;
-  if (type.includes('vocab'))                             return <VocabNode     {...common} />;
+  if (type.includes('vocab')) return <VocabNode     {...common} />;
   if (type.includes('quiz') || type.includes('grammar')) return <QuizNode      {...common} />;
-  if (type.includes('writ') || type.includes('essay'))   return <WritingNode   {...common} />;
+  if (type.includes('writ') || type.includes('essay')) return <WritingNode   {...common} />;
 
   // Speaking / roleplay / ai_roleplay → fallback interactive card (auto-completes on click)
   const isSpeakType = type.includes('speak') || type.includes('role') || type.includes('ai_');
-  const cardLabel   = isSpeakType ? '🎙️ Luyện nói / Roleplay' : (node.type || 'Hoạt động');
-  const btnLabel    = isSpeakType ? '🎙️ Đã luyện tập xong ✓' : 'Đã xem ✓';
+  const cardLabel = isSpeakType ? '🎙️ Luyện nói / Roleplay' : (node.type || 'Hoạt động');
+  const btnLabel = isSpeakType ? '🎙️ Đã luyện tập xong ✓' : 'Đã xem ✓';
 
   return (
     <div className={cn('rounded-2xl border p-6', t.border, t.card)}>
@@ -438,9 +467,9 @@ function NodeRenderer({ node, nodeIdx, isDone, onComplete, t, isDark }) {
         {cardLabel}
       </span>
       <h2 className={cn('text-xl font-bold mb-3', t.text)}>{node.title || 'Nội dung bài học'}</h2>
-      {node.data?.content  && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.content}</p>}
-      {node.data?.text     && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.text}</p>}
-      {node.data?.prompt   && (
+      {node.data?.content && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.content}</p>}
+      {node.data?.text && <p className={cn('leading-relaxed whitespace-pre-wrap mb-4', t.sub)}>{node.data.text}</p>}
+      {node.data?.prompt && (
         <div className={cn('rounded-xl border p-4 mb-4 text-sm leading-relaxed', isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-indigo-50 border-indigo-100 text-slate-700')}>
           <p className={cn('text-xs font-bold uppercase tracking-wide mb-2', isDark ? 'text-indigo-300' : 'text-indigo-500')}>Chủ đề</p>
           {node.data.prompt}
@@ -449,13 +478,13 @@ function NodeRenderer({ node, nodeIdx, isDone, onComplete, t, isDark }) {
       {node.data?.videoUrl && <video controls src={node.data.videoUrl} className="w-full mt-2 rounded-xl mb-4" />}
       {isDone
         ? <div className="flex items-center gap-2 text-emerald-500 font-semibold text-sm">
-            <FaCheckCircle /> Đã hoàn thành
-          </div>
+          <FaCheckCircle /> Đã hoàn thành
+        </div>
         : <button
-            onClick={() => onComplete(nodeIdx, { score: 100 })}
-            className="mt-2 px-6 py-2.5 bg-[#6C5CE7] hover:opacity-90 text-white rounded-xl font-bold text-sm transition-all">
-            {btnLabel}
-          </button>
+          onClick={() => onComplete(nodeIdx, { score: 100 })}
+          className="mt-2 px-6 py-2.5 bg-[#6C5CE7] hover:opacity-90 text-white rounded-xl font-bold text-sm transition-all">
+          {btnLabel}
+        </button>
       }
     </div>
   );

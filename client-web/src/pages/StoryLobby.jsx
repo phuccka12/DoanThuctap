@@ -350,16 +350,7 @@ export default function StoryLobby() {
   const totalPages = Math.ceil(total / LIMIT);
 
   const handleStart = (story) => {
-    const completed  = story.completedParts || 0;
-    const total_parts = story.total_parts || 1;
-    if (completed >= total_parts) {
-      // Already finished — show summary modal instead of navigating
-      setModalStory(story);
-      return;
-    }
-    const nextPart = completed + 1;
-    const partNum  = Math.min(nextPart, total_parts);
-    navigate(`/stories/${story._id}/parts/${partNum}`);
+    navigate(`/stories/${story._id}`);
   };
 
   const handleReplayFromModal = () => {

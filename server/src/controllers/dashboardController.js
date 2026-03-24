@@ -9,19 +9,26 @@ const Lesson = require('../models/Lesson');
 const Topic = require('../models/Topic');
 
 // Helper to get start and end of today
+// Helper to get start and end of today (Local Time)
 const getTodayRange = () => {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date();
   end.setHours(23, 59, 59, 999);
-  return { start, end };
+
+  // For matching database keys (YYYY-MM-DD in local context)
+  const dateStr = start.getFullYear() + '-' +
+    String(start.getMonth() + 1).padStart(2, '0') + '-' +
+    String(start.getDate()).padStart(2, '0');
+
+  return { start, end, dateStr };
 };
 
 // Get today's practice tasks with Smart Navigation (Daily Quests + Recommended Lessons)
 exports.getTodayTasks = async (req, res) => {
   try {
     const userId = req.userId;
-    const { start, end } = getTodayRange();
+    const { start, end, dateStr } = getTodayRange();
     const UserPlan = require('../models/UserPlan');
 
     // ─── 1. PROGRESS STATS ────────────────────────────────────────────────────
@@ -33,7 +40,7 @@ exports.getTodayTasks = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const coinsToday = coinsAgg[0]?.total || 0;
-    
+
     const lessonTimeAgg = await LessonProgress.aggregate([
       { $match: { userId: new mongoose.Types.ObjectId(userId), completedAt: { $gte: start, $lte: end } } },
       { $group: { _id: null, totalSeconds: { $sum: '$timeSpentSec' } } }
@@ -45,14 +52,13 @@ exports.getTodayTasks = async (req, res) => {
 
     // Inclusion of Heartbeat time from Pet model
     const pet = await Pet.findOne({ user: userId }).lean();
-    const todayStr = start.toISOString().split('T')[0];
-    const heartbeatSec = (pet && pet.studyTimeDate === todayStr) ? (pet.studyTimeToday || 0) : 0;
+    const heartbeatSec = (pet && pet.studyTimeDate === dateStr) ? (pet.studyTimeToday || 0) : 0;
 
     const timeSpentSecToday = (lessonTimeAgg[0]?.totalSeconds || 0) + (writingTimeAgg[0]?.totalSeconds || 0) + heartbeatSec;
 
     // ─── 2. AI PLAN TASKS ─────────────────────────────────────────────────────
     const now = new Date();
-    let dayIndex = now.getDay(); 
+    let dayIndex = now.getDay();
     dayIndex = (dayIndex === 0 ? 6 : dayIndex - 1); // 0=Mon...6=Sun
 
     const activePlan = await UserPlan.findOne({ userId, status: 'active' }).lean();
@@ -161,11 +167,11 @@ exports.getTodayTasks = async (req, res) => {
     // Quests Pool
     const listeningTodayCount = await LessonProgress.countDocuments({ userId, completedAt: { $gte: start, $lte: end }, passageType: 'listening' });
     const speakingTodayCount = await LessonProgress.countDocuments({ userId, completedAt: { $gte: start, $lte: end }, speakingId: { $ne: null } });
-    
+
     const questPool = [
       { id: 'q1', type: 'lesson', title: 'Hoàn thành 1 bài học', target: 1, current: lessonsTodayCount, url: '/learn' },
       { id: 'q2', type: 'coins', title: 'Tích luỹ 50 Coins', target: 50, current: coinsToday, url: '/learn' },
-      { id: 'q3', type: 'time', title: '15 phút chuyên cần', target: 15, current: Math.floor(timeSpentSecToday/60), url: '/learn' },
+      { id: 'q3', type: 'time', title: '15 phút chuyên cần', target: 15, current: Math.floor(timeSpentSecToday / 60), url: '/learn' },
       { id: 'q4', type: 'listening', title: 'Luyện Tai Siêu Đẳng', target: 1, current: listeningTodayCount, url: '/ai-listening' },
       { id: 'q5', type: 'speaking', title: 'Luyện Giọng Bản Xứ', target: 1, current: speakingTodayCount, url: '/speaking-practice' }
     ];
@@ -184,8 +190,8 @@ exports.getTodayTasks = async (req, res) => {
       });
     });
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       tasks,
       summary: {
         lessonsCompletedToday: lessonsTodayCount,
@@ -230,7 +236,10 @@ exports.getTimeSpent = async (req, res) => {
 
     // 3. Process LessonProgress
     lProgs.forEach(lp => {
-      const dateKey = lp.completedAt.toISOString().split('T')[0];
+      const dt = lp.completedAt || lp.updatedAt || new Date();
+      const dateKey = dt.getFullYear() + '-' +
+        String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+        String(dt.getDate()).padStart(2, '0');
       if (!statsByDay[dateKey]) statsByDay[dateKey] = 0;
       statsByDay[dateKey] += (lp.timeSpentSec || 0);
 
@@ -251,7 +260,10 @@ exports.getTimeSpent = async (req, res) => {
 
     // 4. Process Writing
     wProgs.forEach(wp => {
-      const dateKey = wp.updatedAt.toISOString().split('T')[0];
+      const dt = wp.updatedAt || wp.createdAt || new Date();
+      const dateKey = dt.getFullYear() + '-' +
+        String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+        String(dt.getDate()).padStart(2, '0');
       if (!statsByDay[dateKey]) statsByDay[dateKey] = 0;
       statsByDay[dateKey] += (wp.timeSpentSec || 0);
       skillBreakdown.writing += (wp.timeSpentSec || 0);
@@ -265,36 +277,50 @@ exports.getTimeSpent = async (req, res) => {
       }
     }
 
-    // 6. Format heatmap
+    // 6. Format heatmap (Alinged to Monday - Sunday)
+    const now = new Date();
+    const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Mon...6=Sun
+
+    // Find Monday of the current week
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - dayOfWeek);
+
     const activityHeatmap = [];
-    for (let i = 0; i < days; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const key = d.toISOString().split('T')[0];
-        activityHeatmap.push({
-            day: dayNames[d.getDay()],
-            minutes: Math.round((statsByDay[key] || 0) / 60)
-        });
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(d.getDate() + i);
+      const key = d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+      activityHeatmap.push({
+        day: dayNames[i],
+        minutes: Math.round((statsByDay[key] || 0) / 60)
+      });
     }
 
     // 7. Format breakdown (Frontend compatible)
     const breakdown = [
-      { label: 'Writing',      value: Math.round(skillBreakdown.writing / 60), color: '#6366F1' },
-      { label: 'Speaking',     value: Math.round(skillBreakdown.speaking / 60), color: '#8B5CF6' },
-      { label: 'Reading',      value: Math.round(skillBreakdown.reading / 60), color: '#06B6D4' },
-      { label: 'Listening',     value: Math.round(skillBreakdown.listening / 60), color: '#3B82F6' },
-      { label: 'Lessons',       value: Math.round(skillBreakdown.lessons / 60), color: '#10B981' },
-      { label: 'Translation',   value: Math.round(skillBreakdown.translation / 60), color: '#F59E0B' },
-      { label: 'Vocabulary',    value: totalVocab, color: '#EC4899', isCount: true }
+      { label: 'Writing', value: Math.round(skillBreakdown.writing / 60), color: '#6366F1' },
+      { label: 'Speaking', value: Math.round(skillBreakdown.speaking / 60), color: '#8B5CF6' },
+      { label: 'Reading', value: Math.round(skillBreakdown.reading / 60), color: '#06B6D4' },
+      { label: 'Listening', value: Math.round(skillBreakdown.listening / 60), color: '#3B82F6' },
+      { label: 'Lessons', value: Math.round(skillBreakdown.lessons / 60), color: '#10B981' },
+      { label: 'Translation', value: Math.round(skillBreakdown.translation / 60), color: '#F59E0B' },
+      { label: 'Vocabulary', value: totalVocab, color: '#EC4899', isCount: true }
     ];
+
+    // Total only for this current week (from Monday)
+    const weeklyTotal = activityHeatmap.reduce((acc, curr) => acc + curr.minutes, 0);
 
     res.json({
       success: true,
       data: {
-        total: Math.round(Object.values(statsByDay).reduce((a, b) => a + b, 0) / 60),
+        total: weeklyTotal,
         breakdown,
-        activityHeatmap: activityHeatmap.reverse()
+        activityHeatmap
       }
     });
   } catch (error) {
@@ -310,26 +336,26 @@ exports.getLatestScores = async (req, res) => {
     const userId = req.userId;
 
     // Fetch latest completed lessons from DB
-    const recentProgress = await LessonProgress.find({ 
-      userId, 
+    const recentProgress = await LessonProgress.find({
+      userId,
       score: { $gt: 0 } // Only show results where they actually scored something
     })
-    .sort({ updated_at: -1 })
-    .limit(parseInt(limit))
-    .populate({
-      path: 'lessonId',
-      select: 'title type',
-      populate: {
-        path: 'topic_id',
-        select: 'name'
-      }
-    });
+      .sort({ updated_at: -1 })
+      .limit(parseInt(limit))
+      .populate({
+        path: 'lessonId',
+        select: 'title type',
+        populate: {
+          path: 'topic_id',
+          select: 'name'
+        }
+      });
 
     const scores = recentProgress.map((prog, index) => {
       // Determine type based on lesson or fallback to 'Practice'
       let type = 'Practice';
       let title = 'Bài tập tổng hợp';
-      
+
       if (prog.lessonId) {
         title = prog.lessonId.title;
         // Guess type from title or topic if not explicitly set
@@ -377,10 +403,10 @@ exports.getReminders = async (req, res) => {
   try {
     const userId = req.userId;
     const user = await User.findById(userId).select('learning_preferences gamification_data');
-    
+
     // Tạo nhắc nhở dựa trên user data
     const streak = user?.gamification_data?.streak || 0;
-    
+
     const reminders = [
       {
         id: 1,
@@ -415,7 +441,7 @@ exports.getUserGoals = async (req, res) => {
     // Lấy thông tin đầu vào và mục tiêu thực tế của User
     const currentBand = user?.current_band || 4.0;
     const targetBand = user?.learning_preferences?.target_band || 6.5;
-    
+
     // Tính toán % tiến trình (giả lập dựa trên mốc band điểm)
     let percent = 0;
     if (targetBand > currentBand) {
@@ -461,24 +487,19 @@ exports.getDashboardData = async (req, res) => {
   }
 };
 
-// ─── HEARTBEAT (Real-time study time tracking) ──────────────────────────────
 exports.heartbeat = async (req, res) => {
   try {
     const userId = req.userId;
-    const now = new Date();
-    // Use ISO string but convert to YYYY-MM-DD in local-date context if possible, 
-    // but here we use a simple approach for consistency with getTodayTasks helper.
-    const start = new Date();
-    start.setHours(0,0,0,0);
-    const todayStr = start.toISOString().split('T')[0];
+    // ─── HEARTBEAT ───
+    const { dateStr } = getTodayRange();
 
     // Increment 60 seconds (default heartbeat interval)
     const pet = await Pet.findOne({ user: userId });
     if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
 
-    if (pet.studyTimeDate !== todayStr) {
+    if (pet.studyTimeDate !== dateStr) {
       pet.studyTimeToday = 60;
-      pet.studyTimeDate = todayStr;
+      pet.studyTimeDate = dateStr;
     } else {
       pet.studyTimeToday += 60;
     }

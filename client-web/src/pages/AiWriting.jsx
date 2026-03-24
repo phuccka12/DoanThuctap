@@ -158,7 +158,7 @@ const AiWriting = () => {
         >
           {text}
         </span>
-        
+
         {hover && ReactDOM.createPortal(
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: coords.top < 300 ? -10 : 10 }}
@@ -180,7 +180,7 @@ const AiWriting = () => {
                   {h.category === 'grammar' ? 'Lỗi ngữ pháp' : h.category === 'vocab' ? 'Gợi ý từ vựng' : 'Lỗi logic'}
                 </span>
               </div>
-              
+
               <p className="text-[13px] text-white/95 font-medium leading-[1.6] mb-4">
                 {h.explanation}
               </p>
@@ -194,11 +194,10 @@ const AiWriting = () => {
                   <span className="text-[13px] text-emerald-200 font-bold leading-relaxed">{h.suggestion}</span>
                 </div>
               )}
-              
+
               {/* Mũi tên - Tự động đổi hướng dựa trên vị trí */}
-              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 ${
-                coords.top < 300 ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
-              }`} />
+              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 ${coords.top < 300 ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
+                }`} />
             </div>
           </motion.div>,
           document.body

@@ -439,7 +439,7 @@ function TopicCard({ topic, onClick, t, isDark }) {
 function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, navigate, t, isDark }) {
   // topic-based plan: navigate to topic page; fallback to lesson for legacy plans
   const itemType = item.itemType || (topic ? 'topic' : 'lesson');
-  
+
   let dest = null;
   switch (itemType) {
     case 'topic': dest = `/learn/topics/${item.itemId || (topic ? topic._id : '')}`; break;
@@ -455,7 +455,7 @@ function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, n
 
   const hasContent = !!(topic || lesson || item.content || item.itemId);
   const title = topic ? topic.name : lesson ? lesson.title : (item.content?.title || item.content?.name || item.content?.word || item.content?.question_text || item.content?.prompt || 'Bài học AI');
-  
+
   const subtitle = topic
     ? (topic.level ? `📊 ${topic.level}` : null)
     : lesson?.duration ? `⏱ ${lesson.duration}ph` : (itemType !== 'topic' ? `✨ Luyện ${itemType}` : null);

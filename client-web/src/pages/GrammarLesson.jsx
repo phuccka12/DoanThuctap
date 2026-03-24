@@ -12,6 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
 import LearnLayout from '../components/learn/LearnLayout';
+import LessonIntro from '../components/shared/LessonIntro';
 import { getGrammarLesson, completeGrammarLesson } from '../services/learningService';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -24,12 +25,12 @@ import LoadingCat from '../components/shared/LoadingCat';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-const STAGE = { HOOK: 1, THEORY: 2, ARENA: 3, GLORY: 4 };
+const STAGE = { INTRO: 0, HOOK: 1, THEORY: 2, ARENA: 3, GLORY: 4 };
 
 const LEVEL_COLOR = {
-  beginner:     'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+  beginner: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
   intermediate: 'text-amber-400   bg-amber-500/15   border-amber-500/30',
-  advanced:     'text-rose-400    bg-rose-500/15    border-rose-500/30',
+  advanced: 'text-rose-400    bg-rose-500/15    border-rose-500/30',
 };
 const LEVEL_LABEL = { beginner: 'Sơ cấp', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
 
@@ -38,6 +39,7 @@ const MAX_HP = 5;
 // ── Progress bar at top ──────────────────────────────────────────────────────
 function StageBar({ stage, isDark }) {
   const stages = [
+    { num: 0, icon: '👋', label: 'Chào mừng' },
     { num: 1, icon: '🎣', label: 'Mồi nhử' },
     { num: 2, icon: '📖', label: 'Khai sáng' },
     { num: 3, icon: '⚔️', label: 'Đấu trường' },
@@ -49,7 +51,7 @@ function StageBar({ stage, isDark }) {
       <div className={cn('absolute top-4 left-0 right-0 h-0.5', isDark ? 'bg-white/10' : 'bg-slate-200')} />
       <div
         className="absolute top-4 left-0 h-0.5 bg-purple-500 transition-all duration-500"
-        style={{ width: `${((stage - 1) / 3) * 100}%` }}
+        style={{ width: `${(stage / 4) * 100}%` }}
       />
       {stages.map(s => (
         <div key={s.num} className="relative z-10 flex flex-col items-center gap-1">
@@ -95,9 +97,9 @@ function HpBar({ hp, isDark }) {
 
 /** Single question card — state is fully fresh each time key changes */
 function HookQuestion({ q, qIdx, total, isDark, t, onNext, isLast }) {
-  const [chosen,   setChosen]   = useState(null);
-  const [revealed, setReveal]   = useState(false);
-  const [going,    setGoing]    = useState(false); // prevent double-click
+  const [chosen, setChosen] = useState(null);
+  const [revealed, setReveal] = useState(false);
+  const [going, setGoing] = useState(false); // prevent double-click
 
   const pick = (opt) => {
     if (revealed) return;
@@ -160,8 +162,8 @@ function HookQuestion({ q, qIdx, total, isDark, t, onNext, isLast }) {
               >
                 <span className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold shrink-0',
                   revealed && opt === q.correct ? 'bg-emerald-500 text-white' :
-                  revealed && opt === chosen     ? 'bg-rose-500 text-white' :
-                  isDark ? 'bg-white/10' : 'bg-slate-200'
+                    revealed && opt === chosen ? 'bg-rose-500 text-white' :
+                      isDark ? 'bg-white/10' : 'bg-slate-200'
                 )}>{opt}</span>
                 <span className="flex-1">{text}</span>
                 {revealed && opt === q.correct && <FaCheck className="text-emerald-400 shrink-0" />}
@@ -204,7 +206,7 @@ function HookQuestion({ q, qIdx, total, isDark, t, onNext, isLast }) {
 
 function StageHook({ lesson, isDark, t, onComplete }) {
   const questions = lesson.hook?.questions || [];
-  const [qIdx,    setQIdx]    = useState(0);
+  const [qIdx, setQIdx] = useState(0);
   // Use ref so handleNext always reads latest answers without stale closure
   const answersRef = useRef([]);
 
@@ -223,12 +225,12 @@ function StageHook({ lesson, isDark, t, onComplete }) {
     );
   }
 
-  const q      = questions[qIdx];
+  const q = questions[qIdx];
   const isLast = qIdx === questions.length - 1;
 
   // Called by HookQuestion when user taps next — always uses latest ref values
   const handleNext = (chosen) => {
-    const record     = { q: q.text, chosen, correct: q.correct, isRight: chosen === q.correct };
+    const record = { q: q.text, chosen, correct: q.correct, isRight: chosen === q.correct };
     const newAnswers = [...answersRef.current, record];
     answersRef.current = newAnswers;
 
@@ -258,7 +260,7 @@ function StageHook({ lesson, isDark, t, onComplete }) {
 // STAGE 2 — Theory Cards
 // ─────────────────────────────────────────────────────────────────────────────
 function StageTheory({ lesson, isDark, t, onComplete }) {
-  const theory   = lesson.theory || {};
+  const theory = lesson.theory || {};
   const subCards = theory.subCards || [];
   const [cardIdx, setCardIdx] = useState(-1); // -1 = main card
 
@@ -399,8 +401,8 @@ function MultipleChoice({ mg, onAnswer }) {
             >
               <span className={cn('w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0',
                 locked && idx === mg.correct ? 'bg-emerald-500 text-white' :
-                locked && idx === chosen ? 'bg-rose-500 text-white' :
-                isDark ? 'bg-white/10' : 'bg-slate-200'
+                  locked && idx === chosen ? 'bg-rose-500 text-white' :
+                    isDark ? 'bg-white/10' : 'bg-slate-200'
               )}>{String.fromCharCode(65 + idx)}</span>
               {opt}
               {locked && idx === mg.correct && <FaCheck className="ml-auto text-emerald-400" size={12} />}
@@ -415,8 +417,8 @@ function MultipleChoice({ mg, onAnswer }) {
 
 function ErrorDetection({ mg, onAnswer }) {
   const [revealed, setReveal] = useState(false);
-  const [input,    setInput]  = useState('');
-  const [checked,  setChecked] = useState(false);
+  const [input, setInput] = useState('');
+  const [checked, setChecked] = useState(false);
   const { isDark } = useTheme();
   const t = isDark ? darkTheme : theme;
 
@@ -435,10 +437,10 @@ function ErrorDetection({ mg, onAnswer }) {
       <div className={cn('rounded-xl border p-4 text-sm leading-relaxed', isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')}>
         {parts.length > 1
           ? parts.map((p, i) =>
-              p.toLowerCase() === mg.errorWord?.toLowerCase()
-                ? <span key={i} className="bg-rose-500/30 text-rose-300 border-b-2 border-rose-500 px-0.5">{p}</span>
-                : <span key={i} className={t.text}>{p}</span>
-            )
+            p.toLowerCase() === mg.errorWord?.toLowerCase()
+              ? <span key={i} className="bg-rose-500/30 text-rose-300 border-b-2 border-rose-500 px-0.5">{p}</span>
+              : <span key={i} className={t.text}>{p}</span>
+          )
           : <span className={t.text}>{mg.sentence}</span>
         }
       </div>
@@ -478,8 +480,8 @@ function ErrorDetection({ mg, onAnswer }) {
 }
 
 function WordOrder({ mg, onAnswer }) {
-  const [words,   setWords]   = useState(() => [...(mg.words || [])].sort(() => Math.random() - 0.5));
-  const [placed,  setPlaced]  = useState([]);
+  const [words, setWords] = useState(() => [...(mg.words || [])].sort(() => Math.random() - 0.5));
+  const [placed, setPlaced] = useState([]);
   const [checked, setChecked] = useState(false);
   const [isRight, setIsRight] = useState(false);
   const { isDark } = useTheme();
@@ -499,7 +501,7 @@ function WordOrder({ mg, onAnswer }) {
 
   const check = () => {
     const formed = placed.join(' ');
-    const right  = formed.toLowerCase().trim() === (mg.correct || '').toLowerCase().trim();
+    const right = formed.toLowerCase().trim() === (mg.correct || '').toLowerCase().trim();
     setIsRight(right);
     setChecked(true);
     setTimeout(() => onAnswer(right, { formed, correct: mg.correct }), 1000);
@@ -588,11 +590,11 @@ function WordOrder({ mg, onAnswer }) {
 
 function StageArena({ lesson, isDark, t, onComplete }) {
   const minigames = lesson.minigames || [];
-  const [mgIdx,    setMgIdx]   = useState(0);
-  const [hp,       setHp]      = useState(MAX_HP);
-  const [results,  setResults] = useState([]);
+  const [mgIdx, setMgIdx] = useState(0);
+  const [hp, setHp] = useState(MAX_HP);
+  const [results, setResults] = useState([]);
   const [feedback, setFeedback] = useState(null); // { right: bool } | null
-  const [waiting,  setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState(false);
 
   if (minigames.length === 0) {
     return (
@@ -608,11 +610,11 @@ function StageArena({ lesson, isDark, t, onComplete }) {
     );
   }
 
-  const mg     = minigames[mgIdx];
+  const mg = minigames[mgIdx];
   const isLast = mgIdx === minigames.length - 1;
 
   const handleAnswer = (isRight, detail) => {
-    const newHp      = isRight ? hp : Math.max(0, hp - 1);
+    const newHp = isRight ? hp : Math.max(0, hp - 1);
     const newResults = [...results, { mg, isRight, detail }];
     setHp(newHp);
     setResults(newResults);
@@ -633,7 +635,7 @@ function StageArena({ lesson, isDark, t, onComplete }) {
   const gameType = {
     multiple_choice: 'Trắc nghiệm',
     error_detection: 'Tìm lỗi sai',
-    word_order:      'Sắp xếp câu',
+    word_order: 'Sắp xếp câu',
   }[mg.type] || mg.type;
 
   return (
@@ -661,7 +663,7 @@ function StageArena({ lesson, isDark, t, onComplete }) {
       <div className={cn('rounded-2xl border p-6', isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm')}>
         {mg.type === 'multiple_choice' && <MultipleChoice key={mgIdx} mg={mg} onAnswer={handleAnswer} />}
         {mg.type === 'error_detection' && <ErrorDetection key={mgIdx} mg={mg} onAnswer={handleAnswer} />}
-        {mg.type === 'word_order'      && <WordOrder      key={mgIdx} mg={mg} onAnswer={handleAnswer} />}
+        {mg.type === 'word_order' && <WordOrder key={mgIdx} mg={mg} onAnswer={handleAnswer} />}
       </div>
 
       {/* Feedback overlay */}
@@ -701,16 +703,16 @@ function StageGlory({ lesson, hookAnswers, arenaResult, isDark, t, onReplay, onB
   const { results = [], hp = MAX_HP } = arenaResult || {};
 
   const totalGames = results.length;
-  const correct    = results.filter(r => r.isRight).length;
-  const wrong      = totalGames - correct;
-  const pct        = totalGames ? Math.round((correct / totalGames) * 100) : 100;
-  const isPerfect  = pct === 100 && totalGames > 0;
+  const correct = results.filter(r => r.isRight).length;
+  const wrong = totalGames - correct;
+  const pct = totalGames ? Math.round((correct / totalGames) * 100) : 100;
+  const isPerfect = pct === 100 && totalGames > 0;
 
-  const exp   = correct * 10 + (isPerfect ? 20 : 0);
-  const coins = correct * 5  + (isPerfect ? 15 : 0);
+  const exp = correct * 10 + (isPerfect ? 20 : 0);
+  const coins = correct * 5 + (isPerfect ? 15 : 0);
 
   const emoji = pct >= 100 ? '🏆' : pct >= 70 ? '⭐' : pct >= 40 ? '👍' : '💪';
-  const msg   = pct >= 100 ? 'Hoàn hảo tuyệt đối!' : pct >= 70 ? 'Làm tốt lắm!' : pct >= 40 ? 'Đang tiến bộ!' : 'Cần luyện thêm!';
+  const msg = pct >= 100 ? 'Hoàn hảo tuyệt đối!' : pct >= 70 ? 'Làm tốt lắm!' : pct >= 40 ? 'Đang tiến bộ!' : 'Cần luyện thêm!';
 
   const wrongItems = results.filter(r => !r.isRight);
 
@@ -724,7 +726,7 @@ function StageGlory({ lesson, hookAnswers, arenaResult, isDark, t, onReplay, onB
           : isDark ? 'bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border-purple-500/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'
       )}>
         {isPerfect && <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {['🎉','✨','🌟','💫','⭐'].map((e, i) => (
+          {['🎉', '✨', '🌟', '💫', '⭐'].map((e, i) => (
             <span key={i} className="absolute text-xl animate-bounce" style={{ left: `${15 + i * 18}%`, top: `${10 + (i % 2) * 30}%`, animationDelay: `${i * 0.15}s` }}>{e}</span>
           ))}
         </div>}
@@ -743,9 +745,9 @@ function StageGlory({ lesson, hookAnswers, arenaResult, isDark, t, onReplay, onB
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Độ chính xác', value: `${pct}%`, icon: FaStar,   color: 'text-yellow-400', bg: isDark ? 'bg-yellow-500/10' : 'bg-yellow-50' },
-          { label: 'EXP nhận được', value: `+${exp}`, icon: FaBolt,   color: 'text-purple-400', bg: isDark ? 'bg-purple-500/10' : 'bg-purple-50' },
-          { label: 'Coins nhận được', value: `+${coins}`,icon: FaCoins, color: 'text-amber-400', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
+          { label: 'Độ chính xác', value: `${pct}%`, icon: FaStar, color: 'text-yellow-400', bg: isDark ? 'bg-yellow-500/10' : 'bg-yellow-50' },
+          { label: 'EXP nhận được', value: `+${exp}`, icon: FaBolt, color: 'text-purple-400', bg: isDark ? 'bg-purple-500/10' : 'bg-purple-50' },
+          { label: 'Coins nhận được', value: `+${coins}`, icon: FaCoins, color: 'text-amber-400', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
         ].map(s => (
           <div key={s.label} className={cn('rounded-xl p-4 text-center', s.bg, isDark ? 'border border-white/10' : 'border border-slate-100')}>
             <s.icon className={cn('text-xl mx-auto mb-1.5', s.color)} />
@@ -824,16 +826,16 @@ function StageGlory({ lesson, hookAnswers, arenaResult, isDark, t, onReplay, onB
 // MAIN: GrammarLesson
 // ─────────────────────────────────────────────────────────────────────────────
 export default function GrammarLesson() {
-  const { id }      = useParams();
-  const navigate    = useNavigate();
-  const { isDark }  = useTheme();
-  const t           = isDark ? darkTheme : theme;
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const t = isDark ? darkTheme : theme;
 
-  const [lesson,    setLesson]    = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [stage,     setStage]     = useState(STAGE.HOOK);
-  const [hookAns,   setHookAns]   = useState([]);
-  const [arenaRes,  setArenaRes]  = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [stage, setStage] = useState(STAGE.INTRO);
+  const [hookAns, setHookAns] = useState([]);
+  const [arenaRes, setArenaRes] = useState(null);
   const [submittedComplete, setSubmittedComplete] = useState(false);
 
   useEffect(() => {
@@ -890,27 +892,47 @@ export default function GrammarLesson() {
       { label: lesson.title },
     ]}>
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Lesson header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold border', lmColor)}>{lmLabel}</span>
+        {/* Lesson header - Hidden during intro to avoid double titles */}
+        {stage > STAGE.INTRO && (
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold border', lmColor)}>{lmLabel}</span>
+              </div>
+              <h1 className={cn('text-xl font-bold', t.text)}>{lesson.title}</h1>
+              {lesson.description && <p className={cn('text-sm mt-0.5', t.sub)}>{lesson.description}</p>}
             </div>
-            <h1 className={cn('text-xl font-bold', t.text)}>{lesson.title}</h1>
-            {lesson.description && <p className={cn('text-sm mt-0.5', t.sub)}>{lesson.description}</p>}
+            <button
+              onClick={() => navigate('/grammar')}
+              className={cn('p-2 rounded-xl border shrink-0 transition-colors', isDark ? 'border-white/10 text-gray-400 hover:border-white/20 hover:text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300')}
+            >
+              <FaTimes size={14} />
+            </button>
           </div>
-          <button
-            onClick={() => navigate('/grammar')}
-            className={cn('p-2 rounded-xl border shrink-0 transition-colors', isDark ? 'border-white/10 text-gray-400 hover:border-white/20 hover:text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300')}
-          >
-            <FaTimes size={14} />
-          </button>
-        </div>
+        )}
 
-        {/* Stage progress bar */}
-        <StageBar stage={stage} isDark={isDark} />
+        {/* Stage progress bar - Hidden during intro */}
+        {stage > STAGE.INTRO && <StageBar stage={stage} isDark={isDark} />}
 
         {/* Stage content */}
+        {stage === STAGE.INTRO && (
+          <LessonIntro
+            title={lesson.title}
+            description={lesson.description}
+            level={lesson.level}
+            type="grammar"
+            isDark={isDark}
+            theme={t}
+            onStart={() => setStage(STAGE.HOOK)}
+            stats={[
+              { icon: '🎣', label: 'Mồi nhử', sub: `Khởi động với ${lesson.hook?.questions?.length || 0} câu hỏi mồi thực tế.`, type: 'Giai đoạn 1' },
+              { icon: '📖', label: 'Khai sáng', sub: `Hệ thống hóa kiến thức với ${1 + (lesson.theory?.subCards?.length || 0)} thẻ lý thuyết.`, type: 'Giai đoạn 2' },
+              { icon: '⚔️', label: 'Đấu trường', sub: `Thử thách bản thân qua chuỗi mini-games tính điểm EXP.`, type: 'Giai đoạn 3' },
+            ]}
+            tip="Giai đoạn mồi nhử giúp bạn làm quen với ngữ cảnh. Đừng lo lắng nếu chọn sai nhé, bạn sẽ được giải thích ở phần sau!"
+          />
+        )}
+
         {stage === STAGE.HOOK && (
           <StageHook
             lesson={lesson}

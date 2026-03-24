@@ -25,26 +25,26 @@ function getTopicIcon(icon_name) {
 }
 
 const SKILL_META = {
-  reading:    { icon: '📖', label: 'Đọc',      color: 'text-blue-400',    bg: 'bg-blue-500/15    border-blue-400/30'    },
-  listening:  { icon: '🎧', label: 'Nghe',     color: 'text-purple-400',  bg: 'bg-purple-500/15  border-purple-400/30'  },
-  vocabulary: { icon: '📝', label: 'Từ vựng',  color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-400/30' },
-  writing:    { icon: '✍️',  label: 'Viết',     color: 'text-yellow-400',  bg: 'bg-yellow-500/15  border-yellow-400/30'  },
-  speaking:   { icon: '🎙️', label: 'Nói',      color: 'text-rose-400',    bg: 'bg-rose-500/15    border-rose-400/30'    },
-  quiz:       { icon: '🧩', label: 'Quiz',     color: 'text-orange-400',  bg: 'bg-orange-500/15  border-orange-400/30'  },
-  video:      { icon: '🎬', label: 'Video',    color: 'text-sky-400',     bg: 'bg-sky-500/15     border-sky-400/30'     },
-  general:    { icon: '📚', label: 'Học',      color: 'text-gray-400',    bg: 'bg-gray-500/10    border-gray-400/20'    },
+  reading: { icon: '📖', label: 'Đọc', color: 'text-blue-400', bg: 'bg-blue-500/15    border-blue-400/30' },
+  listening: { icon: '🎧', label: 'Nghe', color: 'text-purple-400', bg: 'bg-purple-500/15  border-purple-400/30' },
+  vocabulary: { icon: '📝', label: 'Từ vựng', color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-400/30' },
+  writing: { icon: '✍️', label: 'Viết', color: 'text-yellow-400', bg: 'bg-yellow-500/15  border-yellow-400/30' },
+  speaking: { icon: '🎙️', label: 'Nói', color: 'text-rose-400', bg: 'bg-rose-500/15    border-rose-400/30' },
+  quiz: { icon: '🧩', label: 'Quiz', color: 'text-orange-400', bg: 'bg-orange-500/15  border-orange-400/30' },
+  video: { icon: '🎬', label: 'Video', color: 'text-sky-400', bg: 'bg-sky-500/15     border-sky-400/30' },
+  general: { icon: '📚', label: 'Học', color: 'text-gray-400', bg: 'bg-gray-500/10    border-gray-400/20' },
 };
 
 export default function TopicDetail() {
   const { topicId } = useParams();
-  const navigate    = useNavigate();
-  const location    = useLocation();
-  const { isDark }  = useTheme();
-  const t           = isDark ? darkTheme : theme;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isDark } = useTheme();
+  const t = isDark ? darkTheme : theme;
 
-  const [topic,      setTopic]      = useState(null);
-  const [lessons,    setLessons]    = useState([]);
-  const [loading,    setLoading]    = useState(true);
+  const [topic, setTopic] = useState(null);
+  const [lessons, setLessons] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Khi quay về từ LessonPlayer sau khi hoàn thành, refetch để cập nhật progress
@@ -78,8 +78,8 @@ export default function TopicDetail() {
   }
 
   const completedCount = lessons.filter(l => l.isCompleted).length;
-  const totalCount     = lessons.length;
-  const progressPct    = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+  const totalCount = lessons.length;
+  const progressPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const breadcrumbs = [
     { label: 'Chủ đề', to: '/learn' },
@@ -89,91 +89,45 @@ export default function TopicDetail() {
   return (
     <LearnLayout breadcrumbs={breadcrumbs}>
 
-      {/* ── Topic Hero ── */}
-      <div className={cn('relative overflow-hidden rounded-3xl border mb-6 shadow-lg', t.border)}>
-        {/* Cover */}
-        <div className="relative h-52 overflow-hidden">
-          {topic?.cover_image
-            ? <img src={topic.cover_image} alt={topic.name} className="w-full h-full object-cover" />
-            : <div className={cn(
-                'w-full h-full flex items-center justify-center text-8xl',
-                isDark
-                  ? 'bg-linear-to-br from-[#1a1040] via-[#2d1b69] to-[#0f172a]'
-                  : 'bg-linear-to-br from-[#6C5CE7]/20 via-[#A29BFE]/30 to-[#EDE9FE]'
-              )}>
-                <span className="drop-shadow-lg">{getTopicIcon(topic?.icon_name)}</span>
-              </div>
-          }
-          {/* Overlay */}
-          <div className={cn(
-            'absolute inset-0',
-            isDark
-              ? 'bg-linear-to-t from-gray-900 via-gray-900/50 to-transparent'
-              : 'bg-linear-to-t from-white via-white/40 to-transparent'
-          )} />
+      {/* ── Simplified Topic Header ── */}
+      <div className={cn('p-8 rounded-3xl border mb-6 relative overflow-hidden', t.border, t.card)}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex-1">
+             <div className="flex items-center gap-3 mb-3">
+                <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm border', isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-100')}>
+                  {getTopicIcon(topic?.icon_name)}
+                </div>
+                <div>
+                  <h1 className={cn('text-2xl font-black leading-tight', t.text)}>{topic?.name}</h1>
+                  <p className={cn('text-xs font-bold uppercase tracking-widest opacity-40', t.sub)}>Chủ đề học tập</p>
+                </div>
+             </div>
+             {topic?.description && (
+               <p className={cn('text-sm leading-relaxed max-w-2xl', t.sub)}>{topic.description}</p>
+             )}
+          </div>
 
-          {/* Lesson count badge */}
-          {totalCount > 0 && (
-            <div className={cn(
-              'absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-sm border text-xs font-bold',
-              isDark ? 'bg-black/50 text-gray-200 border-white/15' : 'bg-white/80 text-gray-700 border-black/10'
-            )}>
-              📚 {totalCount} bài học
-            </div>
-          )}
-        </div>
-
-        {/* Info panel */}
-        <div className={cn('px-6 pb-6 -mt-6 relative z-10', t.card)}>
-          <h1 className={cn('text-2xl font-black mb-1', t.text)}>{topic?.name}</h1>
-          {topic?.description && (
-            <p className={cn('text-sm leading-relaxed mb-5', t.sub)}>{topic.description}</p>
-          )}
-
-          {/* Progress section */}
-          <div className={cn('rounded-2xl border p-4', isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50/80 border-gray-100')}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {progressPct === 100 ? (
-                  <div className="flex items-center gap-2 text-emerald-500 font-black text-sm">
-                    <FaTrophy /> Hoàn thành toàn bộ!
-                  </div>
-                ) : (
-                  <span className={cn('text-sm font-bold', t.text)}>
-                    {completedCount}/{totalCount} bài hoàn thành
-                  </span>
-                )}
-              </div>
-              <span className={cn('text-2xl font-black', progressPct === 100 ? 'text-emerald-500' : 'text-[#6C5CE7]')}>
-                {progressPct}%
-              </span>
-            </div>
-            <div className={cn('w-full h-3 rounded-full overflow-hidden', isDark ? 'bg-white/10' : 'bg-gray-200')}>
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-1000',
-                  progressPct === 100
-                    ? 'bg-emerald-500'
-                    : 'bg-linear-to-r from-[#6C5CE7] to-[#00CEC9]'
-                )}
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            {/* Progress dots */}
-            {totalCount <= 12 && (
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {lessons.map((l, i) => (
-                  <div key={i} className={cn(
-                    'w-2.5 h-2.5 rounded-full transition-all',
-                    l.isCompleted ? 'bg-emerald-500 shadow-sm shadow-emerald-500/40'
-                      : l.isUnlocked ? 'bg-[#6C5CE7] animate-pulse'
-                      : isDark ? 'bg-white/20' : 'bg-gray-200'
-                  )} />
-                ))}
-              </div>
-            )}
+          {/* Compact Progress */}
+          <div className="shrink-0">
+             <div className={cn('p-4 rounded-2xl border min-w-[180px]', isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-100')}>
+                <div className="flex justify-between items-end mb-2">
+                   <span className={cn('text-[10px] font-black uppercase tracking-widest opacity-40', t.text)}>Tiến độ</span>
+                   <span className={cn('text-xl font-black text-[#6C5CE7]')}>{progressPct}%</span>
+                </div>
+                <div className={cn('w-full h-2 rounded-full overflow-hidden mb-2', isDark ? 'bg-white/10' : 'bg-slate-200')}>
+                   <div 
+                      className="h-full bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] transition-all duration-1000"
+                      style={{ width: `${progressPct}%` }}
+                   />
+                </div>
+                <p className={cn('text-[10px] font-bold text-center', t.sub)}>
+                   {completedCount}/{totalCount} bài học
+                </p>
+             </div>
           </div>
         </div>
+        {/* Subtle decorative element */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
       </div>
 
       {/* ── Roadmap ── */}
@@ -214,8 +168,8 @@ export default function TopicDetail() {
 function RoadmapNode({ lesson, idx, t, isDark, onClick }) {
   const skills = lesson.skillIcons || [];
   const isCompleted = lesson.isCompleted;
-  const isUnlocked  = lesson.isUnlocked;
-  const isLocked    = !isUnlocked && !isCompleted;
+  const isUnlocked = lesson.isUnlocked;
+  const isLocked = !isUnlocked && !isCompleted;
 
   return (
     <div
@@ -226,9 +180,9 @@ function RoadmapNode({ lesson, idx, t, isDark, onClick }) {
           ? 'border-emerald-400/40 bg-emerald-500/5 hover:border-emerald-400/70'
           : isUnlocked
             ? cn(
-                'border-[#6C5CE7]/30 bg-[#6C5CE7]/5 cursor-pointer',
-                'hover:border-[#6C5CE7]/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#6C5CE7]/10'
-              )
+              'border-[#6C5CE7]/30 bg-[#6C5CE7]/5 cursor-pointer',
+              'hover:border-[#6C5CE7]/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#6C5CE7]/10'
+            )
             : cn('opacity-50 cursor-not-allowed', t.border, t.card)
       )}
     >
@@ -246,9 +200,9 @@ function RoadmapNode({ lesson, idx, t, isDark, onClick }) {
           : isLocked
             ? <FaLock className={cn('text-base', isDark ? 'text-gray-600' : 'text-gray-400')} />
             : <>
-                <span className={cn('text-[10px] font-bold', isUnlocked ? 'text-white/70' : t.sub)}>Bài</span>
-                <span className={cn('text-lg font-black leading-tight', isUnlocked ? 'text-white' : t.text)}>{idx + 1}</span>
-              </>
+              <span className={cn('text-[10px] font-bold', isUnlocked ? 'text-white/70' : t.sub)}>Bài</span>
+              <span className={cn('text-lg font-black leading-tight', isUnlocked ? 'text-white' : t.text)}>{idx + 1}</span>
+            </>
         }
       </div>
 

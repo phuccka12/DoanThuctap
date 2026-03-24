@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth }  from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
 import { getReadingTopics, getReadingPassages, getReadingPassageById, submitReading } from '../services/learningService';
 import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
@@ -13,16 +14,19 @@ import {
 import { FiLoader } from 'react-icons/fi';
 import LoadingCat from '../components/shared/LoadingCat';
 import SharedTopicCard from '../components/shared/TopicCard';
+import LessonIntro from '../components/shared/LessonIntro';
+import RewardModal from '../components/shared/RewardModal';
 
 // ─── Phase constants ─────────────────────────────────────────────────────────
 const PHASE = {
-  TOPICS:    'topics',
-  LIST:      'list',
-  VOCAB:     'vocab',
-  READING:   'reading',
+  TOPICS: 'topics',
+  LIST: 'list',
+  INTRO: 'intro',
+  VOCAB: 'vocab',
+  READING: 'reading',
   QUESTIONS: 'questions',
-  MINIGAME:  'minigame',
-  RESULT:    'result',
+  MINIGAME: 'minigame',
+  RESULT: 'result',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -33,20 +37,20 @@ const LEVEL_META = {
   B2: { label: 'B2', color: 'bg-amber-500/20  text-amber-400  border-amber-500/30' },
   C1: { label: 'C1', color: 'bg-rose-500/20   text-rose-400   border-rose-500/30' },
   C2: { label: 'C2', color: 'bg-rose-500/20   text-rose-400   border-rose-500/30' },
-  beginner:     { label: 'Cơ bản',    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  beginner: { label: 'Cơ bản', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
   intermediate: { label: 'Trung cấp', color: 'bg-amber-500/20  text-amber-400  border-amber-500/30' },
-  advanced:     { label: 'Nâng cao',  color: 'bg-rose-500/20   text-rose-400   border-rose-500/30' },
+  advanced: { label: 'Nâng cao', color: 'bg-rose-500/20   text-rose-400   border-rose-500/30' },
 };
-const getLevelMeta    = (l) => LEVEL_META[l] || { label: l || '?', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+const getLevelMeta = (l) => LEVEL_META[l] || { label: l || '?', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
 const estimateMinutes = (p) => p.estimated_time || (p.word_count ? Math.max(1, Math.round(p.word_count / 200)) : 3);
 
 const POS_COLORS = {
-  noun:   'text-sky-300 border-sky-400',
-  verb:   'text-emerald-300 border-emerald-400',
-  adj:    'text-violet-300 border-violet-400',
-  adv:    'text-rose-300 border-rose-400',
+  noun: 'text-sky-300 border-sky-400',
+  verb: 'text-emerald-300 border-emerald-400',
+  adj: 'text-violet-300 border-violet-400',
+  adv: 'text-rose-300 border-rose-400',
   phrase: 'text-amber-300 border-amber-400',
-  other:  'text-gray-300 border-gray-400',
+  other: 'text-gray-300 border-gray-400',
 };
 const POS_LABELS = { noun: 'n.', verb: 'v.', adj: 'adj.', adv: 'adv.', phrase: 'phr.', other: '' };
 
@@ -120,94 +124,7 @@ function HighlightedPassage({ text, highlights }) {
 }
 
 // ─── Completion Modal ─────────────────────────────────────────────────────────
-function CompletionModal({ result, passage, isDark, onReadAgain, onBackList }) {
-  const { score, total } = result;
-  const pct   = total > 0 ? Math.round((score / total) * 100) : 100;
-  const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
-  const emoji = pct >= 90 ? '🏆' : pct >= 60 ? '🎉' : '💪';
-  const msg   = pct >= 90 ? 'Xuất sắc!' : pct >= 60 ? 'Tốt lắm!' : 'Cố gắng thêm!';
-  const [show, setShow] = useState(false);
-  useEffect(() => { const id = setTimeout(() => setShow(true), 60); return () => clearTimeout(id); }, []);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      onClick={onBackList}>
-      <div onClick={e => e.stopPropagation()}
-        className={cn(
-          'relative w-full max-w-sm rounded-3xl border shadow-2xl overflow-hidden text-center transition-all duration-500',
-          isDark ? 'bg-[#16181f] border-white/10' : 'bg-white border-slate-200',
-          show ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-90 translate-y-8',
-        )}>
-        {/* Rainbow top strip */}
-        <div className="h-2 w-full bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500" />
-
-        {/* Floating confetti dots */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[...Array(18)].map((_, i) => (
-            <div key={i}
-              className={cn('absolute rounded-full opacity-60 animate-bounce',
-                ['bg-indigo-400','bg-purple-400','bg-pink-400','bg-amber-400','bg-emerald-400'][i % 5])}
-              style={{
-                width:  `${6 + (i % 4) * 3}px`,
-                height: `${6 + (i % 4) * 3}px`,
-                left:   `${(i * 37 + 5) % 95}%`,
-                top:    `${(i * 29 + 10) % 50}%`,
-                animationDelay:    `${(i * 0.15) % 1.2}s`,
-                animationDuration: `${1.2 + (i % 3) * 0.4}s`,
-              }} />
-          ))}
-        </div>
-
-        <div className="relative px-8 pt-8 pb-10">
-          <div className="text-6xl mb-3 animate-bounce" style={{ animationDuration: '1.5s' }}>{emoji}</div>
-
-          {/* Stars */}
-          <div className="flex justify-center gap-2 mb-4">
-            {[1, 2, 3].map(s => (
-              <FaStar key={s} size={30}
-                className={s <= stars
-                  ? 'text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]'
-                  : 'text-gray-600'} />
-            ))}
-          </div>
-
-          <h2 className={cn('text-2xl font-extrabold mb-1', isDark ? 'text-white' : 'text-slate-800')}>{msg}</h2>
-          <p className={cn('text-sm mb-6 truncate px-4', isDark ? 'text-gray-400' : 'text-slate-500')}>{passage.title}</p>
-
-          {/* Score card */}
-          {total > 0 && (
-            <div className={cn('rounded-2xl border p-4 mb-6 text-left', isDark ? 'bg-white/5 border-white/8' : 'bg-slate-50 border-slate-200')}>
-              <div className="flex justify-between text-sm mb-2">
-                <span className={isDark ? 'text-gray-400' : 'text-slate-500'}>Câu đúng</span>
-                <span className={cn('font-extrabold', isDark ? 'text-white' : 'text-slate-800')}>{score} / {total}</span>
-              </div>
-              <div className="flex justify-between text-sm mb-3">
-                <span className={isDark ? 'text-gray-400' : 'text-slate-500'}>Độ chính xác</span>
-                <span className={cn('font-bold', pct >= 70 ? 'text-emerald-400' : 'text-amber-400')}>{pct}%</span>
-              </div>
-              <div className={cn('w-full h-2.5 rounded-full overflow-hidden', isDark ? 'bg-white/10' : 'bg-slate-200')}>
-                <div className={cn('h-full rounded-full transition-all duration-1000', pct >= 70 ? 'bg-emerald-500' : 'bg-amber-500')}
-                  style={{ width: show ? `${pct}%` : '0%' }} />
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex flex-col gap-3">
-            <button onClick={onReadAgain}
-              className="w-full py-3 rounded-2xl border border-indigo-500/40 text-indigo-400 font-semibold text-sm hover:bg-indigo-500/10 transition-colors flex items-center justify-center gap-2">
-              <FaRedo size={12} /> Đọc lại
-            </button>
-            <button onClick={onBackList}
-              className="w-full py-3 rounded-2xl bg-linear-to-r from-indigo-500 to-purple-500 hover:opacity-90 text-white font-bold text-sm transition-all flex items-center justify-center gap-2">
-              <FaTags size={12} /> Chọn bài khác
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// CompletionModal removed in favor of shared RewardModal
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  TOPIC SCORE MODAL — shown when user clicks an already-completed topic
@@ -218,8 +135,8 @@ function TopicScoreModal({ t, isDark, topic, progress, onContinue, onRetry, onCl
 
   const { score, total, pct, stars, passageTitle, completedAt } = progress;
   const emoji = pct >= 90 ? '🏆' : pct >= 60 ? '🎉' : '💪';
-  const msg   = pct >= 90 ? 'Xuất sắc!' : pct >= 60 ? 'Tốt lắm!' : 'Cố gắng thêm!';
-  const icon  = getTopicIcon(topic?.name || '');
+  const msg = pct >= 90 ? 'Xuất sắc!' : pct >= 60 ? 'Tốt lắm!' : 'Cố gắng thêm!';
+  const icon = getTopicIcon(topic?.name || '');
   const dateStr = completedAt
     ? new Date(completedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '';
@@ -241,13 +158,13 @@ function TopicScoreModal({ t, isDark, topic, progress, onContinue, onRetry, onCl
           {[...Array(14)].map((_, i) => (
             <div key={i}
               className={cn('absolute rounded-full opacity-40 animate-bounce',
-                ['bg-indigo-400','bg-purple-400','bg-pink-400','bg-amber-400','bg-emerald-400'][i % 5])}
+                ['bg-indigo-400', 'bg-purple-400', 'bg-pink-400', 'bg-amber-400', 'bg-emerald-400'][i % 5])}
               style={{
-                width:  `${6 + (i % 4) * 3}px`,
+                width: `${6 + (i % 4) * 3}px`,
                 height: `${6 + (i % 4) * 3}px`,
-                left:   `${(i * 43 + 5) % 95}%`,
-                top:    `${(i * 31 + 8) % 55}%`,
-                animationDelay:    `${(i * 0.18) % 1.2}s`,
+                left: `${(i * 43 + 5) % 95}%`,
+                top: `${(i * 31 + 8) % 55}%`,
+                animationDelay: `${(i * 0.18) % 1.2}s`,
                 animationDuration: `${1.3 + (i % 3) * 0.4}s`,
               }} />
           ))}
@@ -339,27 +256,17 @@ function TopicScoreModal({ t, isDark, topic, progress, onContinue, onRetry, onCl
 // ═══════════════════════════════════════════════════════════════════════════════
 //  PHASE 0 — Topic Grid
 // ═══════════════════════════════════════════════════════════════════════════════
-function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress }) {
-  const [topics,        setTopics]        = useState([]);
-  const [uncategorized, setUncategorized] = useState(0);
-  const [loading,       setLoading]       = useState(true);
-  const [scoreModal,    setScoreModal]    = useState(null); // { topic, progress }
+function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress, topics, loading, uncategorized }) {
+  const [scoreModal, setScoreModal] = useState(null); // { topic, progress }
 
   useEffect(() => {
-    setLoading(true);
-    getReadingTopics()
-      .then(r => {
-        setTopics(r.data.data?.topics || []);
-        setUncategorized(r.data.data?.uncategorized || 0);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    // Synchronize with parent if needed or handle local filtering
+  }, [topics]);
 
   const BAND = {
-    beginner:     'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20',
+    beginner: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20',
     intermediate: 'from-amber-500/20  to-amber-600/5  border-amber-500/20',
-    advanced:     'from-rose-500/20   to-rose-600/5   border-rose-500/20',
+    advanced: 'from-rose-500/20   to-rose-600/5   border-rose-500/20',
   };
 
   const handleTopicClick = (topic) => {
@@ -382,13 +289,13 @@ function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress }
           progress={scoreModal.progress}
           onContinue={() => { setScoreModal(null); onSelectTopic(scoreModal.topic); }}
           onRetry={() => {
-              setScoreModal(null);
-              if (scoreModal.progress.passageId) {
-                onRetryPassage(scoreModal.topic, scoreModal.progress.passageId);
-              } else {
-                onSelectTopic(scoreModal.topic);
-              }
-            }}
+            setScoreModal(null);
+            if (scoreModal.progress.passageId) {
+              onRetryPassage(scoreModal.topic, scoreModal.progress.passageId);
+            } else {
+              onSelectTopic(scoreModal.topic);
+            }
+          }}
           onClose={() => setScoreModal(null)}
         />
       )}
@@ -476,58 +383,59 @@ function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress }
             Chọn chủ đề luyện đọc
           </h2>
 
-        {loading ? (
-          <div className="flex justify-center py-24">
-            <LoadingCat size={200} text="Đang tải các chủ đề..." />
-          </div>
-        ) : (topics.length === 0 && uncategorized === 0) ? (
-          <div className="text-center py-24 text-gray-400">
-            <FaBookOpen size={40} className="mx-auto mb-3 opacity-30" />
-            <p>Chưa có bài đọc nào</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topics.map(topic => {
-              const prog = topicProgress?.[topic._id];
-              const done = !!prog;
-              const pct  = prog?.pct || 0;
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+              <FiLoader className="animate-spin text-indigo-400 mb-4" size={32} />
+              <p className={cn('text-sm font-medium', t.sub)}>Đang tìm các bài luyện đọc...</p>
+            </div>
+          ) : topics.length === 0 && uncategorized === 0 ? (
+            <div className="text-center py-20 px-6 rounded-3xl border border-dashed border-slate-300">
+              <p className={cn('text-lg font-bold mb-1', t.text)}>Không tìm thấy bài đọc nào</p>
+              <p className={cn('text-sm', t.sub)}>Hãy quay lại sau hoặc thử các kỹ năng khác nhé!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {topics.map(topic => {
+                const prog = topicProgress?.[topic._id];
+                const done = !!prog;
+                const pct = prog?.pct || 0;
 
-              return (
-                <SharedTopicCard
-                  key={topic._id}
-                  topic={topic}
-                  isDark={isDark}
-                  t={t}
-                  done={done}
-                  pct={pct}
-                  countLabel={topic.passage_count ? `${topic.passage_count} bài đọc` : ''}
-                  fallbackIcon={getTopicIcon(topic.name)}
-                  onClick={() => handleTopicClick(topic)}
-                />
-              );
-            })}
+                return (
+                  <SharedTopicCard
+                    key={topic._id}
+                    topic={topic}
+                    isDark={isDark}
+                    t={t}
+                    done={done}
+                    pct={pct}
+                    countLabel={topic.passage_count ? `${topic.passage_count} bài đọc` : ''}
+                    fallbackIcon={getTopicIcon(topic.name)}
+                    onClick={() => handleTopicClick(topic)}
+                  />
+                );
+              })}
 
-            {/* Uncategorised tile */}
-            {uncategorized > 0 && (() => {
-              const prog = topicProgress?.['uncategorized'];
-              const done = !!prog;
-              const pct  = prog?.pct || 0;
-              return (
-                <SharedTopicCard
-                  key="uncategorized"
-                  topic={{ name: 'Tổng hợp', description: 'Các bài đọc chưa phân loại chủ đề', level: 'beginner' }}
-                  isDark={isDark}
-                  t={t}
-                  done={done}
-                  pct={pct}
-                  countLabel={`${uncategorized} bài đọc`}
-                  fallbackIcon="📂"
-                  onClick={() => handleTopicClick(null)}
-                />
-              );
-            })()}
-          </div>
-        )}
+              {/* Uncategorised tile */}
+              {uncategorized > 0 && (() => {
+                const prog = topicProgress?.['uncategorized'];
+                const done = !!prog;
+                const pct = prog?.pct || 0;
+                return (
+                  <SharedTopicCard
+                    key="uncategorized"
+                    topic={{ name: 'Tổng hợp', description: 'Các bài đọc chưa phân loại chủ đề', level: 'beginner' }}
+                    isDark={isDark}
+                    t={t}
+                    done={done}
+                    pct={pct}
+                    countLabel={`${uncategorized} bài đọc`}
+                    fallbackIcon="📂"
+                    onClick={() => handleTopicClick(null)}
+                  />
+                );
+              })()}
+            </div>
+          )}
         </div>{/* end topic grid section */}
       </div>{/* end space-y-8 wrapper */}
     </>
@@ -538,12 +446,12 @@ function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress }
 //  PHASE 1 — Passage List within topic
 // ═══════════════════════════════════════════════════════════════════════════════
 function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
-  const [passages,    setPassages]    = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState('');
+  const [passages, setPassages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
-  const [page,        setPage]        = useState(1);
-  const [totalPages,  setTotalPages]  = useState(1);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchPassages = useCallback(async () => {
     setLoading(true);
@@ -561,8 +469,8 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
   useEffect(() => { fetchPassages(); }, [fetchPassages]);
 
   const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-  const title  = selectedTopic ? selectedTopic.name : 'Tổng hợp';
-  const icon   = selectedTopic ? getTopicIcon(selectedTopic.name) : '📂';
+  const title = selectedTopic ? selectedTopic.name : 'Tổng hợp';
+  const icon = selectedTopic ? getTopicIcon(selectedTopic.name) : '📂';
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -593,14 +501,14 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
           <button onClick={() => { setLevelFilter(''); setPage(1); }}
             className={cn('px-3 py-2 rounded-xl border text-xs font-semibold transition-all',
               !levelFilter ? 'bg-indigo-500 text-white border-indigo-500' :
-              (isDark ? 'border-white/10 text-gray-400 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:border-slate-300'))}>
+                (isDark ? 'border-white/10 text-gray-400 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:border-slate-300'))}>
             Tất cả
           </button>
           {levels.map(l => (
             <button key={l} onClick={() => { setLevelFilter(l); setPage(1); }}
               className={cn('px-3 py-2 rounded-xl border text-xs font-semibold transition-all',
                 levelFilter === l ? 'bg-indigo-500 text-white border-indigo-500' :
-                (isDark ? 'border-white/10 text-gray-400 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:border-slate-300'))}>
+                  (isDark ? 'border-white/10 text-gray-400 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:border-slate-300'))}>
               {l}
             </button>
           ))}
@@ -620,7 +528,7 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {passages.map(p => {
-            const lm  = getLevelMeta(p.cefr_level || p.level);
+            const lm = getLevelMeta(p.cefr_level || p.level);
             const min = estimateMinutes(p);
             return (
               <button key={p._id} onClick={() => onStart(p)}
@@ -678,7 +586,7 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function VocabPreviewPhase({ passage, isDark, onStartReading, onBack }) {
   const highlights = passage.vocab_highlights || [];
-  const [idx,     setIdx]     = useState(0);
+  const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
   if (highlights.length === 0) {
@@ -693,8 +601,8 @@ function VocabPreviewPhase({ passage, isDark, onStartReading, onBack }) {
     );
   }
 
-  const card     = highlights[idx];
-  const total    = highlights.length;
+  const card = highlights[idx];
+  const total = highlights.length;
   const colorCls = POS_COLORS[card.pos] || POS_COLORS.other;
   const posLabel = POS_LABELS[card.pos] || '';
 
@@ -820,9 +728,9 @@ function ReadingArticlePhase({ passage, isDark, onDone, onBack }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function QuestionsPhase({ passage, isDark, onResult }) {
   const questions = passage.questions || [];
-  const [answers,   setAnswers]   = useState({});
+  const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  const [results,   setResults]   = useState({});
+  const [results, setResults] = useState({});
 
   useEffect(() => {
     if (questions.length === 0) onResult({ score: 0, total: 0, results: {}, answers: {} });
@@ -834,7 +742,7 @@ function QuestionsPhase({ passage, isDark, onResult }) {
     let correct = 0;
     const res = {};
     questions.forEach((q, i) => {
-      const userAns    = (answers[i] ?? '').toString().toLowerCase().trim();
+      const userAns = (answers[i] ?? '').toString().toLowerCase().trim();
       const correctAns = (q.correct_answer ?? q.answer ?? '').toString().toLowerCase().trim();
       const ok = userAns === correctAns || userAns === correctAns.charAt(0);
       res[i] = ok;
@@ -850,20 +758,20 @@ function QuestionsPhase({ passage, isDark, onResult }) {
       <h2 className={cn('font-extrabold text-xl mb-6', isDark ? 'text-white' : 'text-slate-800')}>🧩 Câu hỏi hiểu bài</h2>
       <div className="space-y-5">
         {questions.map((q, i) => {
-          const type    = q.question_type || q.type || 'multiple_choice';
+          const type = q.question_type || q.type || 'multiple_choice';
           const options = q.options || [];
-          const ok      = results[i];
+          const ok = results[i];
           return (
             <div key={i} className={cn('rounded-2xl border p-5 transition-all',
               !submitted ? (isDark ? 'bg-[#1C1E28] border-white/8' : 'bg-white border-slate-200') :
-              ok ? 'bg-emerald-900/15 border-emerald-500/30' : 'bg-red-900/10 border-red-500/30')}>
+                ok ? 'bg-emerald-900/15 border-emerald-500/30' : 'bg-red-900/10 border-red-500/30')}>
               <p className={cn('font-semibold text-sm mb-4', isDark ? 'text-white' : 'text-slate-800')}>
                 {i + 1}. {q.question_text || q.text || q.question}
               </p>
               {type === 'true_false' && (
                 <div className="flex gap-3">
                   {['True', 'False'].map(opt => {
-                    const v   = opt.toLowerCase();
+                    const v = opt.toLowerCase();
                     const sel = answers[i] === v;
                     const cor = (q.correct_answer ?? q.answer)?.toLowerCase() === v && submitted;
                     const wrg = submitted && sel && !cor;
@@ -872,9 +780,9 @@ function QuestionsPhase({ passage, isDark, onResult }) {
                         onClick={() => setAnswers(a => ({ ...a, [i]: v }))}
                         className={cn('flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all flex items-center justify-center gap-2',
                           wrg ? 'border-red-500/50 bg-red-900/20 text-red-300' :
-                          cor ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300' :
-                          sel ? 'border-indigo-500/50 bg-indigo-900/20 text-indigo-300' :
-                               (isDark ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'))}>
+                            cor ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300' :
+                              sel ? 'border-indigo-500/50 bg-indigo-900/20 text-indigo-300' :
+                                (isDark ? 'border-white/10 text-gray-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'))}>
                         {submitted && cor && <FaCheck size={11} />}
                         {submitted && wrg && <FaTimes size={11} />}
                         {opt}
@@ -896,9 +804,9 @@ function QuestionsPhase({ passage, isDark, onResult }) {
                         onClick={() => setAnswers(a => ({ ...a, [i]: val }))}
                         className={cn('w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-all flex items-center gap-2',
                           wrg ? 'border-red-500/50 bg-red-900/20 text-red-300' :
-                          cor ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300' :
-                          sel ? 'border-indigo-500/50 bg-indigo-900/20 text-indigo-300' :
-                               (isDark ? 'border-white/10 bg-white/3 text-gray-300 hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-50'))}>
+                            cor ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300' :
+                              sel ? 'border-indigo-500/50 bg-indigo-900/20 text-indigo-300' :
+                                (isDark ? 'border-white/10 bg-white/3 text-gray-300 hover:bg-white/8' : 'border-slate-200 text-slate-600 hover:bg-slate-50'))}>
                         {submitted && cor && <FaCheck size={11} className="text-emerald-400 shrink-0" />}
                         {submitted && wrg && <FaTimes size={11} className="text-red-400 shrink-0" />}
                         {typeof lbl === 'string' ? lbl : JSON.stringify(lbl)}
@@ -942,11 +850,11 @@ function MinigamePhase({ passage, isDark, onDone }) {
   const vocab = useMemo(() => [...raw].sort(() => Math.random() - 0.5).slice(0, Math.min(6, raw.length)), [raw]);
   const meanings = useMemo(() => vocab.map((v, i) => ({ meaning: v.meaning, vocabIdx: i })).sort(() => Math.random() - 0.5), [vocab]);
 
-  const [leftSel,  setLeftSel]  = useState(null);
+  const [leftSel, setLeftSel] = useState(null);
   const [rightSel, setRightSel] = useState(null);
-  const [matched,  setMatched]  = useState({});
-  const [wrong,    setWrong]    = useState(null);
-  const [done,     setDone]     = useState(false);
+  const [matched, setMatched] = useState({});
+  const [wrong, setWrong] = useState(null);
+  const [done, setDone] = useState(false);
 
   if (vocab.length < 2) {
     return (
@@ -957,7 +865,7 @@ function MinigamePhase({ passage, isDark, onDone }) {
     );
   }
 
-  const matchedVocab   = new Set(Object.keys(matched).map(Number));
+  const matchedVocab = new Set(Object.keys(matched).map(Number));
   const matchedMeaning = new Set(Object.values(matched).map(Number));
 
   const attemptMatch = (li, ri) => {
@@ -985,15 +893,15 @@ function MinigamePhase({ passage, isDark, onDone }) {
   };
 
   const leftCls = (i) => {
-    if (matchedVocab.has(i))  return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300 cursor-default';
-    if (wrong?.li === i)       return 'border-red-500/60 bg-red-900/20 text-red-300 scale-95';
-    if (leftSel === i)         return 'border-indigo-400 bg-indigo-900/30 text-indigo-200 scale-[1.03] shadow-lg';
+    if (matchedVocab.has(i)) return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300 cursor-default';
+    if (wrong?.li === i) return 'border-red-500/60 bg-red-900/20 text-red-300 scale-95';
+    if (leftSel === i) return 'border-indigo-400 bg-indigo-900/30 text-indigo-200 scale-[1.03] shadow-lg';
     return isDark ? 'border-white/10 text-gray-200 hover:border-indigo-400/50 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50';
   };
   const rightCls = (ri) => {
     if (matchedMeaning.has(ri)) return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-300 cursor-default';
-    if (wrong?.ri === ri)        return 'border-red-500/60 bg-red-900/20 text-red-300 scale-95';
-    if (rightSel === ri)         return 'border-violet-400 bg-violet-900/30 text-violet-200 scale-[1.03] shadow-lg';
+    if (wrong?.ri === ri) return 'border-red-500/60 bg-red-900/20 text-red-300 scale-95';
+    if (rightSel === ri) return 'border-violet-400 bg-violet-900/30 text-violet-200 scale-[1.03] shadow-lg';
     return isDark ? 'border-white/10 text-gray-300 hover:border-violet-400/50 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:border-violet-300 hover:bg-violet-50';
   };
 
@@ -1073,23 +981,64 @@ function MinigamePhase({ passage, isDark, onDone }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function ReadingPractice() {
   const { isDark } = useTheme();
-  const t          = isDark ? darkTheme : theme;
-  const { user }   = useAuth();
+  const t = isDark ? darkTheme : theme;
+  const { user } = useAuth();
 
-  const LS_KEY = user?._id
-    ? `reading_topic_progress_${user._id}`
-    : 'reading_topic_progress'; // fallback
+  const [showModal, setShowModal] = useState(false);
+  const [rewardData, setRewardData] = useState(null);
+  const LS_KEY = user?._id ? `reading_progress_${user._id}` : 'reading_progress_guest'; // fallback
 
-  const [phase,         setPhase]         = useState(PHASE.TOPICS);
+  const [phase, setPhase] = useState(PHASE.TOPICS);
   const [selectedTopic, setSelectedTopic] = useState(null);
-  const [passage,       setPassage]       = useState(null);
-  const [loading,       setLoading]       = useState(false);
-  const [result,        setResult]        = useState(null);
-  const [showModal,     setShowModal]     = useState(false);
+  const [passage, setPassage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
   const startTimeRef = useRef(null);
 
   // ── Topic completion tracking (localStorage, per-user) ────────────────────
   const [topicProgress, setTopicProgress] = useState({});
+  const [topics,        setTopics]        = useState([]);
+  const [uncategorized, setUncategorized] = useState(0);
+  const [loadingTopics, setLoadingTopics] = useState(true);
+
+  const location = useLocation();
+  const { id } = useParams();
+  const searchParams = new URLSearchParams(location.search);
+  const topicIdFromUrl = id || searchParams.get('topic') || searchParams.get('id');
+
+  useEffect(() => {
+    // If we have an ID but no topicIdFromUrl, it might be a passage ID from the roadmap
+    if (id && !topics.some(t => t._id === id)) {
+       setLoading(true);
+       axiosInstance.get(`/reading/${id}`)
+        .then(res => {
+          setPassage(res.data.data || res.data);
+          setPhase(PHASE.INTRO);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [id, topics]);
+
+  useEffect(() => {
+    setLoadingTopics(true);
+    getReadingTopics()
+      .then(r => {
+        const fetched = r.data.data?.topics || [];
+        setTopics(fetched);
+        setUncategorized(r.data.data?.uncategorized || 0);
+
+        // Handle URL selection (if it's a topic ID)
+        if (topicIdFromUrl) {
+          const t = fetched.find(x => x._id === topicIdFromUrl);
+          if (t) {
+            setSelectedTopic(t);
+            setPhase(PHASE.LIST);
+          }
+        }
+      })
+      .catch(() => { })
+      .finally(() => setLoadingTopics(false));
+  }, [topicIdFromUrl]);
 
   useEffect(() => {
     try {
@@ -1113,14 +1062,14 @@ export default function ReadingPractice() {
   const handleStart = async (preview) => {
     setLoading(true);
     try {
-      const res  = await getReadingPassageById(preview._id);
+      const res = await getReadingPassageById(preview._id);
       const full = res.data.data;
       setPassage(full);
       startTimeRef.current = Date.now();
-      setPhase((full?.vocab_highlights || []).length > 0 ? PHASE.VOCAB : PHASE.READING);
+      setPhase(PHASE.INTRO);
     } catch {
       setPassage(preview);
-      setPhase(PHASE.READING);
+      setPhase(PHASE.INTRO);
     } finally {
       setLoading(false);
     }
@@ -1156,10 +1105,17 @@ export default function ReadingPractice() {
         if (!passage || !result) return;
         try {
           const timeSec = Math.round((Date.now() - (startTimeRef.current || Date.now())) / 1000);
-          await submitReading(passage._id, { 
-            answers: result.answers || {}, 
-            timeSpentSec: timeSec 
+          const res = await submitReading(passage._id, {
+            answers: result.answers || {},
+            timeSpentSec: timeSec
           });
+          const backendData = res.data?.data || res.data;
+          if (backendData?.reward) {
+            setRewardData({
+              coins: backendData.reward.earned || backendData.reward.coins || 0,
+              exp: backendData.reward.expGain || backendData.reward.exp || 0
+            });
+          }
           dashboardRefreshEmitter.emit();
         } catch (e) {
           console.error("Auto submit reading error:", e);
@@ -1170,10 +1126,10 @@ export default function ReadingPractice() {
       // Persist best score for this topic (per-user key)
       if (passage) {
         const topicId = selectedTopic?._id || 'uncategorized';
-        const pct     = result && result.total > 0
+        const pct = result && result.total > 0
           ? Math.round((result.score / result.total) * 100)
           : 100;
-        const stars   = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
+        const stars = pct >= 90 ? 3 : pct >= 60 ? 2 : 1;
         const existing = (() => {
           try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
           catch { return {}; }
@@ -1182,13 +1138,13 @@ export default function ReadingPractice() {
         // Save if first time or score improved
         if (!prev || pct >= prev.pct) {
           existing[topicId] = {
-            score:        result?.score ?? 0,
-            total:        result?.total ?? 0,
+            score: result?.score ?? 0,
+            total: result?.total ?? 0,
             pct,
             stars,
-            passageId:    passage._id,
+            passageId: passage._id,
             passageTitle: passage.title,
-            completedAt:  Date.now(),
+            completedAt: Date.now(),
           };
           localStorage.setItem(LS_KEY, JSON.stringify(existing));
           setTopicProgress({ ...existing });
@@ -1211,13 +1167,13 @@ export default function ReadingPractice() {
   const isInSession = ![PHASE.TOPICS, PHASE.LIST].includes(phase);
   const DOTS = [PHASE.VOCAB, PHASE.READING, PHASE.QUESTIONS, PHASE.MINIGAME];
   const phaseLabel = {
-    [PHASE.TOPICS]:    'Luyện Đọc',
-    [PHASE.LIST]:      'Chọn bài đọc',
-    [PHASE.VOCAB]:     'Từ vựng',
-    [PHASE.READING]:   'Đọc bài',
+    [PHASE.TOPICS]: 'Luyện Đọc',
+    [PHASE.LIST]: 'Chọn bài đọc',
+    [PHASE.VOCAB]: 'Từ vựng',
+    [PHASE.READING]: 'Đọc bài',
     [PHASE.QUESTIONS]: 'Câu hỏi',
-    [PHASE.MINIGAME]:  'Mini Game',
-    [PHASE.RESULT]:    'Kết quả',
+    [PHASE.MINIGAME]: 'Mini Game',
+    [PHASE.RESULT]: 'Kết quả',
   }[phase];
 
   return (
@@ -1244,13 +1200,13 @@ export default function ReadingPractice() {
             <div className="flex items-center gap-0 px-4 pb-3">
               {DOTS.map((p, i) => {
                 const currentIdx = DOTS.indexOf(phase);
-                const isDone     = currentIdx > i;
-                const isActive   = phase === p;
+                const isDone = currentIdx > i;
+                const isActive = phase === p;
                 const STEP_LABELS = {
-                  [PHASE.VOCAB]:     'Từ vựng',
-                  [PHASE.READING]:   'Đọc bài',
+                  [PHASE.VOCAB]: 'Từ vựng',
+                  [PHASE.READING]: 'Đọc bài',
                   [PHASE.QUESTIONS]: 'Câu hỏi',
-                  [PHASE.MINIGAME]:  'Mini game',
+                  [PHASE.MINIGAME]: 'Mini game',
                 };
                 return (
                   <React.Fragment key={p}>
@@ -1258,16 +1214,16 @@ export default function ReadingPractice() {
                     <div className="flex flex-col items-center gap-1 min-w-0">
                       <div className={cn(
                         'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 shrink-0',
-                        isDone    ? 'bg-indigo-500 border-indigo-500 text-white' :
-                        isActive  ? 'bg-indigo-500 border-indigo-400 text-white scale-110 shadow-md shadow-indigo-500/40' :
-                                    (isDark ? 'bg-white/5 border-white/15 text-gray-500' : 'bg-slate-100 border-slate-300 text-slate-400'),
+                        isDone ? 'bg-indigo-500 border-indigo-500 text-white' :
+                          isActive ? 'bg-indigo-500 border-indigo-400 text-white scale-110 shadow-md shadow-indigo-500/40' :
+                            (isDark ? 'bg-white/5 border-white/15 text-gray-500' : 'bg-slate-100 border-slate-300 text-slate-400'),
                       )}>
                         {isDone ? <FaCheck size={10} /> : i + 1}
                       </div>
                       <span className={cn('text-[10px] font-medium whitespace-nowrap transition-colors',
-                        isActive  ? (isDark ? 'text-indigo-400' : 'text-indigo-600') :
-                        isDone    ? (isDark ? 'text-indigo-400/70' : 'text-indigo-400') :
-                                    (isDark ? 'text-gray-600' : 'text-slate-400'))}>
+                        isActive ? (isDark ? 'text-indigo-400' : 'text-indigo-600') :
+                          isDone ? (isDark ? 'text-indigo-400/70' : 'text-indigo-400') :
+                            (isDark ? 'text-gray-600' : 'text-slate-400'))}>
                         {STEP_LABELS[p]}
                       </span>
                     </div>
@@ -1292,10 +1248,38 @@ export default function ReadingPractice() {
 
         {/* Phase rendering */}
         {phase === PHASE.TOPICS && (
-          <TopicsPhase t={t} isDark={isDark} onSelectTopic={handleSelectTopic} onRetryPassage={handleRetryPassage} topicProgress={topicProgress} />
+          <TopicsPhase 
+            t={t} 
+            isDark={isDark} 
+            onSelectTopic={handleSelectTopic} 
+            onRetryPassage={handleRetryPassage} 
+            topicProgress={topicProgress}
+            topics={topics}
+            loading={loadingTopics}
+            uncategorized={uncategorized}
+          />
         )}
         {phase === PHASE.LIST && (
           <PassageListPhase t={t} isDark={isDark} selectedTopic={selectedTopic} onStart={handleStart} onBack={handleBackTopics} />
+        )}
+        {phase === PHASE.INTRO && passage && (
+          <LessonIntro
+            title={passage.title || 'Bài tập Đọc'}
+            description={passage.description || 'Nâng cao khả năng đọc hiểu và phân tích văn bản academic.'}
+            level={passage.level || 'intermediate'}
+            type="reading"
+            isDark={isDark}
+            stats={[
+              { icon: <FaBookOpen />, label: 'Kỹ năng', sub: 'Reading' },
+              { icon: <FaClock />, label: 'Thời gian', sub: estimateMinutes(passage) + ' phút' },
+              { icon: <FaStar />, label: 'Mục tiêu', sub: 'Critical Thinking' }
+            ]}
+            onStart={() => {
+              startTimeRef.current = Date.now();
+              setPhase((passage.vocab_highlights || []).length > 0 ? PHASE.VOCAB : PHASE.READING);
+            }}
+            onBack={handleBackTopics}
+          />
         )}
         {phase === PHASE.VOCAB && passage && (
           <VocabPreviewPhase passage={passage} isDark={isDark}
@@ -1322,12 +1306,17 @@ export default function ReadingPractice() {
           </div>
         )}
 
-        {/* Completion Modal */}
+        {/* Reward Modal replacing CompletionModal */}
         {showModal && passage && result && (
-          <CompletionModal
-            result={result} passage={passage} isDark={isDark}
-            onReadAgain={handleReadAgain}
-            onBackList={handleBackList}
+          <RewardModal
+            isOpen={showModal}
+            onClose={() => setShowModal(false)}
+            title="ĐỌC HIỂU XUẤT SẮC!"
+            subtitle="Bạn đã hoàn thành bài đọc một cách tuyệt vời!"
+            primaryStat={{ label: "Đúng", value: `${result.score}/${result.total}` }}
+            secondaryStat={{ label: "Độ chính xác", value: `${Math.round((result.score / result.total) * 100)}%` }}
+            reward={rewardData}
+            theme={t}
           />
         )}
       </div>

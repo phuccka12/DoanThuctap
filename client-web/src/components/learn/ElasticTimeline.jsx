@@ -311,7 +311,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                           case 'speaking': dest = `/speaking-practice/${id}`; break;
                           case 'writing': dest = `/ai-writing/${id}`; break;
                           case 'listening': dest = `/ai-listening/${id}`; break;
-                          case 'vocabulary': dest = `/vocabulary/learn`; break; // or specific topic if available
+                          case 'vocabulary': dest = id ? `/vocabulary/${id}/learn` : `/vocabulary`; break;
                           case 'grammar': dest = `/grammar/${id}`; break;
                           case 'story': dest = `/stories/${id}`; break;
                           default: dest = `/learn/topics/${id}`;

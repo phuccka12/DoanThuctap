@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth }  from '../context/AuthContext';
@@ -14,13 +15,16 @@ import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import LearnLayout from '../components/learn/LearnLayout';
 import SharedTopicCard from '../components/shared/TopicCard';
 import LoadingCat from '../components/shared/LoadingCat';
+import LessonIntro from '../components/shared/LessonIntro';
 import { motion } from 'framer-motion';
 
 import axiosInstance from '../utils/axiosConfig';
+import RewardModal from '../components/shared/RewardModal';
 
 // ─── Phase constants ──────────────────────────────────────────────────────────
 const PHASE = {
   TOPICS:   'topics',
+  INTRO:    'intro',
   LIST:     'list',
   LISTEN:   'listen',
   PRACTICE: 'practice',
@@ -28,7 +32,7 @@ const PHASE = {
   REVIEW:   'review',
 };
 
-const SPEEDS = [0.75, 1, 1.25, 1.5];
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const LEVEL_META = {
@@ -847,6 +851,7 @@ function ReviewPhase({ passage, result, onDone }) {
 export default function AIListening() {
   const { isDark } = useTheme();
   const { user }   = useAuth();
+  const { id }     = useParams();
 
   const { load: loadProgress, save: saveProgress } = useListeningProgress(user?._id);
 
@@ -855,6 +860,21 @@ export default function AIListening() {
   const [passage,  setPassage]  = useState(null);
   const [result,   setResult]   = useState(null);
   const [progress, setProgress] = useState(() => loadProgress());
+  const [showReward, setShowReward] = useState(false);
+  const [rewardData, setRewardData] = useState(null);
+
+  // Handle direct lesson loading via URL ID
+  useEffect(() => {
+    if (id) {
+       axiosInstance.get(`/listening/${id}`)
+        .then(r => {
+           const d = r.data?.data || r.data;
+           setPassage(d);
+           setPhase(PHASE.INTRO);
+        })
+        .catch(err => console.error('[AIListening] Error fetching passage from ID:', err));
+    }
+  }, [id]);
 
   // Step 1 → 2
   const handleSelectTopic = (t) => { setTopic(t); setPhase(PHASE.LIST); };
@@ -865,12 +885,12 @@ export default function AIListening() {
   // Step 2 → 3: fetch full passage
   const handleSelectPassage = async (preview) => {
     try {
-      const r = await authAxios.get(`/listening/${preview._id}`);
+      const r = await axiosInstance.get(`/listening/${preview._id}`);
       setPassage(r.data?.data || r.data);
     } catch {
       setPassage(preview);
     }
-    setPhase(PHASE.LISTEN);
+    setPhase(PHASE.INTRO);
   };
 
   // Step 3 → 4
@@ -879,7 +899,6 @@ export default function AIListening() {
   // Step 4 → 5: save progress
   const handleSubmitResult = (res) => {
     setResult(res);
-    setPhase(PHASE.RESULT);
     if (topic?._id) {
       const updated = saveProgress(topic._id, {
         pct:   res.percent,
@@ -888,6 +907,14 @@ export default function AIListening() {
       });
       setProgress({ ...updated });
     }
+    if (res.reward) {
+      setRewardData({
+        coins: res.reward.coinsEarned || 0,
+        exp: res.reward.expGain || 0
+      });
+      setShowReward(true);
+    }
+    setPhase(PHASE.RESULT);
   };
 
   // Step 5 → 6
@@ -936,6 +963,23 @@ export default function AIListening() {
         {phase === PHASE.TOPICS && (
           <TopicsPhase onSelect={handleSelectTopic} onBrowseAll={handleBrowseAll} progress={progress} />
         )}
+
+        {phase === PHASE.INTRO && passage && (
+          <LessonIntro
+            title={passage.title || 'Bài tập Nghe'}
+            description={passage.description || 'Luyện kỹ năng nghe hiểu qua các đoạn hội thoại và văn bản thực tế.'}
+            level={passage.level || 'intermediate'}
+            type="listening"
+            isDark={isDark}
+            stats={[
+              { icon: <FiHeadphones />, label: 'Kỹ năng', sub: 'Listening' },
+              { icon: <FiClock />, label: 'Thời gian', sub: '5-10 phút' },
+              { icon: <FiAward />, label: 'Mục tiêu', sub: 'Comprehension' }
+            ]}
+            onStart={() => setPhase(PHASE.LISTEN)}
+            onBack={handleBackTopics}
+          />
+        )}
         {phase === PHASE.LIST && (
           <ListPhase topic={topic} onSelect={handleSelectPassage} onBack={handleBackTopics} />
         )}
@@ -953,6 +997,17 @@ export default function AIListening() {
         )}
         </div>
       </div>
+
+      <RewardModal
+        isOpen={showReward}
+        onClose={() => setShowReward(false)}
+        title="BẬC THẦY LUYỆN NGHE!"
+        subtitle="Khả năng nghe hiểu của bạn đang tiến bộ thần tốc!"
+        primaryStat={{ label: "Đúng", value: `${result?.correct || 0}/${result?.total || 0}` }}
+        secondaryStat={{ label: "Band IELTS", value: result?.band || 0 }}
+        reward={rewardData}
+        theme={isDark ? darkTheme : theme}
+      />
     </LearnLayout>
   );
 }

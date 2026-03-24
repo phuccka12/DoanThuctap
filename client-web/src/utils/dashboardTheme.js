@@ -15,6 +15,8 @@ export const theme = {
   accentSoft:  "bg-[#6C5CE7]/10",
   input:       "bg-white border-indigo-100 text-slate-800 placeholder-slate-400",
   hover:       "hover:bg-indigo-50",
+  success:     "bg-emerald-500 text-white",
+  warn:        "bg-amber-500 text-white",
 };
 
 export const darkTheme = {
@@ -29,4 +31,6 @@ export const darkTheme = {
   accentSoft:  "bg-[#A29BFE]/10",
   input:       "bg-white/5 border-white/10 text-white placeholder-slate-500",
   hover:       "hover:bg-white/5",
+  success:     "bg-emerald-500 text-white",
+  warn:        "bg-amber-500 text-white",
 };

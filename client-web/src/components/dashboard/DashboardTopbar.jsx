@@ -35,6 +35,20 @@ export default function DashboardTopbar({ user, theme: t }) {
             <span className="text-slate-400 text-sm">Tìm kiếm...</span>
           </div>
 
+          {/* Upgrade Premium Button */}
+          <button
+            onClick={() => navigate("/pricing")}
+            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-[#6C5CE7] to-[#a78bfa] text-white text-[11px] font-black uppercase tracking-widest shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 active:scale-95 transition-all"
+          >
+            Nâng cấp <span className="text-sm">✨</span>
+          </button>
+          <button
+            onClick={() => navigate("/pricing")}
+            className="flex sm:hidden w-9 h-9 items-center justify-center rounded-xl bg-linear-to-r from-[#6C5CE7] to-[#a78bfa] text-white shadow-lg active:scale-95 transition-all"
+          >
+            ✨
+          </button>
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

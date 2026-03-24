@@ -13,6 +13,8 @@
 import React, {
   useState, useEffect, useRef, useCallback, useMemo,
 } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
+import axiosInstance from '../utils/axiosConfig';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { cn, theme, darkTheme } from '../utils/dashboardTheme';
@@ -24,15 +26,19 @@ import {
   FaMicrophone, FaStop, FaArrowRight, FaArrowLeft, FaStar,
   FaFire, FaTrophy, FaCheck, FaRedo, FaChevronRight, FaLightbulb,
   FaBookOpen, FaVolumeMute, FaVolumeUp, FaSpinner, FaPlay, FaPause, FaMagic, FaHistory,
+  FaClock
 } from 'react-icons/fa';
 import { FiLoader, FiActivity } from 'react-icons/fi';
 import LoadingCat from '../components/shared/LoadingCat';
 import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
 import SharedTopicCard from '../components/shared/TopicCard';
+import LessonIntro from '../components/shared/LessonIntro';
+import RewardModal from '../components/shared/RewardModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PHASE = {
   TOPICS: 'topics',
+  INTRO: 'intro',
   WARMUP: 'warmup',
   MAIN: 'main',
   FOLLOWUP: 'followup',
@@ -611,13 +617,15 @@ function RecordingPanel({
         form.append('sample_answer', sampleAnswer || '');
         form.append('frontend_data', frontendData);
         if (questionId) form.append('question_id', questionId);
-        
+
         const duration = parseFloat(((Date.now() - metricsRef.current.startTs) / 1000).toFixed(1));
         form.append('timeSpentSec', duration);
 
         const res = await evaluateSpeaking(form);
         onResult({
-          ...res.data,
+          ...(res.data.evaluation || res.data), // Fallback if backend doesn't wrap it yet
+          reward: res.data.reward,
+          audioUrl: res.data.audioUrl,
           frontendMetrics: { wpm, hesitationCount: metricsRef.current.hesitationCount, rhythmStd },
         });
       } catch (e) {
@@ -910,6 +918,8 @@ export default function SpeakingPractice() {
   const { isDark } = useTheme();
   const t = isDark ? darkTheme : theme;
   const { user } = useAuth();
+  const { id } = useParams();
+  const location = useLocation();
 
   const LS_KEY = user?._id
     ? `speaking_topic_progress_${user._id}`
@@ -922,6 +932,37 @@ export default function SpeakingPractice() {
   const [followupQ, setFollowupQ] = useState(null);
   const [loading, setLoading] = useState(false);
   const [topicProgress, setTopicProgress] = useState({});
+  const [rewardData, setRewardData] = useState(null);
+  const [showReward, setShowReward] = useState(false);
+
+  // Handle direct question loading via URL ID
+  useEffect(() => {
+    if (id && phase === PHASE.TOPICS) {
+      setLoading(true);
+      axiosInstance.get(`/speaking-questions/${id}`)
+        .then(async (res) => {
+          const q = res.data.data || res.data;
+          const tid = q.topic_id?._id || q.topic_id;
+
+          if (tid) {
+            try {
+              const [tRes, warmupRes] = await Promise.all([
+                axiosInstance.get(`/topics/${tid}`),
+                getSpeakingWarmup({ topic_id: tid })
+              ]);
+              setTopic(tRes.data.data || tRes.data);
+              setWarmupQ(warmupRes.data.data);
+              setMainQ(q);
+              setPhase(PHASE.INTRO);
+            } catch (err) {
+              console.error('[SpeakingPractice] Error loading topic/warmup context:', err);
+            }
+          }
+        })
+        .catch(err => console.error('[SpeakingPractice] Error loading question from ID:', err))
+        .finally(() => setLoading(false));
+    }
+  }, [id, phase]);
 
   // Load progress từ localStorage khi user đã có
   useEffect(() => {
@@ -939,19 +980,31 @@ export default function SpeakingPractice() {
     setResults([]);
     setLoading(true);
     try {
-      const [warmupRes, mainRes] = await Promise.all([
+      let [warmupRes, mainRes] = await Promise.all([
         getSpeakingWarmup({ topic_id: selectedTopic._id }),
         getSpeakingQuestions({ topic_id: selectedTopic._id, part: 'p2', limit: 1 }),
       ]);
-      setWarmupQ(warmupRes.data.data);
-      const mains = mainRes.data.data || [];
+      
+      const warmupData = warmupRes.data.data;
+      setWarmupQ(warmupData);
+      
+      let mains = mainRes.data.data || [];
+      
+      // FALLBACK: Nếu không có câu P2, lấy bất kỳ câu nào khác (limited 10 để tìm)
+      if (mains.length === 0) {
+        const fallbackRes = await getSpeakingQuestions({ topic_id: selectedTopic._id, limit: 10 });
+        const allQs = fallbackRes.data.data || [];
+        // Lọc bỏ câu warmup nếu lỡ trúng
+        mains = allQs.filter(q => q._id !== warmupData?._id);
+      }
+      
       setMainQ(mains[0] || null);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-    setPhase(PHASE.WARMUP);
+    setPhase(PHASE.INTRO);
   }, []);
 
   // ── 2. Warmup done ────────────────────────────────────────────────────────
@@ -1021,13 +1074,21 @@ export default function SpeakingPractice() {
       try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch (_) { }
     }
 
+    if (evalResult?.reward) {
+      setRewardData(evalResult.reward);
+      setShowReward(true);
+    }
+
+    // Notify dashboard to refresh task progress
+    dashboardRefreshEmitter.emit();
+
     setPhase(PHASE.RESULT);
   }, [followupQ, results, topic, topicProgress]);
 
   // ── Back / Restart ────────────────────────────────────────────────────────
   const handleRestart = useCallback(() => {
     setResults([]);
-    setPhase(PHASE.WARMUP);
+    setPhase(PHASE.INTRO);
   }, []);
 
   const handleNewTopic = useCallback(() => {
@@ -1111,6 +1172,23 @@ export default function SpeakingPractice() {
               <TopicsPhase isDark={isDark} t={t} onSelect={handleSelectTopic} topicProgress={topicProgress} />
             )}
 
+            {phase === PHASE.INTRO && mainQ && (
+              <LessonIntro
+                title={mainQ.topic_id?.name || topic?.name || 'Luyện Speaking'}
+                description={mainQ.question_text || 'Luyện kỹ năng giao tiếp và phát âm với các chủ đề IELTS thực tế.'}
+                level={mainQ.level || 'intermediate'}
+                type="speaking"
+                isDark={isDark}
+                stats={[
+                  { icon: <FaMicrophone />, label: 'Kỹ năng', sub: 'Speaking' },
+                  { icon: <FaClock />, label: 'Thời gian', sub: '15-20 phút' },
+                  { icon: <FaTrophy />, label: 'Mục tiêu', sub: 'Fluency' }
+                ]}
+                onStart={() => setPhase(PHASE.WARMUP)}
+                onBack={handleNewTopic}
+              />
+            )}
+
             {phase === PHASE.WARMUP && warmupQ && (
               <RecordingPanel
                 isDark={isDark} t={t}
@@ -1178,6 +1256,19 @@ export default function SpeakingPractice() {
           </>
         )}
       </div>
+
+      <RewardModal
+        isOpen={showReward}
+        onClose={() => setShowReward(false)}
+        title="HOÀN THÀNH LUYỆN NÓI!"
+        subtitle="Bạn đã hoàn thành bài luyện tập xuất sắc!"
+        primaryStat={{ 
+          label: "Band Overall", 
+          value: results.length ? (results.reduce((s, r) => s + (r.evalResult?.scores?.overall || 0), 0) / results.length).toFixed(1) : 0 
+        }}
+        reward={rewardData}
+        theme={t}
+      />
     </LearnLayout>
   );
 }

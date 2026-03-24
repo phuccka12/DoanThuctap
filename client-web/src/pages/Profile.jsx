@@ -124,6 +124,7 @@ export default function Profile({ defaultTab }) {
   const [editing, setEditing] = useState(false);
   const [msg, setMsg]         = useState({ type: '', text: '' });
   const [profile, setProfile] = useState(null);
+  const [recentScores, setRecentScores] = useState([]);
 
   const [passwords, setPasswords] = useState({ old_password: '', new_password: '', confirm_password: '' });
   const [settings, setSettings]   = useState({ ai_voice: 'female', ai_speed: 1.0, notifications_enabled: true });
@@ -137,6 +138,16 @@ export default function Profile({ defaultTab }) {
   });
 
   useEffect(() => { loadProfile(); }, []);
+
+  useEffect(() => {
+    if (tab === 'progress') {
+      import('../services/dashboardService').then((module) => {
+        module.default.getLatestScores(6).then(scores => {
+          setRecentScores(scores || []);
+        }).catch(err => console.error(err));
+      });
+    }
+  }, [tab]);
 
   const loadProfile = async () => {
     try {
@@ -568,23 +579,36 @@ export default function Profile({ defaultTab }) {
                    )}
                 </div>
 
-                <div className="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] border border-white shadow-xl p-8 flex flex-col justify-center items-center text-center">
-                   <div className="w-24 h-24 bg-linear-to-br from-indigo-100 to-purple-100 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner ring-4 ring-white">
-                      <FaChartBar className="text-3xl text-indigo-600" />
+                <div className="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] border border-white shadow-xl p-8 flex flex-col h-full">
+                   <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-linear-to-br from-indigo-500 to-sky-500 rounded-[1rem] flex items-center justify-center shadow-inner ring-2 ring-white">
+                        <FaClock className="text-white text-xl" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight">HOẠT ĐỘNG GẦN ĐÂY</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tiến độ cày cuốc thực tế</p>
+                      </div>
                    </div>
-                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">ĐIỂM TRUNG BÌNH</p>
-                   <p className="text-6xl font-black bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent italic tracking-tighter">
-                      {profile.placement_test_result?.score || '0.0'}
-                   </p>
-                   <div className="mt-8 grid grid-cols-2 gap-4 w-full">
-                      <div className="p-3 bg-white/80 rounded-2xl shadow-sm border border-slate-100">
-                         <p className="text-[10px] font-bold text-slate-400">THANG ĐIỂM</p>
-                         <p className="font-black text-slate-700">100</p>
-                      </div>
-                      <div className="p-3 bg-white/80 rounded-2xl shadow-sm border border-slate-100">
-                         <p className="text-[10px] font-bold text-slate-400">XẾP HẠNG</p>
-                         <p className="font-black text-emerald-500">TỐT</p>
-                      </div>
+                   <div className="flex-1 space-y-3 overflow-y-auto pr-2">
+                     {recentScores.length > 0 ? recentScores.map((score, i) => (
+                       <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border border-white hover:bg-white hover:shadow-md transition-all group">
+                         <div>
+                           <p className="text-xs font-black text-slate-700">{score.topic || score.type}</p>
+                           <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1">
+                             <FaCheckCircle className="text-emerald-400" /> {new Date(score.date).toLocaleDateString()}
+                           </p>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-lg font-black bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent italic">{score.score}</p>
+                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Score</p>
+                         </div>
+                       </div>
+                     )) : (
+                       <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
+                         <span className="text-3xl mb-3">🏃‍♂️</span>
+                         <p className="text-sm font-bold text-slate-600">Bạn chưa làm bài nào gần đây, học ngay thôi!</p>
+                       </div>
+                     )}
                    </div>
                 </div>
               </div>
