@@ -9,6 +9,7 @@ import {
   FaRedo, FaCheckCircle, FaArrowRight, FaFire, FaTrophy, FaBrain,
   FaSearch, FaChevronRight, FaGraduationCap,
 } from 'react-icons/fa';
+import ElasticTimeline from '../components/learn/ElasticTimeline';
 import LoadingCat from '../components/shared/LoadingCat';
 
 const LEVEL_META = {
@@ -245,7 +246,7 @@ export default function Learn() {
             ))}
             {filteredTopics.length === 0 && (
               <div className={cn('col-span-3 text-center py-16 rounded-3xl border', t.border, t.card)}>
-                <p className="text-5xl mb-4">�</p>
+                <p className="text-5xl mb-4"></p>
                 <p className={cn('text-base font-bold mb-1', t.text)}>Không tìm thấy chủ đề</p>
                 <p className={cn('text-sm', t.sub)}>Thử thay đổi từ khoá hoặc bộ lọc</p>
                 <button onClick={() => { setSearch(''); setFilterLevel('all'); }} className="mt-4 text-sm text-[#6C5CE7] font-semibold hover:underline">
@@ -262,13 +263,13 @@ export default function Learn() {
         !plan ? (
           <EmptyPlan onGenerate={handleGeneratePlan} planLoading={planLoading} t={t} isDark={isDark} />
         ) : (
-          <WeekPlan
+          <ElasticTimeline
             plan={plan}
-            navigate={navigate}
-            t={t}
-            isDark={isDark}
             onRegenerate={handleGeneratePlan}
             planLoading={planLoading}
+            isDark={isDark}
+            t={t}
+            navigate={navigate}
           />
         )
       )}
@@ -434,121 +435,6 @@ function TopicCard({ topic, onClick, t, isDark }) {
   );
 }
 
-/* ── Week Plan ───────────────────────────────────────────────────────────── */
-function WeekPlan({ plan, navigate, t, isDark, onRegenerate, planLoading }) {
-  const today = new Date().getDay();
-  const todayIdx = today === 0 ? 6 : today - 1;
-
-  const doneCount = plan.dayItems?.filter(i => i.status === 'completed').length ?? 0;
-  const totalCount = plan.dayItems?.length ?? 7;
-  const pct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-
-  const scoreItems = plan.dayItems?.filter(i => i.similarityScore > 0) ?? [];
-  const avgSim = scoreItems.length
-    ? (scoreItems.reduce((s, i) => s + i.similarityScore, 0) / scoreItems.length).toFixed(2)
-    : '—';
-  const weekDates = getWeekDates(plan.weekStart);
-
-  return (
-    <div className="space-y-5">
-      {/* Plan header */}
-      <div className={cn('relative overflow-hidden rounded-3xl border shadow-sm', t.border, t.card)}>
-        <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-[#6C5CE7] via-[#a855f7] to-[#00CEC9]" />
-        <div className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center shrink-0', isDark ? 'bg-[#6C5CE7]/20' : 'bg-[#A29BFE]/20')}>
-                <FaBrain className="text-[#6C5CE7] text-xl" />
-              </div>
-              <div>
-                <h2 className={cn('font-black text-lg leading-tight', t.text)}>Lộ trình học AI · 7 ngày</h2>
-                <p className={cn('text-sm mt-0.5', t.sub)}>
-                  Cấp độ: <span className="font-bold text-[#6C5CE7]">{plan.generatedForLevel || 'beginner'}</span>
-                  {plan.weekStart && (
-                    <span className="ml-2">
-                      {new Date(plan.weekStart).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' })}
-                      {plan.weekEnd && ` → ${new Date(plan.weekEnd).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' })}`}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onRegenerate}
-              disabled={planLoading}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-sm font-semibold transition-all shrink-0',
-                'hover:border-[#6C5CE7]/50 hover:text-[#6C5CE7]',
-                t.border, t.sub, isDark ? 'hover:bg-[#6C5CE7]/10' : 'hover:bg-[#A29BFE]/10'
-              )}
-            >
-              {planLoading ? <FaSpinner className="animate-spin text-sm" /> : <FaRedo className="text-xs" />}
-              Tạo lại
-            </button>
-          </div>
-
-          <div className="mt-5">
-            <div className="flex justify-between text-sm mb-2">
-              <span className={t.sub}>Tiến độ tuần</span>
-              <span className={cn('font-black', t.text)}>
-                {doneCount}/{totalCount} bài · <span className="text-[#6C5CE7]">{pct}%</span>
-              </span>
-            </div>
-            <div className={cn('h-3 rounded-full overflow-hidden', isDark ? 'bg-white/10' : 'bg-gray-100')}>
-              <div
-                className="h-full rounded-full bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] transition-all duration-700"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <MiniStat icon="🔥" label="Streak" value={`${doneCount} ngày`} isDark={isDark} t={t} />
-            <MiniStat icon="🏆" label="Hoàn thành" value={`${doneCount}/${totalCount}`} isDark={isDark} t={t} />
-            <MiniStat icon="🧠" label="AI Match" value={avgSim} isDark={isDark} t={t} />
-          </div>
-        </div>
-      </div>
-
-      {/* Daily schedule */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {plan.dayItems?.map((item, i) => (
-          <DayCard
-            key={i}
-            item={item}
-            idx={i}
-            isToday={i === todayIdx}
-            isDone={item.status === 'completed'}
-            topic={item.topic}
-            lesson={item.lesson}
-            skillM={getSkillMeta(item.skill || 'general')}
-            dateStr={weekDates[i]}
-            navigate={navigate}
-            t={t}
-            isDark={isDark}
-          />
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div className={cn('flex flex-wrap gap-4 items-center px-5 py-3.5 rounded-2xl border text-xs', t.border, isDark ? 'bg-white/3' : 'bg-gray-50/80')}>
-        <span className={cn('font-bold', t.sub)}>Chú thích:</span>
-        {[
-          { color: 'bg-[#6C5CE7]', label: 'Hôm nay' },
-          { color: 'bg-emerald-500', label: 'Hoàn thành' },
-          { color: 'bg-purple-500', label: 'AI pick' },
-          { color: isDark ? 'bg-gray-600' : 'bg-gray-300', label: 'Chưa học' },
-        ].map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1.5 text-gray-500">
-            <span className={cn('w-2.5 h-2.5 rounded-full', color)} />
-            {label}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Day Card ────────────────────────────────────────────────────────────── */
 function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, navigate, t, isDark }) {
   // topic-based plan: navigate to topic page; fallback to lesson for legacy plans
@@ -602,16 +488,19 @@ function DayCard({ item, idx, isToday, isDone, topic, lesson, skillM, dateStr, n
             </p>
             {dateStr && <p className={cn('text-[10px]', isToday ? 'text-[#A29BFE]' : t.sub)}>{dateStr}</p>}
           </div>
-          {isDone
-            ? <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+          {item.isExploration ? (
+            <div className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center animate-pulse">
+              <FaBrain className="text-purple-500 text-[10px]" />
+            </div>
+          ) : isDone ? (
+            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
               <FaCheckCircle className="text-white text-[10px]" />
             </div>
-            : isToday
-              ? <div className="w-6 h-6 rounded-full bg-[#6C5CE7] flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              </div>
-              : null
-          }
+          ) : isToday ? (
+            <div className="w-6 h-6 rounded-full bg-[#6C5CE7] flex items-center justify-center shadow-lg shadow-[#6C5CE7]/30">
+              <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+            </div>
+          ) : null}
         </div>
 
         <span className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border mb-2 w-fit', skillM.bg, skillM.color)}>

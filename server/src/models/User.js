@@ -19,6 +19,8 @@ const learningPreferencesSchema = new mongoose.Schema(
     preferred_study_days: { type: [String], default: [] }, // ['monday', 'tuesday', ...]
     exam_date: { type: Date, default: null },
     focus_skills: { type: [String], default: [] }, // ['speaking', 'writing', 'listening', 'reading']
+    major: { type: String, default: null }, // e.g. 'IT', 'Business', 'Medical'
+    interests: { type: [String], default: [] }, // e.g. 'Blockchain', 'AI', 'Music'
     wants_placement_check: { type: Boolean, default: false },
   },
   { _id: false }

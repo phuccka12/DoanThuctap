@@ -23,6 +23,15 @@ const dayItemSchema = new mongoose.Schema(
       default: 'pending',
     },
     completedAt: { type: Date, default: null },
+    
+    // V4.0: Support for multiple tasks per day
+    tasks: [{
+      type: { type: String }, // reading, writing, etc.
+      name: { type: String },
+      itemId: { type: mongoose.Schema.Types.ObjectId },
+      weight: { type: Number, default: 2 },
+      status: { type: String, enum: ['pending', 'completed'], default: 'pending' }
+    }]
   },
   { _id: false }
 );

@@ -8,6 +8,7 @@ import OnboardingStep3 from '../components/Onboarding/OnboardingStep3';
 import OnboardingStep4 from '../components/Onboarding/OnboardingStep4';
 import OnboardingStep5 from '../components/Onboarding/OnboardingStep5';
 import OnboardingStep6 from '../components/Onboarding/OnboardingStep6';
+import OnboardingStepPersonalization from '../components/Onboarding/OnboardingStepPersonalization'; // New step
 import OnboardingSummary from '../components/Onboarding/OnboardingSummary';
 
 export default function Onboarding() {
@@ -17,7 +18,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { user, fetchUserInfo } = useAuth();
 
-  const totalSteps = 7; // 5 steps + 1 egg selection + 1 summary
+  const totalSteps = 8; // 5 steps + Personalization + egg selection + 1 summary
 
   // Guard: chỉ hiển thị onboarding cho người dùng chưa hoàn thành
   useEffect(() => {
@@ -34,26 +35,26 @@ export default function Onboarding() {
     }
   };
 
-  // Step 5 (mini-game) skip → đi thẳng step 6 (chọn trứng)
+  // Step skip handling: đi thẳng step tiếp theo hoặc step 7 (chọn trứng)
   const handleSkip = (data) => {
     const newFormData = { ...formData, ...(data || {}) };
     setFormData(newFormData);
-    setCurrentStep(6);
+    setCurrentStep(7); // Jump to egg selection
   };
 
-  // Step 6 (egg) skip → random trứng rồi vào summary
+  // Step 7 (egg) skip → random trứng rồi vào summary
   const handleEggSkip = () => {
     const random = ['fire', 'ice', 'leaf'][Math.floor(Math.random() * 3)];
     const newFormData = { ...formData, egg_type: random };
     setFormData(newFormData);
-    setCurrentStep(7);
+    setCurrentStep(8);
   };
 
-  // Step 6 confirm egg_type
+  // Step 7 (egg) confirm egg_type
   const handleEggNext = (egg_type) => {
     const newFormData = { ...formData, egg_type };
     setFormData(newFormData);
-    setCurrentStep(7);
+    setCurrentStep(8);
   };
 
   const handleBack = () => {
@@ -72,6 +73,8 @@ export default function Onboarding() {
         wants_placement_check: !!data.wantsPlacement,
         focus_skills: data.painPoint ? [data.painPoint] : [],
         study_hours_per_week: data.timeCommitment ? parseInt(data.timeCommitment.split('-')[0]) : null,
+        major: data.major || null,        // New field
+        interests: data.interests || [],  // New field
         target_band: null,
         preferred_study_days: [],
         exam_date: null,
@@ -116,10 +119,12 @@ export default function Onboarding() {
       case 4:
         return <OnboardingStep4 onNext={handleNext} onBack={handleBack} />;
       case 5:
-        return <OnboardingStep5 onNext={handleNext} onBack={handleBack} onSkip={handleSkip} />;
+        return <OnboardingStepPersonalization onNext={handleNext} onBack={handleBack} />;
       case 6:
-        return <OnboardingStep6 onNext={handleEggNext} onSkip={handleEggSkip} />;
+        return <OnboardingStep5 onNext={handleNext} onBack={handleBack} onSkip={handleSkip} />;
       case 7:
+        return <OnboardingStep6 onNext={handleEggNext} onSkip={handleEggSkip} />;
+      case 8:
         // Submit khi đến summary
         if (!isSubmitting && Object.keys(formData).length > 0) {
           submitOnboarding(formData);
@@ -143,12 +148,12 @@ export default function Onboarding() {
         />
       </div>
 
-      {/* Step Indicator — chỉ hiển thị bước 1-6 */}
-      {currentStep < 7 && (
+      {/* Step Indicator — chỉ hiển thị bước 1-7 */}
+      {currentStep < 8 && (
         <div className="fixed top-6 right-6 z-40">
           <div className="bg-white backdrop-blur-sm rounded-full px-5 py-2.5 shadow-lg border-2 border-purple-100">
             <span className="text-gray-700 text-sm font-bold">
-              Bước {currentStep}/6
+              Bước {currentStep}/7
             </span>
           </div>
         </div>

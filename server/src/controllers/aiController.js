@@ -3,6 +3,7 @@ const axios = require('axios');
 const aiService = require('../services/aiService');
 const { earnCoins, getNum, getPetState } = require('../services/economyService');
 const Pet = require('../models/Pet');
+const { updatePlanTaskStatus } = require('./LearningController');
 
 // Địa chỉ của Server Python (đang chạy ở cổng 5000)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:5000';
@@ -108,6 +109,11 @@ exports.checkWriting = async (req, res) => {
         // Ghi nhận lượt sử dụng
         await aiService.incrementUsage(userId, 'writing');
 
+        // Sync with Roadmap V4.0 (if promptId provided)
+        if (req.body.promptId) {
+            await updatePlanTaskStatus(userId, req.body.promptId, 'completed');
+        }
+
         // Cộng Coins + check expLocked
         let coinResult = null;
         let petState = null;
@@ -181,6 +187,14 @@ exports.checkSpeaking = async (req, res) => {
 
         // Ghi nhận lượt sử dụng
         await aiService.incrementUsage(userId, 'speaking');
+
+        // Sync with Roadmap V4.0 (if speakingId provided)
+        if (req.body.speakingId) {
+            await updatePlanTaskStatus(userId, req.body.speakingId, 'completed');
+        }
+        if (req.body.question_id) {
+            await updatePlanTaskStatus(userId, req.body.question_id, 'completed');
+        }
 
         // Cộng Coins + check expLocked
         let coinResult = null;

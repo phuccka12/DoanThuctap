@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { FaGlobeAmericas, FaBriefcase, FaGraduationCap, FaHeart, FaRocket } from "react-icons/fa";
 
 /**
@@ -10,36 +10,36 @@ const OPTIONS = [
   {
     id: "study_abroad",
     icon: <FaGlobeAmericas />,
-    title: "Du học / Định cư",
-    subtitle: "Chuẩn bị IELTS Academic cho các kỳ thi quan trọng",
+    title: "Chinh phục Học thuật (IELTS Academic)",
+    subtitle: "Tối ưu hóa các điểm neo kiến thức cho mục tiêu Du học & Định cư",
     color: "from-[#6C5CE7] to-[#00CEC9]",
   },
   {
     id: "career",
     icon: <FaBriefcase />,
-    title: "Công việc / Thăng tiến",
-    subtitle: "Nâng cao tiếng Anh chuyên nghiệp trong môi trường làm việc",
+    title: "Phát triển Sự nghiệp quốc tế",
+    subtitle: "Xây dựng tư duy ngôn ngữ chuyên nghiệp trong môi trường đa quốc gia",
     color: "from-[#A29BFE] to-[#6C5CE7]",
   },
   {
     id: "graduation",
     icon: <FaGraduationCap />,
-    title: "Xét tốt nghiệp",
-    subtitle: "Đạt chứng chỉ đầu ra theo yêu cầu của trường",
+    title: "Hoàn thành Chứng chỉ đầu ra",
+    subtitle: "Đảm bảo lộ trình tối thiểu thời gian nhưng đạt hiệu quả tối đa",
     color: "from-[#00CEC9] to-[#0984E3]",
   },
   {
     id: "passion",
     icon: <FaHeart />,
-    title: "Đam mê ngôn ngữ",
-    subtitle: "Học để giao tiếp, xem phim, đọc sách tiếng Anh tự nhiên",
+    title: "Tiếng Anh Bản ngữ & Đam mê",
+    subtitle: "Trải nghiệm văn hóa và giải trí toàn cầu một cách tự nhiên",
     color: "from-[#FD79A8] to-[#E17055]",
   },
   {
     id: "other",
     icon: <FaRocket />,
-    title: "Mục tiêu khác",
-    subtitle: "Nâng cao trình độ tiếng Anh toàn diện và đa dạng",
+    title: "Lộ trình Tự do Cá nhân",
+    subtitle: "AI sẽ tự động thích nghi theo tốc độ và khao khát của bạn",
     color: "from-[#FDCB6E] to-[#E17055]",
   },
 ];

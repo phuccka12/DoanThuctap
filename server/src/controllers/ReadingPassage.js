@@ -2,6 +2,7 @@ const ReadingPassage = require('../models/ReadingPassage');
 const Topic = require('../models/Topic');
 const LessonProgress = require('../models/LessonProgress');
 const mongoose = require('mongoose');
+const { updatePlanTaskStatus } = require('./LearningController');
 
 /**
  * Reading Passage Controller
@@ -793,6 +794,9 @@ exports.submitReading = async (req, res) => {
         coinsEarned: reward?.earned || 0,
         expEarned: reward?.expGain || (correct * 10)
       });
+
+      // Sync with Roadmap V4.0
+      await updatePlanTaskStatus(req.userId, id, 'completed');
     }
 
     res.json({

@@ -16,6 +16,8 @@ exports.saveOnboarding = async (req, res) => {
       preferred_study_days,
       exam_date,
       focus_skills,
+      major,                // new: chuyên ngành
+      interests,            // new: sở thích chi tiết
       wants_placement_check,
       egg_type,             // new: trứng user đã chọn ở bước 6
     } = req.body;
@@ -52,6 +54,8 @@ exports.saveOnboarding = async (req, res) => {
           preferred_study_days: preferred_study_days || [],
           exam_date: exam_date || null,
           focus_skills: focus_skills || [],
+          major: major || null,
+          interests: interests || [],
         },
       },
       { new: true, runValidators: true }

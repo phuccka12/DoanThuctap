@@ -25,12 +25,101 @@ from services.ollama_service import call_ollama, check_ollama_status, call_ollam
 from services.vector_service import vector_service
 from services.analytic_service import analytic_service
 from services.writing_service import writing_service
+from services.roadmap_service import RoadmapService
+from services.lesson_vector_service import lesson_vector_service
 
 from utils.helpers import clean_temp_file, parse_json_safely
-
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
+@app.route('/api/ai/roadmap/generate', methods=['POST'])
+def generate_roadmap_strategy():
+    """
+    Tầng 1 & 2: Xác định Persona và Tối ưu hóa trình tự học.
+    """
+    try:
+        data = request.json
+        user_profile = data.get('profile', {})
+        days = data.get('days', 7)
+        
+        # 1. Clustering (Persona)
+        persona_info = RoadmapService.get_user_persona(user_profile)
+        persona_info['focus_skills'] = user_profile.get('focus_skills', [])
+        persona_info['interests'] = user_profile.get('interests', [])
+        
+        # 2. Path Optimization (Genetic)
+        sequence = RoadmapService.optimize_sequence(persona_info, days=days)
+        
+        return jsonify({
+            "success": True,
+            "persona": persona_info,
+            "sequence": sequence
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/ai/roadmap/update-knowledge', methods=['POST'])
+def update_knowledge_state():
+    """
+    Tầng 5: Cập nhật xác suất làm chủ kiến thức (BKT).
+    """
+    try:
+        data = request.json
+        p_prior = data.get('p_prior', 0.5)
+        p_transit = data.get('p_transit', 0.1)
+        p_guess = data.get('p_guess', 0.2)
+        p_slip = data.get('p_slip', 0.1)
+        is_correct = data.get('is_correct', True)
+        
+        p_new = RoadmapService.calculate_bkt(p_prior, p_transit, p_guess, p_slip, is_correct)
+        
+        return jsonify({
+            "success": True,
+            "p_new": p_new
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/ai/roadmap/semantic-match', methods=['POST'])
+def semantic_match_lessons():
+    """
+    V4.5: Tìm kiếm bài học bằng Embedding + Hybrid Scoring.
+    """
+    try:
+        data = request.json
+        interests = data.get('interests', [])
+        major = data.get('major', '')
+        level = data.get('level', 'A2')
+        mastery = data.get('mastery', {})
+        n_results = data.get('n_results', 5)
+
+        # 1. Hydrate/Translate Interests (Nếu là tiếng Việt)
+        query_text = f"{major} {' '.join(interests)}".strip()
+        
+        # Nếu có tiếng Việt (Unicode > 127), nhờ Gemini dịch & mở rộng
+        if any(ord(c) > 127 for c in query_text):
+            prompt = f"Translate and expand these English learning interests into professional English keywords: {query_text}. Output ONLY context-rich keywords."
+            expanded_query = gemini_service.call_gemini_text(prompt)
+            if expanded_query:
+                query_text = expanded_query
+
+        # 2. Hybrid Matching
+        matches = lesson_vector_service.hybrid_match(
+            query_text=query_text,
+            user_level=level,
+            mastery_stats=mastery,
+            n_results=n_results
+        )
+
+        return jsonify({
+            "success": True,
+            "query": query_text,
+            "matches": matches
+        })
+    except Exception as e:
+        print(f"❌ Semantic Match API Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 # --- THREAD POOL FOR PARALLEL TASKS ---
 executor = ThreadPoolExecutor(max_workers=4)

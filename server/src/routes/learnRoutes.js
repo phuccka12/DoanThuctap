@@ -41,4 +41,7 @@ router.get('/plan/current', protect, ctrl.getCurrentPlan);
 // User progress summary
 router.get('/progress', protect, ctrl.getProgress);
 
+// Get bonus tasks for active learning
+router.get('/bonus-tasks', protect, ctrl.getBonusTasks);
+
 module.exports = router;

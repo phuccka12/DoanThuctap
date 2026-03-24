@@ -10,22 +10,22 @@ const OPTIONS = [
   {
     id: "busy",
     icon: <FaClock />,
-    title: "15-20 phút/ngày",
-    subtitle: "Phù hợp cho người bận rộn, học tranh thủ giữa các công việc",
+    title: "Duy trì nhịp độ (Casual)",
+    subtitle: "Chỉ 15-20 phút mỗi ngày - Phù hợp để giữ lửa thói quen cho người bận rộn",
     color: "from-[#55EFC4] to-[#00B894]",
   },
   {
     id: "moderate",
     icon: <FaRegClock />,
-    title: "30-45 phút/ngày",
-    subtitle: "Tiến độ đều đặn, cân bằng giữa học tập và cuộc sống",
+    title: "Tiến độ ổn định (Steady)",
+    subtitle: "30-45 phút mỗi ngày - Lựa chọn vàng để phát triển kỹ năng bền vững",
     color: "from-[#74B9FF] to-[#0984E3]",
   },
   {
     id: "intensive",
     icon: <FaBolt />,
-    title: "60+ phút/ngày",
-    subtitle: "Học cường độ cao, phù hợp cho mục tiêu thi gấp hoặc nâng band nhanh",
+    title: "Tối ưu cường độ (Intensive)",
+    subtitle: "60+ phút mỗi ngày - Chế độ cày cuốc dành cho mục tiêu thăng tiến thần tốc",
     color: "from-[#FD79A8] to-[#E84393]",
   },
 ];

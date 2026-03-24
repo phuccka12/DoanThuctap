@@ -8,6 +8,7 @@ const SpeakingQuestion = require('../models/SpeakingQuestion');
 const Topic = require('../models/Topic');
 const LessonProgress = require('../models/LessonProgress');
 const mongoose = require('mongoose');
+const { updatePlanTaskStatus } = require('./LearningController');
 const axios = require('axios');
 const FormData = require('form-data');
 
@@ -265,6 +266,9 @@ exports.evaluate = async (req, res) => {
           expEarned: reward?.expGain || 10
         });
 
+        // Sync with Roadmap V4.0
+        await updatePlanTaskStatus(userId, questionId, 'completed');
+
         // 5. Return response
         return res.json({
           success: true,
@@ -384,6 +388,9 @@ exports.evaluate = async (req, res) => {
                rewarded: true,
                expEarned: 20, // fixed XP for speaking practice
              });
+             
+             // Sync with Roadmap V4.0
+             await updatePlanTaskStatus(req.userId, questionId, 'completed');
           } catch (e) {
             console.error('Save Speaking Progress error:', e.message);
           }

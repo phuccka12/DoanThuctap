@@ -4,6 +4,7 @@ const Topic = require('../models/Topic');
 const Pet = require('../models/Pet');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { updatePlanTaskStatus } = require('./LearningController');
 const { rewardExercise } = require('../utils/rewardHelper');
 
 // ─── optional Gemini AI ───────────────────────────────────────────────────────
@@ -179,6 +180,9 @@ exports.completeSession = async (req, res) => {
 
     // ── 4. Accuracy & XP info ─────────────────────────────────────────────
     const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+    // Sync with Roadmap V4.0
+    await updatePlanTaskStatus(req.userId, topicId, 'completed');
 
     res.json({
       success: true,
