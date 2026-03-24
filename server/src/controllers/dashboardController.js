@@ -22,250 +22,180 @@ exports.getTodayTasks = async (req, res) => {
   try {
     const userId = req.userId;
     const { start, end } = getTodayRange();
-    const Lesson = require('../models/Lesson');
-    const Topic = require('../models/Topic');
     const UserPlan = require('../models/UserPlan');
 
-    // ─── CALCULATE TODAY'S PROGRESS ───────────────────────────────────────────
-    
-    // 1. Count completed lessons TODAY
+    // ─── 1. PROGRESS STATS ────────────────────────────────────────────────────
     const lessonsTodayCount = await LessonProgress.countDocuments({
-      userId,
-      completedAt: { $gte: start, $lte: end },
-      score: { $gt: 0 }
+      userId, completedAt: { $gte: start, $lte: end }, score: { $gt: 0 }
     });
-
-    // 2. Coins earned TODAY
     const coinsAgg = await CoinLog.aggregate([
-      { $match: { 
-        user: new mongoose.Types.ObjectId(userId), 
-        timestamp: { $gte: start, $lte: end }, 
-        amount: { $gt: 0 } 
-      } },
+      { $match: { user: new mongoose.Types.ObjectId(userId), timestamp: { $gte: start, $lte: end }, amount: { $gt: 0 } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const coinsToday = coinsAgg.length > 0 ? coinsAgg[0].total : 0;
-
-    // 3. Time spent TODAY (in seconds)
-    // Use completedAt for LessonProgress and updatedAt for WritingScenarioProgress
+    const coinsToday = coinsAgg[0]?.total || 0;
+    
     const lessonTimeAgg = await LessonProgress.aggregate([
-      { $match: { 
-        userId: new mongoose.Types.ObjectId(userId), 
-        completedAt: { $gte: start, $lte: end } 
-      } },
+      { $match: { userId: new mongoose.Types.ObjectId(userId), completedAt: { $gte: start, $lte: end } } },
       { $group: { _id: null, totalSeconds: { $sum: '$timeSpentSec' } } }
     ]);
     const writingTimeAgg = await WritingScenarioProgress.aggregate([
-      { $match: { 
-        userId: new mongoose.Types.ObjectId(userId), 
-        updatedAt: { $gte: start, $lte: end } 
-      } },
+      { $match: { userId: new mongoose.Types.ObjectId(userId), updatedAt: { $gte: start, $lte: end } } },
       { $group: { _id: null, totalSeconds: { $sum: '$timeSpentSec' } } }
     ]);
-    const timeSpentSecToday = (lessonTimeAgg[0]?.totalSeconds || 0) + (writingTimeAgg[0]?.totalSeconds || 0);
 
-    // ─── SYNC WITH AI USER PLAN ──────────────────────────────────────────────
-    
+    // Inclusion of Heartbeat time from Pet model
+    const pet = await Pet.findOne({ user: userId }).lean();
+    const todayStr = start.toISOString().split('T')[0];
+    const heartbeatSec = (pet && pet.studyTimeDate === todayStr) ? (pet.studyTimeToday || 0) : 0;
+
+    const timeSpentSecToday = (lessonTimeAgg[0]?.totalSeconds || 0) + (writingTimeAgg[0]?.totalSeconds || 0) + heartbeatSec;
+
+    // ─── 2. AI PLAN TASKS ─────────────────────────────────────────────────────
     const now = new Date();
-    let dayIndex = now.getDay(); // 0=Sun, 1=Mon...
-    dayIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Convert to 0=Mon, 6=Sun
+    let dayIndex = now.getDay(); 
+    dayIndex = (dayIndex === 0 ? 6 : dayIndex - 1); // 0=Mon...6=Sun
 
     const activePlan = await UserPlan.findOne({ userId, status: 'active' }).lean();
-    let aiRecommendedTask = null;
+    const aiTasks = [];
+
+    // Local Helper: Progress
+    const getTaskProgress = async (type, itemId) => {
+      if (type === 'writing') {
+        if (!itemId) return 0;
+        const wp = await WritingScenarioProgress.findOne({ userId, scenarioId: itemId, updatedAt: { $gte: start, $lte: end } });
+        return wp ? (wp.bestScore || 100) : 0;
+
+      } else if (type === 'listening') {
+        // First try specific passage match (if itemId is a specific passage)
+        if (itemId) {
+          const lp = await LessonProgress.findOne({ userId, passageId: itemId, completedAt: { $gte: start, $lte: end } });
+          if (lp) return lp.score || 100;
+        }
+        // Fallback: any listening done today (covers generic "listening" tasks)
+        const anyLp = await LessonProgress.findOne({ userId, passageType: 'listening', completedAt: { $gte: start, $lte: end } });
+        return anyLp ? (anyLp.score || 100) : 0;
+
+      } else if (type === 'reading') {
+        if (itemId) {
+          const lp = await LessonProgress.findOne({ userId, passageId: itemId, completedAt: { $gte: start, $lte: end } });
+          if (lp) return lp.score || 100;
+        }
+        // Fallback: any reading done today
+        const anyLp = await LessonProgress.findOne({ userId, passageType: 'reading', completedAt: { $gte: start, $lte: end } });
+        return anyLp ? (anyLp.score || 100) : 0;
+
+      } else if (type === 'speaking') {
+        if (itemId) {
+          const lp = await LessonProgress.findOne({ userId, speakingId: itemId, completedAt: { $gte: start, $lte: end } });
+          if (lp) return lp.score || 100;
+        }
+        // Fallback: any speaking done today
+        const anyLp = await LessonProgress.findOne({ userId, speakingId: { $ne: null }, completedAt: { $gte: start, $lte: end } });
+        return anyLp ? (anyLp.score || 100) : 0;
+
+      } else if (type === 'topic' || type === 'lesson') {
+        if (!itemId) return 0;
+        const lp = await LessonProgress.findOne({ userId, lessonId: itemId, completedAt: { $gte: start, $lte: end } });
+        return lp ? (lp.score || 100) : 0;
+      }
+      return 0;
+    };
+
+
+    // Local Helper: Info Mapping
+    const getTaskInfo = (type, itemId, nameHint) => {
+      let url = '/learn';
+      let title = nameHint || 'Bài tập gợi ý';
+      let subtitle = 'Nhiệm vụ từ AI';
+      switch (type) {
+        case 'topic': url = itemId ? `/learn/topics/${itemId}` : '/learn'; title = nameHint || 'Chủ đề hôm nay'; break;
+        case 'reading': url = '/reading'; break;
+        case 'speaking': url = '/speaking-practice'; break;
+        case 'writing': url = '/writing-scenarios'; break;
+        case 'listening': url = '/ai-listening'; break;
+        case 'vocabulary': url = itemId ? `/vocabulary/${itemId}/learn` : '/vocabulary'; break;
+        case 'grammar': url = itemId ? `/grammar/${itemId}` : '/grammar'; break;
+        case 'story': url = itemId ? `/stories/${itemId}/parts/1` : '/stories'; break;
+      }
+      return { url, title, subtitle };
+    };
 
     if (activePlan && activePlan.dayItems) {
       const todayItem = activePlan.dayItems.find(item => item.dayIndex === dayIndex);
       if (todayItem) {
-        let url = '/learn';
-        let title = 'Tiếp tục lộ trình';
-        let subtitle = 'Học theo kế hoạch AI';
-        let currentProgress = 0;
-
-        // Calculate actual progress for this specific item today
-        if (todayItem.itemType === 'writing') {
-            const wp = await WritingScenarioProgress.findOne({ 
-                userId, 
-                scenarioId: todayItem.itemId,
-                updatedAt: { $gte: start, $lte: end }
-            });
-            if (wp) currentProgress = wp.bestScore || 100;
-        } else if (['reading', 'listening', 'speaking'].includes(todayItem.itemType)) {
-            const lp = await LessonProgress.findOne({
-                userId,
-                $or: [
-                    { passageId: todayItem.itemId },
-                    { speakingId: todayItem.itemId }
-                ],
-                completedAt: { $gte: start, $lte: end }
-            });
-            if (lp) currentProgress = lp.score || 100;
-        } else if (todayItem.itemType === 'topic' || todayItem.itemType === 'lesson') {
-            const lp = await LessonProgress.findOne({
-                userId,
-                lessonId: todayItem.itemId,
-                completedAt: { $gte: start, $lte: end }
-            });
-            if (lp) currentProgress = lp.score || 100;
+        if (todayItem.tasks && todayItem.tasks.length > 0) {
+          for (const t of todayItem.tasks) {
+            const prog = await getTaskProgress(t.type, t.itemId);
+            const info = getTaskInfo(t.type, t.itemId, t.name || t.title);
+            aiTasks.push({ id: `ai-${t.itemId || Math.random()}`, title: info.title, subtitle: info.subtitle, type: t.type, actionUrl: info.url, actionText: prog >= 80 ? 'Hoàn thành ✅' : 'Bắt đầu ngay', progress: Math.min(100, prog), reward: t.reward || null });
+          }
+        } else {
+          const prog = await getTaskProgress(todayItem.itemType, todayItem.itemId);
+          const info = getTaskInfo(todayItem.itemType, todayItem.itemId, null);
+          aiTasks.push({ id: 'ai-plan-legacy', title: info.title, subtitle: info.subtitle, type: todayItem.itemType, actionUrl: info.url, actionText: prog >= 80 ? 'Hoàn thành ✅' : 'Bắt đầu', progress: Math.min(100, prog) });
         }
-
-        switch (todayItem.itemType) {
-          case 'topic':
-            url = `/learn/topics/${todayItem.itemId}`;
-            title = 'Chủ đề hôm nay';
-            subtitle = 'Mở rộng kiến thức tổng quát';
-            break;
-          case 'reading':
-            url = '/reading';
-            title = 'Luyện kỹ năng Đọc';
-            subtitle = 'Nâng cao khả năng đọc hiểu';
-            break;
-          case 'speaking':
-            url = '/speaking-practice';
-            title = 'Luyện kỹ năng Nói';
-            subtitle = 'Cải thiện phát âm và phản xạ';
-            break;
-          case 'writing':
-            url = '/writing-scenarios';
-            title = 'Luyện kỹ năng Viết';
-            subtitle = 'Viết essay và nhận feedback AI';
-            break;
-          case 'listening':
-            url = '/ai-listening';
-            title = 'Luyện kỹ năng Nghe';
-            subtitle = 'Thử thách nghe hiểu từ AI';
-            break;
-          case 'vocabulary':
-            url = todayItem.topicId ? `/vocabulary/${todayItem.topicId}/learn` : '/vocabulary';
-            title = 'Học từ vựng mới';
-            subtitle = 'Mở rộng vốn từ vựng IELTS';
-            // Simple check for vocab: if they earned any vocab coins today
-            const vocabCoin = await CoinLog.findOne({ user: userId, source: 'vocab', timestamp: { $gte: start, $lte: end } });
-            if (vocabCoin) currentProgress = 100;
-            break;
-          case 'grammar':
-            url = `/grammar/${todayItem.itemId}`;
-            title = 'Ngữ pháp trọng tâm';
-            subtitle = 'Củng cố nền tảng ngữ pháp';
-            break;
-          case 'story':
-            url = `/stories/${todayItem.itemId}/parts/1`;
-            title = 'Đọc truyện tiếng Anh';
-            subtitle = 'Thư giãn và học từ vựng';
-            break;
-        }
-
-        aiRecommendedTask = {
-          id: 'ai-plan',
-          title,
-          subtitle,
-          type: todayItem.itemType,
-          actionUrl: url,
-          actionText: currentProgress >= 80 ? 'Hoàn thành' : 'Bắt đầu ngay',
-          percent: Math.min(100, currentProgress)
-        };
       }
     }
 
-    // ─── FIND USER'S ACTIVE LESSON (In Progress - Fallback or Secondary) ─────
-    
-    const inProgressLesson = await LessonProgress.findOne({
-      userId,
-      rewarded: false, 
-      score: { $lt: 100 }
-    })
-    .sort({ updated_at: -1 })
-    .populate('lessonId', 'title topic_id duration')
-    .populate({
-      path: 'lessonId',
-      populate: { path: 'topic_id', select: 'name slug' }
-    });
-
-    let recommendedLesson = null;
-    if (inProgressLesson && inProgressLesson.lessonId) {
-      recommendedLesson = {
-        id: inProgressLesson.lessonId._id,
-        title: inProgressLesson.lessonId.title,
-        topicName: inProgressLesson.lessonId.topic_id?.name || 'Bài học',
-        topicSlug: inProgressLesson.lessonId.topic_id?.slug,
-        progress: inProgressLesson.score || 0,
-        type: 'continue',
-        actionText: 'Tiếp tục bài học',
-        actionUrl: `/learn/lessons/${inProgressLesson.lessonId._id}`, // Fixed URL: /lessons/
-        duration: inProgressLesson.lessonId.duration || 15,
-        completedNodes: inProgressLesson.completedNodes?.length || 0
-      };
-    }
-
-    // ─── BUILD TASK ARRAY ────────────────────────────────────────────────────
-    
+    // ─── 3. ASSEMBLE TASKS ────────────────────────────────────────────────────
     const tasks = [];
-
-    // Prioritise AI Plan Task if exists
-    if (aiRecommendedTask) {
-      tasks.push(aiRecommendedTask);
+    if (aiTasks.length > 0) {
+      tasks.push(...aiTasks);
+    } else {
+      // Fallback: Current lesson in progress
+      const inProgress = await LessonProgress.findOne({ userId, rewarded: false, score: { $lt: 100 } })
+        .sort({ updated_at: -1 }).populate({ path: 'lessonId', populate: { path: 'topic_id' } });
+      if (inProgress && inProgress.lessonId) {
+        tasks.push({
+          id: 'lesson-rec',
+          title: `Tiếp tục: ${inProgress.lessonId.title}`,
+          type: 'lesson',
+          progress: inProgress.score,
+          subtitle: inProgress.lessonId.topic_id?.name || 'Bài học',
+          actionUrl: `/learn/lessons/${inProgress.lessonId._id}`,
+          actionText: 'Học ngay'
+        });
+      }
     }
+
+    // Quests Pool
+    const listeningTodayCount = await LessonProgress.countDocuments({ userId, completedAt: { $gte: start, $lte: end }, passageType: 'listening' });
+    const speakingTodayCount = await LessonProgress.countDocuments({ userId, completedAt: { $gte: start, $lte: end }, speakingId: { $ne: null } });
     
-    // Traditional Lesson Task
-    tasks.push({
-      id: 1,
-      title: recommendedLesson 
-        ? (inProgressLesson ? `Đang học: ${recommendedLesson.title}` : `Bắt đầu: ${recommendedLesson.title}`)
-        : 'Cố gắng hoàn thành 1 bài học',
-      type: 'lesson',
-      completed: lessonsTodayCount >= 1,
-      progress: recommendedLesson 
-        ? (inProgressLesson ? inProgressLesson.score : 0)
-        : (lessonsTodayCount >= 1 ? 100 : 0),
-      dueTime: '23:59',
-      subtitle: recommendedLesson 
-        ? `${recommendedLesson.topicName} • ${recommendedLesson.duration} phút`
-        : 'Luyện tập mỗi ngày',
-      actionUrl: recommendedLesson?.actionUrl || '/learn',
-      actionText: recommendedLesson?.actionText || 'Xem danh sách',
-      lessonId: recommendedLesson?.id,
-      lessonType: recommendedLesson?.type 
-    });
-    
-    // Challenge Tasks
-    tasks.push({
-      id: 2,
-      title: 'Thử thách kiếm Coins',
-      type: 'coins',
-      completed: coinsToday >= 50,
-      progress: Math.min(100, Math.floor((coinsToday / 50) * 100)),
-      dueTime: '23:59',
-      subtitle: `${Math.min(coinsToday, 50)}/50 Coins nhặt được`,
-      reward: '🎁 +10 bonus coins'
-    });
-    
-    tasks.push({
-      id: 3,
-      title: 'Học tập chuyên cần',
-      type: 'time',
-      completed: timeSpentSecToday >= 900,
-      progress: Math.min(100, Math.floor((timeSpentSecToday / 900) * 100)),
-      dueTime: '23:59',
-      subtitle: `${Math.floor(timeSpentSecToday / 60)}/15 phút học tập`,
-      reward: '🏅 +5 Pet EXP'
+    const questPool = [
+      { id: 'q1', type: 'lesson', title: 'Hoàn thành 1 bài học', target: 1, current: lessonsTodayCount, url: '/learn' },
+      { id: 'q2', type: 'coins', title: 'Tích luỹ 50 Coins', target: 50, current: coinsToday, url: '/learn' },
+      { id: 'q3', type: 'time', title: '15 phút chuyên cần', target: 15, current: Math.floor(timeSpentSecToday/60), url: '/learn' },
+      { id: 'q4', type: 'listening', title: 'Luyện Tai Siêu Đẳng', target: 1, current: listeningTodayCount, url: '/ai-listening' },
+      { id: 'q5', type: 'speaking', title: 'Luyện Giọng Bản Xứ', target: 1, current: speakingTodayCount, url: '/speaking-practice' }
+    ];
+
+    const hashBase = userId.toString() + start.toDateString();
+    let hash = 0;
+    for (let i = 0; i < hashBase.length; i++) hash = Math.imul(31, hash) + hashBase.charCodeAt(i) | 0;
+    const rng1 = Math.abs(hash) % questPool.length;
+    const rng2 = (rng1 + 1) % questPool.length;
+
+    [questPool[rng1], questPool[rng2]].forEach(q => {
+      tasks.push({
+        id: q.id, title: q.title, type: q.type, completed: q.current >= q.target,
+        progress: Math.min(100, Math.floor((q.current / q.target) * 100)),
+        subtitle: `${q.current}/${q.target}`, actionUrl: q.url, actionText: 'Thử thách'
+      });
     });
 
-    res.json({ 
+    return res.json({ 
       success: true, 
       tasks,
       summary: {
         lessonsCompletedToday: lessonsTodayCount,
         coinsEarnedToday: coinsToday,
         minutesSpentToday: Math.floor(timeSpentSecToday / 60),
-        recommendedLesson: recommendedLesson ? {
-          id: recommendedLesson.id,
-          title: recommendedLesson.title,
-          actionUrl: recommendedLesson.actionUrl
-        } : null,
-        aiPlanActive: !!aiRecommendedTask
+        aiPlanActive: aiTasks.length > 0
       }
     });
   } catch (error) {
-    console.error('Error getting today tasks:', error);
+    console.error('getTodayTasks Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -408,12 +338,27 @@ exports.getLatestScores = async (req, res) => {
         else if (title.toLowerCase().includes('read') || title.toLowerCase().includes('đọc')) type = 'Reading';
         else if (title.toLowerCase().includes('listen') || title.toLowerCase().includes('nghe')) type = 'Listening';
         else if (title.toLowerCase().includes('vocab') || title.toLowerCase().includes('từ vựng')) type = 'Vocabulary';
+      } else if (prog.speakingId) {
+        type = 'Speaking';
+        title = 'Luyện Nói (IELTS Speaking)';
+      } else if (prog.passageId) {
+        type = prog.passageType === 'reading' ? 'Reading' : 'Listening';
+        title = prog.passageType === 'reading' ? 'Luyện Đọc (IELTS Reading)' : 'Luyện Nghe (IELTS Listening)';
+      } else if (prog.vocabId || prog.topicId) {
+        type = 'Vocabulary';
+        title = 'Luyện Từ vựng';
+      } else if (prog.scenarioId) {
+        type = 'Writing';
+        title = 'Luyện Viết (IELTS Writing)';
+      } else if (prog.storyId) {
+        type = 'Translation';
+        title = 'Dịch ngược câu chuyện';
       }
 
       return {
         id: prog._id || index,
         type: type,
-        score: parseFloat((prog.score / 10).toFixed(1)), // Trả về dạng band mốc 10 hoặc để nguyên score tùy frontend. Đồ án dùng thang IELTS 0-9.0? Nếu DB lưu 0-100 thì /10 sẽ ra 0-10.
+        score: parseFloat((prog.score / 10).toFixed(1)), // Trả về dạng band mốc 10
         rawScore: prog.score,
         date: prog.updated_at || prog.completedAt || new Date(),
         topic: title
@@ -512,6 +457,36 @@ exports.getDashboardData = async (req, res) => {
     res.json({ success: true, data: dashboardData });
   } catch (error) {
     console.error('Error getting dashboard data:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── HEARTBEAT (Real-time study time tracking) ──────────────────────────────
+exports.heartbeat = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const now = new Date();
+    // Use ISO string but convert to YYYY-MM-DD in local-date context if possible, 
+    // but here we use a simple approach for consistency with getTodayTasks helper.
+    const start = new Date();
+    start.setHours(0,0,0,0);
+    const todayStr = start.toISOString().split('T')[0];
+
+    // Increment 60 seconds (default heartbeat interval)
+    const pet = await Pet.findOne({ user: userId });
+    if (!pet) return res.status(404).json({ success: false, message: 'Pet not found' });
+
+    if (pet.studyTimeDate !== todayStr) {
+      pet.studyTimeToday = 60;
+      pet.studyTimeDate = todayStr;
+    } else {
+      pet.studyTimeToday += 60;
+    }
+
+    await pet.save();
+    return res.json({ success: true, studyTimeToday: pet.studyTimeToday });
+  } catch (error) {
+    console.error('Heartbeat error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

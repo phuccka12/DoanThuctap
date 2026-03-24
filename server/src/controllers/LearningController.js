@@ -24,7 +24,7 @@ const aiService = require('../services/aiService');
 const axios = require('axios');
 
 const TASK_WEIGHTS = {
-  reading: 3, listening: 3, speaking: 5, writing: 5, 
+  reading: 3, listening: 3, speaking: 5, writing: 5,
   vocabulary: 1, grammar: 2, story: 2
 };
 
@@ -118,6 +118,10 @@ exports.getTopicsWithProgress = async (req, res) => {
 exports.getLessonsForTopic = async (req, res) => {
   try {
     const { topicId } = req.params;
+
+    if (!topicId || topicId === 'null' || !mongoose.Types.ObjectId.isValid(topicId)) {
+      return res.status(400).json({ success: false, message: 'ID Chủ đề không hợp lệ' });
+    }
 
     const topic = await Topic.findById(topicId).lean();
     if (!topic) return res.status(404).json({ success: false, message: 'Không tìm thấy chủ đề' });
@@ -531,7 +535,7 @@ Lời nhắn cần thể hiện sự thấu hiểu sâu sắc rằng bạn biế
     let aiExplanation = { welcome_message: "Khởi đầu hành trình chinh phục IELTS của bạn ngay hôm nay!", phase_explanation: "Lộ trình được thiết kế để cân bằng các kỹ năng." };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const result = await model.generateContent(finalPrompt);
       const resText = result.response.text();
       const jsonMatch = resText.match(/\{[\s\S]*\}/);
@@ -595,7 +599,7 @@ exports.getCurrentPlan = async (req, res) => {
       if (item.tasks && item.tasks.length > 0) {
         for (let task of item.tasks) {
           const taskData = { ...task.toObject() };
-          
+
           if (task.type === 'topic' && task.itemId) {
             taskData.content = await Topic.findById(task.itemId).select('name description cover_image icon_name level').lean();
           } else if (task.type === 'reading' && task.itemId) {
@@ -613,20 +617,20 @@ exports.getCurrentPlan = async (req, res) => {
           } else if (task.type === 'grammar' && task.itemId) {
             taskData.content = await GrammarLesson.findById(task.itemId).select('title').lean();
           }
-          
+
           itemData.tasks.push(taskData);
         }
       }
 
       // Backward compatibility: maintain lesson/topic refs for older UI
       if (itemData.tasks.length > 0) {
-          const mainTask = itemData.tasks[0];
-          itemData.topic = mainTask.type === 'topic' ? mainTask.content : null;
-          itemData.lesson = mainTask.type !== 'topic' ? {
-              _id: mainTask.itemId,
-              title: mainTask.content?.title || mainTask.content?.name || mainTask.content?.word || mainTask.name,
-              itemType: mainTask.type
-          } : null;
+        const mainTask = itemData.tasks[0];
+        itemData.topic = mainTask.type === 'topic' ? mainTask.content : null;
+        itemData.lesson = mainTask.type !== 'topic' ? {
+          _id: mainTask.itemId,
+          title: mainTask.content?.title || mainTask.content?.name || mainTask.content?.word || mainTask.name,
+          itemType: mainTask.type
+        } : null;
       }
 
       populatedItems.push(itemData);
@@ -703,14 +707,14 @@ exports.updatePlanTaskStatus = async (userId, itemId, status = 'completed') => {
           }
         }
       }
-      
+
       // Update day overall status if all tasks are done
       if (day.tasks && day.tasks.length > 0) {
         const allDone = day.tasks.every(t => t.status === 'completed');
         if (allDone && day.status !== 'completed') {
-           day.status = 'completed';
-           day.completedAt = new Date();
-           modified = true;
+          day.status = 'completed';
+          day.completedAt = new Date();
+          modified = true;
         }
       }
     }
@@ -735,14 +739,14 @@ exports.getBonusTasks = async (req, res) => {
   try {
     const user = await User.findById(req.userId).lean();
     const onboarding = await mongoose.model('UserOnboarding').findOne({ user_id: req.userId }).lean();
-    
+
     // Fetch some high-relevance items based on interests
     const interests = onboarding?.interests || [];
     const major = onboarding?.major || '';
     const level = normaliseLevelStr(onboarding?.current_level);
-    
+
     // Quick search for related topics/passages
-    const topics = await Topic.find({ 
+    const topics = await Topic.find({
       $or: [
         { name: { $in: interests.map(i => new RegExp(i, 'i')) } },
         { description: new RegExp(major, 'i') }

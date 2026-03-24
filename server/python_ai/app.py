@@ -245,6 +245,87 @@ def evaluate_speaking():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Endpoint mới đồng bộ với Node Controller SpeakingPractice.js
+@app.route('/api/speaking-practice/evaluate', methods=['POST'])
+def evaluate_speaking_practice():
+    try:
+        if 'audio' not in request.files: return jsonify({"error": "No audio file provided"}), 400
+        audio_file = request.files['audio']
+        question = request.form.get('question', 'General Speaking')
+        phase = request.form.get('phase', 'p1')
+        sample_answer = request.form.get('sample_answer', '')
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            audio_file.save(tmp.name)
+            tmp_path = tmp.name
+
+        # 1. Transcription + Pitch
+        future_stt = executor.submit(transcribe_audio, tmp_path)
+        future_pitch = executor.submit(extract_pitch, tmp_path)
+        
+        stt_res = future_stt.result()
+        transcript = stt_res.get("text", "")
+        pitch_data = future_pitch.result()
+        
+        # 2. Prompt nâng cao để trả về format SpeakingPractice.js (scores.overall, feedback, mistakes, etc.)
+        prompt = f"""
+        Role: IELTS Speaking Examiner. Phase: {phase}. 
+        Question: "{question}"
+        {f'Sample Answer for reference: "{sample_answer}"' if sample_answer else ""}
+        Candidate Transcript: "{transcript}"
+        
+        Instructions:
+        - Evaluate strictly based on IELTS criteria.
+        - Return structured JSON in Vietnamese.
+        - Scores must be between 0 and 9.0.
+        
+        Output JSON Format:
+        {{
+            "scores": {{
+                "overall": 0.0,
+                "fluency": 0.0,
+                "pronunciation": 0.0,
+                "lexical": 0.0,
+                "grammar": 0.0
+            }},
+            "feedback": {{
+                "overall": "...",
+                "fluency": "...",
+                "pronunciation": "...",
+                "lexical": "...",
+                "grammar": "..."
+            }},
+            "transcript": "{transcript}",
+            "improved_answer": "...",
+            "mistakes": [
+                {{"word": "...", "error": "...", "fix": "..."}}
+            ],
+            "encouragement": "...",
+            "follow_up_question": "..."
+        }}
+        """
+        
+        ai_result = gemini_service.call_gemini_json(prompt)
+        
+        clean_temp_file(tmp_path)
+
+        if ai_result:
+            # Bổ sung pitch_data nếu FE cần
+            ai_result["pitch_data"] = pitch_data
+            return jsonify(ai_result), 200
+        
+        # Fallback
+        return jsonify({
+            "scores": {"overall": 5.0, "fluency": 5.0, "pronunciation": 5.0, "lexical": 5.0, "grammar": 5.0},
+            "feedback": {"overall": "Không thể kết nối AI, trả về điểm mặc định."},
+            "transcript": transcript,
+            "mistakes": []
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Speaking Practice Evaluate Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/speaking/conversation', methods=['POST'])
 def conversation():
     try:

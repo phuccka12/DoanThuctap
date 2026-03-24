@@ -34,12 +34,19 @@ const petSchema = new mongoose.Schema(
     // Bùa đóng băng streak
     streakFrozenUntil: { type: Date, default: null },
 
+    // Các mốc streak đã đạt được và nhận thưởng (e.g. [3, 7, 14, 30])
+    streakMilestones: { type: [Number], default: [] },
+
     // EXP buff tạm thời (từ vật phẩm) — % cộng thêm
     activeExpBuff: { type: Number, default: 0 },
 
     // Coins earned today (dùng để check daily cap — reset hàng ngày)
     coinsEarnedToday: { type: Number, default: 0 },
     coinsEarnedDate:  { type: String, default: '' }, // format: YYYY-MM-DD UTC
+
+    // Study time tracked via heartbeat (seconds)
+    studyTimeToday:   { type: Number, default: 0 },
+    studyTimeDate:    { type: String, default: '' }, // format: YYYY-MM-DD UTC
 
     inventory: [
       {

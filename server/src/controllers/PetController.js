@@ -7,16 +7,10 @@ const {
   getPetBuffMultiplier,
   resolvePetEvolution,
   getExpNeeded,
-  getNum,
+   getNum,
 } = require('../services/economyService');
 
-// Helper: are two dates same UTC day
-function isSameUtcDay(a, b) {
-  if (!a || !b) return false;
-  const da = new Date(a);
-  const db = new Date(b);
-  return da.getUTCFullYear() === db.getUTCFullYear() && da.getUTCMonth() === db.getUTCMonth() && da.getUTCDate() === db.getUTCDate();
-}
+// Pet Controller functions follow...
 
 /** Áp dụng level-up loop theo milestones hoặc base formula */
 async function applyLevelUp(pet) {
@@ -81,33 +75,67 @@ exports.checkin = async (req, res) => {
     }
 
     // If already checked in today
-    if (pet.lastCheckinAt && isSameUtcDay(pet.lastCheckinAt, now)) {
-      return res.status(400).json({ success: false, message: 'Hôm nay đã check-in rồi', pet });
-    }
-
-    // Streak logic — kiểm tra freeze
-    const isFrozen = pet.streakFrozenUntil && new Date(pet.streakFrozenUntil) > now;
-    let newStreak = 1;
+    // Prevent double check-in within 12 hours
     if (pet.lastCheckinAt) {
       const last = new Date(pet.lastCheckinAt);
-      const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
-      if (
-        last.getUTCFullYear() === yesterday.getUTCFullYear() &&
-        last.getUTCMonth() === yesterday.getUTCMonth() &&
-        last.getUTCDate() === yesterday.getUTCDate()
-      ) {
+      if ((now - last) / (1000 * 60 * 60) < 12) {
+        return res.status(400).json({ success: false, message: 'Bạn vừa check-in cách đây chưa tới 12 tiếng!', pet });
+      }
+    }
+
+    // Streak logic — Improved for timezones (12-48h window)
+    const isFrozen = pet.streakFrozenUntil && new Date(pet.streakFrozenUntil) > now;
+    let newStreak = 1;
+    
+    if (pet.lastCheckinAt) {
+      const last = new Date(pet.lastCheckinAt);
+      const diffMs = now - last;
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      if (diffHours < 12) {
+        // Too soon, probably same local day
+        return res.status(400).json({ success: false, message: 'Hôm nay bạn đã check-in rồi!', pet });
+      } else if (diffHours <= 48) {
+        // Meaningful gap (next day), increment
         newStreak = pet.streakCount + 1;
       } else if (isFrozen) {
-        // Bùa đóng băng: giữ nguyên streak dù bỏ hôm qua
+        // More than 48h but has freeze buff
         newStreak = pet.streakCount;
-        pet.streakFrozenUntil = null; // dùng 1 lần
+        pet.streakFrozenUntil = null; // consume
+      } else {
+        // Too long, reset
+        newStreak = 1;
       }
     }
 
     pet.streakCount = newStreak;
     pet.lastCheckinAt = now;
 
-    // Growth points reward
+    // Milestone Rewards Logic
+    const milestoneRewards = {
+      3:  { coins: 50, gp: 0,   happiness: 10, label: 'Đồng' },
+      7:  { coins: 150, gp: 50,  happiness: 20, label: 'Bạc' },
+      14: { coins: 400, gp: 100, happiness: 30, label: 'Vàng' },
+      30: { coins: 1000, gp: 250, happiness: 50, label: 'Kim cương' }
+    };
+
+    let milestoneReached = null;
+    if (milestoneRewards[newStreak] && !pet.streakMilestones.includes(newStreak)) {
+      const reward = milestoneRewards[newStreak];
+      milestoneReached = { day: newStreak, ...reward };
+      
+      // Grant coins
+      await earnCoins(userId, `streak_milestone_${newStreak}`, reward.coins);
+      
+      // Grant GP & Happiness
+      pet.growthPoints += reward.gp;
+      pet.happiness = Math.min(100, pet.happiness + reward.happiness);
+      
+      // Save milestone
+      pet.streakMilestones.push(newStreak);
+    }
+
+    // Standard growth points reward
     const bonus = Math.floor(Math.min(50, pet.streakCount / 2));
     pet.growthPoints += 10 + bonus;
     pet.happiness = Math.min(100, pet.happiness + 5);
@@ -124,8 +152,11 @@ exports.checkin = async (req, res) => {
     const petData = await buildPetResponse(pet);
     return res.json({
       success: true,
-      message: 'Check-in thành công!',
-      coinsEarned: earned,
+      message: milestoneReached 
+        ? `CHÚC MỪNG! Bạn đã đạt mốc ${newStreak} ngày (${milestoneReached.label})!` 
+        : 'Check-in thành công!',
+      milestone: milestoneReached,
+      coinsEarned: earned + (milestoneReached?.coins || 0),
       capReached,
       pet: petData,
     });

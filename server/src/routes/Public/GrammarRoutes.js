@@ -1,5 +1,5 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const GrammarLesson = require('../../models/GrammarLesson');
 const LessonProgress = require('../../models/LessonProgress');
 const { protect } = require('../../middlewares/authMiddleware');
@@ -9,8 +9,8 @@ router.get('/', protect, async (req, res) => {
   try {
     const { level = '', search = '', page = 1, limit = 20 } = req.query;
     const q = { is_active: true, is_published: true };
-    if (level)  q.level  = level;
-    if (search) q.title  = { $regex: search, $options: 'i' };
+    if (level) q.level = level;
+    if (search) q.title = { $regex: search, $options: 'i' };
 
     const skip = (Number(page) - 1) * Number(limit);
     const [lessons, total] = await Promise.all([
@@ -24,13 +24,13 @@ router.get('/', protect, async (req, res) => {
     ]);
 
     const rows = lessons.map(l => ({
-      _id:          l._id,
-      title:        l.title,
-      description:  l.description,
-      level:        l.level,
-      hookCount:    l.hook?.questions?.length ?? 0,
+      _id: l._id,
+      title: l.title,
+      description: l.description,
+      level: l.level,
+      hookCount: l.hook?.questions?.length ?? 0,
       minigameCount: l.minigames?.length ?? 0,
-      created_at:   l.created_at,
+      created_at: l.created_at,
     }));
 
     // If authenticated, attach per-lesson progress (simple: completed boolean)
@@ -100,7 +100,18 @@ router.post('/:id/complete', protect, async (req, res) => {
 
     await progress.save();
 
-    res.json({ data: progress });
+    // ── AWARD COINS ──────────────────
+    let reward = null;
+    if (req.userId) {
+      try {
+        const { rewardExercise } = require('../../utils/rewardHelper');
+        reward = await rewardExercise(req.userId, 'grammar');
+      } catch (e) {
+        console.error('Reward grammar error:', e.message);
+      }
+    }
+
+    res.json({ data: progress, reward });
   } catch (e) {
     console.error('[GrammarRoutes] complete:', e);
     res.status(500).json({ message: e.message });

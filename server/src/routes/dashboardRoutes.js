@@ -14,5 +14,6 @@ router.get('/analytics/time-spent', dashboardController.getTimeSpent);
 router.get('/scores/latest', dashboardController.getLatestScores);
 router.get('/reminders', dashboardController.getReminders);
 router.get('/user/goals/current', dashboardController.getUserGoals);
+router.post('/heartbeat', dashboardController.heartbeat);
 
 module.exports = router;

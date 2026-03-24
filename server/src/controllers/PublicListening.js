@@ -146,6 +146,7 @@ exports.getOne = async (req, res) => {
 // ── POST nộp bài — chấm điểm ────────────────────────────────────────────────
 exports.submit = async (req, res) => {
   try {
+    const userId = req.userId;
     const { answers, timeSpentSec = 0 } = req.body;
     // answers: [{ questionId, answer }]
 

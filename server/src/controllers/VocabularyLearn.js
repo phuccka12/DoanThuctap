@@ -88,8 +88,9 @@ exports.getVocabTopics = async (req, res) => {
 exports.getTopicWords = async (req, res) => {
   try {
     const { topicId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(topicId)) {
-      return res.status(400).json({ message: 'topicId không hợp lệ' });
+
+    if (!topicId || topicId === 'null' || !mongoose.Types.ObjectId.isValid(topicId)) {
+      return res.status(400).json({ success: false, message: 'ID Chủ đề không hợp lệ' });
     }
 
     const topic = await Topic.findById(topicId).select('name description cover_image level').lean();
