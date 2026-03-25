@@ -100,6 +100,14 @@ router.post('/:id/complete', protect, async (req, res) => {
 
     await progress.save();
 
+    // ── SYNC ROADMAP ──────────────────
+    try {
+      const { updatePlanTaskStatus } = require('../../controllers/LearningController');
+      await updatePlanTaskStatus(req.userId, gid, 'completed');
+    } catch (e) {
+      console.error('[GrammarRoutes] Roadmap sync error:', e.message);
+    }
+
     // ── AWARD COINS ──────────────────
     let reward = null;
     if (req.userId) {

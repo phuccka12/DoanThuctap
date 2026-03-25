@@ -48,10 +48,14 @@ exports.evaluateWriting = async (req, res) => {
 exports.getWritingStatus = async (req, res) => {
     try {
         const { taskId } = req.params;
+        const { promptId } = req.query;
         const response = await axios.get(`${AI_SERVICE_URL}/api/ai/writing/status/${taskId}`);
         
-        // Nếu task đã hoàn thành, có thể thực hiện cộng thưởng ở đây (nếu chưa cộng lúc khởi tạo)
-        // Tuy nhiên để UI mượt thì nên cộng lúc khởi tạo hoặc có webhook (MVP cộng sớm cũng ok)
+        // If task completed and we have promptId, trigger roadmap sync
+        if (response.data?.status === 'completed' && promptId) {
+            const userId = req.userId;
+            await updatePlanTaskStatus(userId, promptId, 'completed');
+        }
         
         res.json(response.data);
     } catch (error) {

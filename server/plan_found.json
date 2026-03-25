@@ -1,0 +1,100 @@
+{
+  "_id": "69b8f9d65cc49e8d3045d899",
+  "userId": "69b8e54a22945ef603dae1cd",
+  "weekStart": "2026-03-16T00:00:00.000Z",
+  "weekEnd": "2026-03-22T00:00:00.000Z",
+  "dayItems": [
+    {
+      "dayIndex": 0,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "69a7010774d1479611dbd0ce",
+      "itemType": "reading",
+      "skill": "reading",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 1,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "69b064547e4c387f6015c6a7",
+      "itemType": "listening",
+      "skill": "listening",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 2,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "696f853fc5291b24a57c3b40",
+      "itemType": "speaking",
+      "skill": "speaking",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 3,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "696f853fc5291b24a57c3b45",
+      "itemType": "writing",
+      "skill": "writing",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 4,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "6987023fb1fda0b4cdd16d35",
+      "itemType": "vocabulary",
+      "skill": "vocabulary",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 5,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "69b1100efec364f7f9423e2c",
+      "itemType": "grammar",
+      "skill": "grammar",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    },
+    {
+      "dayIndex": 6,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": "69abd8541c70109dce3525cf",
+      "itemType": "story",
+      "skill": "story",
+      "similarityScore": 1,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null
+    }
+  ],
+  "sourceEmbeddingHash": "",
+  "generatedForLevel": "intermediate",
+  "explorationRatio": 0,
+  "status": "replaced",
+  "generationMethod": "gemini_2_0_flash",
+  "created_at": "2026-03-17T06:51:02.202Z",
+  "updated_at": "2026-03-17T06:58:15.190Z",
+  "__v": 0
+}

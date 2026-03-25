@@ -284,8 +284,11 @@ class WritingService:
         - Tổng hợp từ 4 tiêu chí IELTS.
         """
         try:
-            # 1. Task Response (TA) - Lấy từ Gemini
+            # 1. Task Response (TA) - Lấy từ Gemini (Scale 0-9)
             ta_score = ai_eyes.get("task_response", {}).get("relevance_score", 5.0)
+            # Fail-safe: Nếu AI trả về thang 0.1 (ví dụ 0.9 instead of 9.0)
+            if 0 < ta_score < 1.0:
+                ta_score *= 10
             
             # 2. Coherence & Cohesion (CC) - Kết hợp NLI và Discourse Markers
             cohesion_idx = analysis_data.get("cohesion", {}).get("cohesion_index", 0.5)

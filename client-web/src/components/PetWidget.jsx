@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axiosInstance from '../utils/axiosConfig';
 import { FaHeart, FaDrumstickBite, FaPencilAlt, FaCheck, FaTimes } from 'react-icons/fa';
 import { PixelEgg, PixelPetIdle } from './PixelSprite';
@@ -407,10 +407,6 @@ export default function PetWidget({ theme = {} }) {
         </div>
       </div>
 
-      {/* Gold display */}
-      <div className={`mt-2 text-right text-xs ${theme?.sub || 'text-gray-500'}`}>
-        🪙 {userGold} coins
-      </div>
 
       {/* Actions */}
       <div className="mt-2 flex gap-2">

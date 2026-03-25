@@ -207,6 +207,14 @@ exports.submit = async (req, res) => {
           coinsEarned: reward?.earned || 0,
           expEarned: reward?.expGain || Math.floor(correct * 5),
         });
+
+        // ── SYNC ROADMAP ──────────────────
+        try {
+          const { updatePlanTaskStatus } = require('./LearningController');
+          await updatePlanTaskStatus(userId, passage._id, 'completed');
+        } catch (e) {
+          console.error('[PublicListening] Roadmap sync error:', e.message);
+        }
       } catch (e) {
         console.error('Save progress error:', e.message);
       }

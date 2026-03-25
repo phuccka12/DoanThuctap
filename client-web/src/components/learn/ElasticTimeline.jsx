@@ -255,40 +255,65 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
 
                 {/* Card Body: Task Chain */}
                 <div className="p-5 flex-1 flex flex-col gap-3">
-                  {day.tasks && day.tasks.map((task, tIdx) => (
+                  {day.tasks && day.tasks.length > 0 ? (
+                    day.tasks.map((task, tIdx) => (
+                      <div 
+                        key={tIdx}
+                        className={cn(
+                          "relative p-4 rounded-2xl border transition-all duration-300",
+                          isDark ? "bg-white/5 border-white/5" : "bg-gray-50 border-gray-100",
+                          isToday && "hover:bg-[#6C5CE7]/5 hover:border-[#6C5CE7]/30",
+                          task.status === 'completed' && (isDark ? "bg-emerald-900/20 border-emerald-500/20" : "bg-emerald-50 border-emerald-100")
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-sm",
+                            task.status === 'completed' ? "bg-emerald-500 text-white" : (idx % 2 === 0 ? "bg-[#6C5CE7]/20 text-[#6C5CE7]" : "bg-[#00CEC9]/20 text-[#00CEC9]")
+                          )}>
+                             {task.status === 'completed' ? <FaCheckCircle className="text-[10px]" /> : <FaCircle className="text-[6px]" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-black uppercase opacity-40 mb-0.5 tracking-widest")}>{task.type || 'Học tập'}</p>
+                            <p className={cn("text-sm font-bold truncate", task.status === 'completed' ? "text-emerald-500 line-through opacity-60" : t.text)}>
+                              {task.name || 'Bài học AI'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Linking Indicator and Chain */}
+                        {tIdx < day.tasks.length - 1 && (
+                          <div className="absolute -bottom-3 left-7 w-[2px] h-3 bg-linear-to-b from-[#6C5CE7]/40 to-transparent" />
+                        )}
+                      </div>
+                    ))
+                  ) : day.itemId ? (
+                    /* Legacy / Main Item View */
                     <div 
-                      key={tIdx}
                       className={cn(
                         "relative p-4 rounded-2xl border transition-all duration-300",
                         isDark ? "bg-white/5 border-white/5" : "bg-gray-50 border-gray-100",
                         isToday && "hover:bg-[#6C5CE7]/5 hover:border-[#6C5CE7]/30",
-                        task.status === 'completed' && (isDark ? "bg-emerald-900/20 border-emerald-500/20" : "bg-emerald-50 border-emerald-100")
+                        isDone && (isDark ? "bg-emerald-900/20 border-emerald-500/20" : "bg-emerald-50 border-emerald-100")
                       )}
                     >
                       <div className="flex items-start gap-3">
                         <div className={cn(
                           "w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-sm",
-                          task.status === 'completed' ? "bg-emerald-500 text-white" : (idx % 2 === 0 ? "bg-[#6C5CE7]/20 text-[#6C5CE7]" : "bg-[#00CEC9]/20 text-[#00CEC9]")
+                          isDone ? "bg-emerald-500 text-white" : (idx % 2 === 0 ? "bg-[#6C5CE7]/20 text-[#6C5CE7]" : "bg-[#00CEC9]/20 text-[#00CEC9]")
                         )}>
-                           {task.status === 'completed' ? <FaCheckCircle className="text-[10px]" /> : <FaCircle className="text-[6px]" />}
+                           {isDone ? <FaCheckCircle className="text-[10px]" /> : <FaCircle className="text-[6px]" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={cn("text-xs font-black uppercase opacity-40 mb-0.5 tracking-widest")}>{task.type || 'Học tập'}</p>
-                          <p className={cn("text-sm font-bold truncate", task.status === 'completed' ? "text-emerald-500 line-through opacity-60" : t.text)}>
-                            {task.name || 'Bài học AI'}
+                          <p className={cn("text-xs font-black uppercase opacity-40 mb-0.5 tracking-widest")}>{day.itemType || 'Chủ đề'}</p>
+                          <p className={cn("text-sm font-bold truncate", isDone ? "text-emerald-500 line-through opacity-60" : t.text)}>
+                            {day.itemType === 'topic' ? 'Nghiên cứu chủ đề' : 'Bài tập yêu cầu'}
                           </p>
                         </div>
                       </div>
-                      
-                      {/* Linking Indicator and Chain */}
-                      {tIdx < day.tasks.length - 1 && (
-                        <div className="absolute -bottom-3 left-7 w-[2px] h-3 bg-linear-to-b from-[#6C5CE7]/40 to-transparent" />
-                      )}
                     </div>
-                  ))}
-
-                  {/* Empty State / Add task placeholder */}
-                  {(!day.tasks || day.tasks.length === 0) && (
+                  ) : (
+                    /* Empty State */
                     <div className="flex-1 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center opacity-30 italic text-xs">
                        Nghỉ ngơi
                     </div>

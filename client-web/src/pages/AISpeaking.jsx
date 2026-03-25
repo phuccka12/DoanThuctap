@@ -3,7 +3,7 @@ import { useReactMediaRecorder } from "react-media-recorder";
 import axiosInstance from '../utils/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { cn } from '../utils/cn';
 import {
   FaMicrophone, FaStop, FaPaperPlane, FaFire, FaTrophy, FaStar,
@@ -33,6 +33,7 @@ ChartJS.register(
 );
 
 const AISpeaking = () => {
+  const { id: promptId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
@@ -69,6 +70,7 @@ const AISpeaking = () => {
 
       const formData = new FormData();
       formData.append("audio", fileToSend);
+      if (promptId) formData.append("speakingId", promptId);
 
       const res = await axiosInstance.post('/ai/speaking', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }

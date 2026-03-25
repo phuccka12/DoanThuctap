@@ -116,9 +116,9 @@ def evaluate_writing_pro(content, task_type, topic, analysis_data):
         Essay: "{content}"
 
         [YÊU CẦU ĐẦU RA (JSON ONLY)]
-        Trả về JSON với cấu trúc:
+        Trả về JSON với cấu trúc (ĐIỂM SỐ PHẢI TRONG KHOẢNG 0.0 - 9.0):
         {{
-            "task_response": {{ "constraints": ["các yêu cầu đã đạt"], "relevance_score": 0.0, "critique": "Lời phê chuyên sâu" }},
+            "task_response": {{ "constraints": ["các yêu cầu đã đạt"], "relevance_score": 9.0, "critique": "Lời phê chuyên sâu" }},
             "highlights": [
                 {{ "original_text": "...", "suggestion": "...", "explanation": "...", "category": "grammar|vocab|logic" }}
             ],

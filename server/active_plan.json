@@ -1,0 +1,170 @@
+{
+  "_id": "69c29848e98f202e106be7dd",
+  "userId": "69b8e54a22945ef603dae1cd",
+  "weekStart": "2026-03-23T00:00:00.000Z",
+  "weekEnd": "2026-03-29T00:00:00.000Z",
+  "dayItems": [
+    {
+      "dayIndex": 0,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "vocabulary",
+          "name": "game",
+          "itemId": "69c19d3d8d94bd2ddb03c678",
+          "weight": 1,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "dayIndex": 1,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "listening",
+          "name": "Xây dựng Khả năng Chống chịu: Bảo vệ khỏi Động đất tại Nhật Bản",
+          "itemId": "69c21e870151cb4bc7981e1b",
+          "weight": 3,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "dayIndex": 2,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "completed",
+      "completedAt": "2026-03-25T03:47:21.413Z",
+      "tasks": [
+        {
+          "type": "grammar",
+          "name": "Simple Present",
+          "itemId": "69b1100efec364f7f9423e2c",
+          "weight": 2,
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "dayIndex": 3,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "reading",
+          "name": "My New Job",
+          "itemId": "69c211470151cb4bc7981c8f",
+          "weight": 3,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "dayIndex": 4,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "listening",
+          "name": "not (so much) into",
+          "itemId": "69b064547e4c387f6015c6a7",
+          "weight": 3,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "dayIndex": 5,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "reading",
+          "name": "The World of Gaming: A Popular Pastime",
+          "itemId": "69a7010774d1479611dbd0ce",
+          "weight": 3,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "dayIndex": 6,
+      "lessonId": null,
+      "topicId": null,
+      "itemId": null,
+      "itemType": "topic",
+      "skill": "",
+      "similarityScore": 0.95,
+      "isExploration": false,
+      "status": "pending",
+      "completedAt": null,
+      "tasks": [
+        {
+          "type": "listening",
+          "name": "Những Thách thức Pháp lý và Thị trường của các \"Ông lớn\" Công nghệ",
+          "itemId": "69c21ee10151cb4bc7981e30",
+          "weight": 3,
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "sourceEmbeddingHash": "",
+  "generatedForLevel": "intermediate",
+  "explorationRatio": 0,
+  "status": "active",
+  "generationMethod": "v4.5_neural_match",
+  "metadata": {
+    "persona": "BUSY_PROFESSIONAL",
+    "welcome_message": "Khởi đầu hành trình chinh phục IELTS của bạn ngay hôm nay!",
+    "phase_explanation": "Lộ trình được thiết kế để cân bằng các kỹ năng.",
+    "method": "v4.5_neural_match",
+    "generated_at": "2026-03-24T13:57:28.154Z"
+  },
+  "created_at": "2026-03-24T13:57:28.166Z",
+  "updated_at": "2026-03-25T03:47:21.418Z",
+  "__v": 0
+}

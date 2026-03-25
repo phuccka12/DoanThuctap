@@ -99,7 +99,7 @@ exports.getTodayTasks = async (req, res) => {
         const anyLp = await LessonProgress.findOne({ userId, speakingId: { $ne: null }, completedAt: { $gte: start, $lte: end } });
         return anyLp ? (anyLp.score || 100) : 0;
 
-      } else if (type === 'topic' || type === 'lesson') {
+      } else if (type === 'topic' || type === 'lesson' || type === 'grammar' || type === 'vocabulary' || type === 'story') {
         if (!itemId) return 0;
         const lp = await LessonProgress.findOne({ userId, lessonId: itemId, completedAt: { $gte: start, $lte: end } });
         return lp ? (lp.score || 100) : 0;
@@ -115,10 +115,10 @@ exports.getTodayTasks = async (req, res) => {
       let subtitle = 'Nhiệm vụ từ AI';
       switch (type) {
         case 'topic': url = itemId ? `/learn/topics/${itemId}` : '/learn'; title = nameHint || 'Chủ đề hôm nay'; break;
-        case 'reading': url = '/reading'; break;
-        case 'speaking': url = '/speaking-practice'; break;
-        case 'writing': url = '/writing-scenarios'; break;
-        case 'listening': url = '/ai-listening'; break;
+        case 'reading': url = itemId ? `/reading/${itemId}` : '/reading'; break;
+        case 'speaking': url = itemId ? `/speaking-practice/${itemId}` : '/speaking-practice'; break;
+        case 'writing': url = itemId ? `/ai-writing/${itemId}` : '/writing-scenarios'; break;
+        case 'listening': url = itemId ? `/ai-listening/${itemId}` : '/ai-listening'; break;
         case 'vocabulary': url = itemId ? `/vocabulary/${itemId}/learn` : '/vocabulary'; break;
         case 'grammar': url = itemId ? `/grammar/${itemId}` : '/grammar'; break;
         case 'story': url = itemId ? `/stories/${itemId}/parts/1` : '/stories'; break;

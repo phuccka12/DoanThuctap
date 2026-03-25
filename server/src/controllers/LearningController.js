@@ -698,18 +698,23 @@ exports.updatePlanTaskStatus = async (userId, itemId, status = 'completed') => {
 
     let modified = false;
     for (let day of plan.dayItems) {
+      // 1. Check top-level itemId (Main Item)
+      if (day.itemId && day.itemId.toString() === itemId.toString()) {
+        day.status = status;
+        day.completedAt = (status === 'completed') ? new Date() : null;
+        modified = true;
+      }
+
+      // 2. Check sub-tasks array
       if (day.tasks && day.tasks.length > 0) {
         for (let task of day.tasks) {
-          // Both string or ObjectId check
           if (task.itemId && task.itemId.toString() === itemId.toString()) {
             task.status = status;
             modified = true;
           }
         }
-      }
 
-      // Update day overall status if all tasks are done
-      if (day.tasks && day.tasks.length > 0) {
+        // Update day overall status if all sub-tasks are done
         const allDone = day.tasks.every(t => t.status === 'completed');
         if (allDone && day.status !== 'completed') {
           day.status = 'completed';

@@ -484,6 +484,14 @@ exports.completeStoryPart = async (req, res) => {
 
     await prog.save();
 
+    // ── SYNC ROADMAP ──────────────────
+    try {
+      const { updatePlanTaskStatus } = require('./LearningController');
+      await updatePlanTaskStatus(req.userId, storyId, 'completed');
+    } catch (e) {
+      console.error('[StoryController] Roadmap sync error:', e.message);
+    }
+
     const petDoc   = rewardResult.pet || null;
     const petState = petDoc ? await economyService.getPetState(petDoc) : null;
 

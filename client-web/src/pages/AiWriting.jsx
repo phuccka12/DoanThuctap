@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import axiosInstance from "../utils/axiosConfig";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   FaPenFancy, FaTrash, FaCopy, FaBolt, FaCheckCircle,
   FaExclamationTriangle, FaLightbulb, FaChartPie, FaTrophy,
@@ -26,6 +26,7 @@ import { Radar } from "react-chartjs-2";
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 const AiWriting = () => {
+  const { id: promptId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [taskType, setTaskType] = useState("task2");
@@ -68,6 +69,7 @@ const AiWriting = () => {
         text: answer.trim(),
         topic: prompt.trim(),
         task: taskType,
+        promptId: promptId // Support roadmap sync
       });
 
       const tid = res.data.task_id;
@@ -76,7 +78,9 @@ const AiWriting = () => {
       // 2. Start Polling
       const poll = setInterval(async () => {
         try {
-          const statusRes = await axiosInstance.get(`/ai/writing/status/${tid}`);
+          const statusRes = await axiosInstance.get(`/ai/writing/status/${tid}`, {
+            params: { promptId }
+          });
           const task = statusRes.data;
 
           setProgress(task.progress || 0);
