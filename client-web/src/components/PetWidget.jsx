@@ -29,7 +29,6 @@ const PLAY_COST = 20;
 
 export default function PetWidget({ theme = {} }) {
   const [pet, setPet]                   = useState(null);
-  const [userGold, setUserGold]         = useState(0);
   const [widgetState, setWidgetState]   = useState('loading');
   const [busy, setBusy]                 = useState(false);
   const [hatchResult, setHatchResult]   = useState(null);
@@ -50,7 +49,6 @@ export default function PetWidget({ theme = {} }) {
       }
 
       setPet(petData);
-      setUserGold(res.data?.userGold ?? 0);
 
       if (petData.hatched) {
         setWidgetState('hatched');
@@ -127,7 +125,6 @@ export default function PetWidget({ theme = {} }) {
     try {
       const res = await axiosInstance.post('/pet/feed-direct');
       setPet(res.data.pet);
-      setUserGold(res.data.userGold ?? userGold - FEED_COST);
       spawnFloat('🍗');
       spawnFloat('💚');
     } catch (err) {
@@ -267,8 +264,9 @@ export default function PetWidget({ theme = {} }) {
   const LEGACY_MAP = { cat: 'frog', dog: 'pig', bird: 'dragon', custom: 'dragon' };
   const resolvedType = PET_CONFIG[pet?.petType] ? pet?.petType : (LEGACY_MAP[pet?.petType] || 'slime');
   const petCfg       = PET_CONFIG[resolvedType];
-  const checkedToday = pet?.lastCheckinAt &&
-    new Date(pet.lastCheckinAt).toDateString() === new Date().toDateString();
+  const checkedInCooldown = pet?.lastCheckinAt
+    ? (Date.now() - new Date(pet.lastCheckinAt).getTime()) < (12 * 60 * 60 * 1000)
+    : false;
 
   // ── Trạng thái hunger — 4 mức ──────────────────────────────────────────────
   const hungerPct = pet?.hunger ?? 0;
@@ -291,8 +289,9 @@ export default function PetWidget({ theme = {} }) {
   const pixelImg   = pet?.evolutionImage || pet?.speciesRef?.base_image_url || null;
   const displayName = pet?.nickname || pet?.speciesRef?.name || petCfg.name;
 
-  const canFeed = userGold >= FEED_COST;
-  const canPlay = userGold >= PLAY_COST;
+  const availableCoins = Number(pet?.coins ?? 0);
+  const canFeed = availableCoins >= FEED_COST;
+  const canPlay = availableCoins >= PLAY_COST;
 
   return (
     <Card extra={`overflow-hidden relative ${isDying ? 'animate-[pulseRed_1s_ease-in-out_infinite]' : isWarning ? 'animate-[pulseRed_2s_ease-in-out_infinite]' : ''}`}>
@@ -413,14 +412,14 @@ export default function PetWidget({ theme = {} }) {
         {/* Checkin */}
         <button
           onClick={handleCheckin}
-          disabled={busy || checkedToday}
+          disabled={busy || checkedInCooldown}
           className={`flex-1 py-2 rounded-xl text-white text-xs font-semibold transition-all
-            ${checkedToday
+            ${checkedInCooldown
               ? 'opacity-50 cursor-not-allowed bg-gray-700'
               : 'bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] hover:scale-105 shadow-md active:scale-95'}
           `}
         >
-          {checkedToday ? '✅ Điểm danh' : '📅 Điểm danh'}
+          {checkedInCooldown ? '✅ Điểm danh' : '📅 Điểm danh'}
         </button>
 
         {/* Feed — hiện giá, disabled nếu không đủ coins */}

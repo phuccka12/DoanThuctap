@@ -20,10 +20,36 @@ import {
 import { HiSparkles } from "react-icons/hi2";
 import { BsSoundwave } from "react-icons/bs";
 import ThemeToggle from "../components/ThemeToggle";
+import userBillingService from "../services/userBillingService";
+
+const QUOTA_LABELS = [
+  { key: "speaking_checks_per_day", label: "Speaking AI/ngày" },
+  { key: "writing_checks_per_day", label: "Writing AI/ngày" },
+  { key: "ai_chat_messages_per_day", label: "AI Chat/ngày" },
+  { key: "ai_roleplay_sessions_per_day", label: "Roleplay/ngày" },
+  { key: "reading_passages_access", label: "Reading" },
+];
+
+const formatMoney = (v) =>
+  Number(v || 0) === 0
+    ? "Miễn phí"
+    : `${new Intl.NumberFormat("vi-VN").format(Number(v || 0))}đ`;
+
+const formatQuotaValue = (key, value) => {
+  if (value === -1) return "Không giới hạn";
+  if (key === "reading_passages_access") {
+    return value === "full" ? "Toàn bộ" : "Hạn chế";
+  }
+  return String(value ?? "-");
+};
 
 const Landingpage = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState("");
+  const [billingCycle, setBillingCycle] = useState("monthly");
 
   // Handle scroll effect for navbar
   useEffect(() => {
@@ -33,6 +59,45 @@ const Landingpage = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPublicPlans = async () => {
+      setPlansLoading(true);
+      setPlansError("");
+      try {
+        const res = await userBillingService.getPublicPlans();
+        const apiPlans = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const sorted = [...apiPlans].sort((a, b) => {
+          const featuredDelta = Number(b?.is_featured) - Number(a?.is_featured);
+          if (featuredDelta !== 0) return featuredDelta;
+          return Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+        });
+        if (mounted) setPlans(sorted);
+      } catch (err) {
+        if (mounted) {
+          setPlans([]);
+          setPlansError(
+            err?.response?.data?.message ||
+              "Không tải được gói học lúc này. Vui lòng thử lại sau.",
+          );
+        }
+      } finally {
+        if (mounted) setPlansLoading(false);
+      }
+    };
+    loadPublicPlans();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const planGridClass = useMemo(() => {
+    if (plans.length <= 1) return "max-w-md mx-auto grid-cols-1";
+    if (plans.length === 2) return "max-w-4xl mx-auto md:grid-cols-2";
+    if (plans.length === 3) return "max-w-6xl mx-auto md:grid-cols-3";
+    return "max-w-7xl mx-auto md:grid-cols-2 xl:grid-cols-3";
+  }, [plans.length]);
 
   // Generate deterministic random-looking data for visualizations
   const waveHeights1 = useMemo(
@@ -599,7 +664,7 @@ const Landingpage = () => {
 
                 {/* Record Button */}
                 <div className="flex justify-center mt-8">
-                  <button className="w-16 h-16 rounded-full !bg-red-500 shadow-lg shadow-red-500/30 flex items-center justify-center !text-white text-2xl hover:scale-110 transition-transform">
+                  <button className="w-16 h-16 rounded-full bg-red-500! shadow-lg shadow-red-500/30 flex items-center justify-center text-white! text-2xl hover:scale-110 transition-transform">
                     <FaMicrophone />
                   </button>
                 </div>
@@ -773,115 +838,170 @@ const Landingpage = () => {
               Bảng Giá Linh Hoạt
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              Chọn lộ trình phù hợp với mục tiêu của bạn
+              Tự động đồng bộ theo các gói admin đang bật trên hệ thống
             </p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Basic Plan */}
-            <div className="bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/5 rounded-2xl p-8 hover:border-purple-500/30 transition-all flex flex-col group shadow-lg dark:shadow-none">
-              <div className="mb-4">
-                <span className="text-gray-500 dark:text-gray-400 font-bold tracking-wider text-sm group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  MIỄN PHÍ
-                </span>
-              </div>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                  0đ
-                </span>
-                <span className="text-gray-500">/tháng</span>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                {[
-                  "3 bài học mỗi ngày",
-                  "AI chấm điểm cơ bản",
-                  "Truy cập cộng đồng",
-                  "Nuôi Pet cấp độ 1-10",
-                ].map((feature, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center gap-3 text-gray-600 dark:text-gray-300 text-sm"
-                  >
-                    <FaCheck className="text-purple-500 shrink-0" /> {feature}
-                  </li>
-                ))}
-              </ul>
-              <button className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 dark:!bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold rounded-lg transition-colors border border-transparent dark:border-white/10 dark:hover:border-purple-500/50">
-                Bắt Đầu Ngay
-              </button>
-            </div>
-
-            {/* Pro Plan */}
-            <div className="bg-white dark:bg-[#2A1B45] border border-purple-500 rounded-2xl p-8 transform md:-translate-y-4 shadow-2xl shadow-purple-900/20 relative flex flex-col">
-              <div className="absolute top-0 right-0 bg-linear-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
-                PHỔ BIẾN NHẤT
-              </div>
-              <div className="mb-4">
-                <span className="text-purple-600 dark:text-purple-300 font-bold tracking-wider text-sm">
-                  PRO MEMBER
-                </span>
-              </div>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                  199k
-                </span>
-                <span className="text-gray-500 dark:text-gray-400">/tháng</span>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                {[
-                  "Không giới hạn bài học",
-                  "AI sửa lỗi chi tiết",
-                  "Lộ trình cá nhân hóa",
-                  "Mở khóa tất cả Pet & Skin",
-                  "Chứng chỉ hoàn thành",
-                ].map((feature, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center gap-3 text-gray-700 dark:text-gray-200 text-sm"
-                  >
-                    <FaCheck className="text-pink-500 dark:text-pink-400 shrink-0" />{" "}
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <button className="w-full py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold rounded-lg transition-all shadow-lg shadow-blue-500/20">
-                Đăng Ký Gói Pro
-              </button>
-            </div>
-
-            {/* Lifetime Plan */}
-            <div className="bg-white dark:bg-[#13062D] border border-gray-200 dark:border-white/5 rounded-2xl p-8 hover:border-purple-500/30 transition-all flex flex-col group shadow-lg dark:shadow-none">
-              <div className="mb-4">
-                <span className="text-gray-500 dark:text-gray-400 font-bold tracking-wider text-sm group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  TRỌN ĐỜI
-                </span>
-              </div>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                  1.999k
-                </span>
-                <span className="text-gray-500">/lần duy nhất</span>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                {[
-                  "Toàn quyền truy cập trọn đời",
-                  "Tất cả tính năng của gói Pro",
-                  "Mentor hỗ trợ 1-1",
-                  "Quyền truy cập sớm tính năng mới",
-                ].map((feature, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center gap-3 text-gray-600 dark:text-gray-300 text-sm"
-                  >
-                    <FaCheck className="text-purple-500 shrink-0" /> {feature}
-                  </li>
-                ))}
-              </ul>
-              <button className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 dark:!bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold rounded-lg transition-colors border border-transparent dark:border-white/10 dark:hover:border-purple-500/50">
-                Sở Hữu Trọn Đời
-              </button>
+            <div className="mt-7 inline-flex rounded-xl p-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10">
+              {[
+                { id: "monthly", label: "Theo tháng" },
+                { id: "yearly", label: "Theo năm" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setBillingCycle(opt.id)}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                    billingCycle === opt.id
+                      ? "bg-linear-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/20"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
+
+          {plansLoading ? (
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-96 rounded-2xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : plansError ? (
+            <div className="max-w-2xl mx-auto text-center p-8 rounded-2xl border border-red-500/20 bg-red-500/5 text-red-400">
+              <p className="font-semibold mb-2">Không thể tải gói học</p>
+              <p className="text-sm opacity-90">{plansError}</p>
+              <button
+                onClick={() => navigate("/pricing")}
+                className="mt-5 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-semibold transition-colors"
+              >
+                Xem trang bảng giá đầy đủ
+              </button>
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="max-w-2xl mx-auto text-center p-8 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5">
+              <p className="text-gray-700 dark:text-gray-200 font-semibold mb-1">
+                Chưa có gói học đang mở bán
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Admin chưa bật gói nào trên hệ thống.
+              </p>
+            </div>
+          ) : (
+            <div className={`grid gap-8 ${planGridClass}`}>
+              {plans.map((plan, i) => {
+                const isPopular =
+                  !!plan?.is_featured ||
+                  (plans.length > 1 && i === Math.floor(plans.length / 2));
+                const monthly = Number(plan?.price_monthly || 0);
+                const yearly = Number(plan?.price_yearly || 0);
+                const displayPrice =
+                  billingCycle === "yearly" && yearly > 0 ? yearly : monthly;
+                const savings =
+                  monthly > 0 && yearly > 0
+                    ? Math.round((1 - yearly / (monthly * 12)) * 100)
+                    : 0;
+
+                const accentClass =
+                  plan?.color === "gold"
+                    ? "from-amber-500 to-yellow-400"
+                    : plan?.color === "blue"
+                      ? "from-blue-600 to-cyan-500"
+                      : plan?.color === "purple"
+                        ? "from-purple-600 to-pink-500"
+                        : "from-gray-600 to-gray-500";
+
+                const quotaItems = QUOTA_LABELS.filter((q) =>
+                  Object.prototype.hasOwnProperty.call(plan?.quota || {}, q.key),
+                ).slice(0, 3);
+
+                return (
+                  <div
+                    key={plan?._id || i}
+                    className={`relative bg-white dark:bg-[#13062D] border rounded-2xl p-8 transition-all flex flex-col shadow-lg dark:shadow-none hover:-translate-y-1 ${
+                      isPopular
+                        ? "border-purple-500/60 ring-1 ring-purple-500/25 md:-translate-y-2"
+                        : "border-gray-200 dark:border-white/5 hover:border-purple-500/30"
+                    }`}
+                  >
+                    {isPopular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-linear-to-r from-purple-600 to-pink-600 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-lg">
+                        ⭐ Phổ biến nhất
+                      </div>
+                    )}
+
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{plan?.icon || "🎯"}</span>
+                        <span className="text-sm font-bold tracking-wider uppercase text-gray-600 dark:text-gray-300">
+                          {plan?.name || "Gói học"}
+                        </span>
+                      </div>
+                      {savings > 0 && billingCycle === "yearly" && (
+                        <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                          Tiết kiệm {savings}%
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mb-2">
+                      <span className="text-4xl font-black text-gray-900 dark:text-white">
+                        {formatMoney(displayPrice)}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400 ml-1 text-sm">
+                        {displayPrice === 0
+                          ? ""
+                          : billingCycle === "yearly"
+                            ? "/năm"
+                            : "/tháng"}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 min-h-10">
+                      {plan?.description || "Gói học được cấu hình bởi quản trị viên"}
+                    </p>
+
+                    {quotaItems.length > 0 && (
+                      <div className="mb-5 flex flex-wrap gap-2">
+                        {quotaItems.map((q) => (
+                          <span
+                            key={q.key}
+                            className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300"
+                          >
+                            {q.label}: {formatQuotaValue(q.key, plan?.quota?.[q.key])}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <ul className="space-y-3 mb-7 flex-1">
+                      {(Array.isArray(plan?.features) ? plan.features : [])
+                        .slice(0, 5)
+                        .map((feature, idx) => (
+                          <li
+                            key={`${plan?._id || i}-feature-${idx}`}
+                            className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-200"
+                          >
+                            <FaCheck className="text-purple-500 shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                    </ul>
+
+                    <button
+                      onClick={() => navigate("/pricing")}
+                      className={`w-full py-3 bg-linear-to-r ${accentClass} text-white font-bold rounded-lg transition-all shadow-lg hover:brightness-110 flex items-center justify-center gap-2`}
+                    >
+                      Xem chi tiết & đăng ký <FaArrowRight />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 

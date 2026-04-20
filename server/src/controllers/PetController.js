@@ -38,6 +38,21 @@ async function buildPetResponse(pet) {
   return { ...pet.toObject(), state, evolutionImage };
 }
 
+/** Đồng bộ coin giữa Pet và User.gamification_data để UI không lệch */
+async function syncUserCoinsFromPet(userId, pet) {
+  if (!userId || !pet) return;
+  const coins = Number(pet.coins || 0);
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      'gamification_data.gold': coins,
+      'gamification_data.coins': coins,
+      'gamification_data.level': Number(pet.level || 1),
+      'gamification_data.exp': Number(pet.growthPoints || 0),
+      'gamification_data.streak': Number(pet.streakCount || 0),
+    },
+  });
+}
+
 // GET /api/pet/  - get current user's pet status
 exports.getStatus = async (req, res) => {
   try {
@@ -50,12 +65,8 @@ exports.getStatus = async (req, res) => {
       pet = await Pet.create({ user: userId });
     }
 
-    // Lấy gold của user để frontend biết nút nào disabled
-    const user = await User.findById(userId).select('gamification_data');
-    const userGold = user?.gamification_data?.gold ?? 0;
-
     const petData = await buildPetResponse(pet);
-    return res.json({ success: true, pet: petData, userGold });
+    return res.json({ success: true, pet: petData, userGold: 0 });
   } catch (err) {
     console.error('Pet getStatus error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -143,11 +154,12 @@ exports.checkin = async (req, res) => {
 
     // Level up
     await applyLevelUp(pet);
-    await pet.save();
-
-    // Earn coins từ checkin (qua economyService để áp cap)
+    
+    // Earn coins từ checkin (cộng trực tiếp, không cap hàng ngày)
     const checkinReward = await getNum('economy_reward_checkin', 5);
-    const { earned, capReached } = await earnCoins(userId, 'checkin', checkinReward);
+    pet.coins += checkinReward;
+    await pet.save();
+  await syncUserCoinsFromPet(userId, pet);
 
     const petData = await buildPetResponse(pet);
     return res.json({
@@ -156,8 +168,8 @@ exports.checkin = async (req, res) => {
         ? `CHÚC MỪNG! Bạn đã đạt mốc ${newStreak} ngày (${milestoneReached.label})!` 
         : 'Check-in thành công!',
       milestone: milestoneReached,
-      coinsEarned: earned + (milestoneReached?.coins || 0),
-      capReached,
+      coinsEarned: checkinReward + (milestoneReached?.coins || 0),
+      capReached: false,
       pet: petData,
     });
   } catch (err) {
@@ -205,38 +217,33 @@ exports.feedDirect = async (req, res) => {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
-    // Kiểm tra số dư
-    const user = await User.findById(userId).select('gamification_data');
-    const currentGold = user?.gamification_data?.gold ?? 0;
-    if (currentGold < FEED_COST) {
-      return res.status(400).json({
-        success: false,
-        message: `Không đủ coins! Cần ${FEED_COST} 🪙, bạn có ${currentGold} 🪙`,
-        required: FEED_COST,
-        current: currentGold,
-      });
-    }
-
     const pet = await Pet.findOne({ user: userId });
     if (!pet) return res.status(404).json({ success: false, message: 'Chưa có thú cưng' });
 
+    // Kiểm tra số dư coin thú cưng
+    const currentCoins = pet.coins ?? 0;
+    if (currentCoins < FEED_COST) {
+      return res.status(400).json({
+        success: false,
+        message: `Không đủ coins! Cần ${FEED_COST} 🪙, bạn có ${currentCoins} 🪙`,
+        required: FEED_COST,
+        current: currentCoins,
+      });
+    }
+
     // Trừ coins, giảm hunger
-    await User.findByIdAndUpdate(userId, {
-      $inc: { 'gamification_data.gold': -FEED_COST },
-    });
+    pet.coins = Math.max(0, currentCoins - FEED_COST);
     pet.hunger = Math.max(0, pet.hunger - 30);
     pet.happiness = Math.min(100, pet.happiness + 5);
     await pet.save();
-
-    const updatedUser = await User.findById(userId).select('gamification_data');
-    const userGold = updatedUser?.gamification_data?.gold ?? 0;
+  await syncUserCoinsFromPet(userId, pet);
 
     const petData = await buildPetResponse(pet);
     return res.json({
       success: true,
       message: `Đã cho ăn! -${FEED_COST} 🪙`,
       costPaid: FEED_COST,
-      userGold,
+      userGold: 0,
       pet: petData,
     });
   } catch (err) {
@@ -268,6 +275,15 @@ exports.play = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Pet đang hấp hối! Hãy cho ăn trước rồi chơi' });
     }
 
+    // Trạng thái coin: chơi tiêu PLAY_COST coin thú cưng
+    if ((pet.coins ?? 0) < PLAY_COST) {
+      return res.status(400).json({
+        success: false,
+        message: `Không đủ coins để chơi! Cần ${PLAY_COST} 🪙, bạn có ${pet.coins ?? 0} 🪙`
+      });
+    }
+
+    pet.coins = Math.max(0, (pet.coins ?? 0) - PLAY_COST);
     pet.lastPlayedAt = now;
     pet.happiness = Math.min(100, pet.happiness + 15);
     pet.hunger = Math.min(100, pet.hunger + 5);
@@ -276,11 +292,13 @@ exports.play = async (req, res) => {
     await applyLevelUp(pet);
     await pet.save();
 
-    // Earn 1 coin từ play (qua service để áp cap)
-    const { earned } = await earnCoins(userId, 'play', 1);
+    // Earn 1 coin từ play (cộng trực tiếp)
+    pet.coins += 1;
+    await pet.save();
+  await syncUserCoinsFromPet(userId, pet);
 
     const petData = await buildPetResponse(pet);
-    return res.json({ success: true, message: 'Đã chơi với pet!', coinsEarned: earned, pet: petData });
+    return res.json({ success: true, message: 'Đã chơi với pet!', coinsEarned: 1, pet: petData });
   } catch (err) {
     console.error('Pet play error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -393,10 +411,9 @@ exports.hatch = async (req, res) => {
     pet.hatched = true;
     pet.happiness = 100;
     pet.hunger = 0;
+    pet.coins = 200;  // Bonus coins khi hatch (cộng trực tiếp, không dùng earnCoins vì là 1 lần)
     await pet.save();
-
-    // Thưởng 200 coins khi ấp nở
-    const { earned } = await earnCoins(userId, 'hatch_bonus', 200);
+  await syncUserCoinsFromPet(userId, pet);
 
     const petData = await buildPetResponse(pet);
     return res.json({
@@ -404,7 +421,7 @@ exports.hatch = async (req, res) => {
       message: `🎉 ${petName} đã gia nhập đội của bạn!`,
       petName,
       petType,
-      coinsEarned: earned,
+      coinsEarned: 200,
       pet: petData,
     });
   } catch (err) {

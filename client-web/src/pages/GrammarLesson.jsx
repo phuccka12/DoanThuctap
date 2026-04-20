@@ -837,9 +837,12 @@ export default function GrammarLesson() {
   const [hookAns, setHookAns] = useState([]);
   const [arenaRes, setArenaRes] = useState(null);
   const [submittedComplete, setSubmittedComplete] = useState(false);
+  const sessionStartedRef = useRef(Date.now());
 
   useEffect(() => {
     setLoading(true);
+    sessionStartedRef.current = Date.now();
+    setSubmittedComplete(false);
     getGrammarLesson(id)
       .then(r => setLesson(r.data?.data || r.data))
       .catch(() => navigate('/grammar'))
@@ -856,7 +859,12 @@ export default function GrammarLesson() {
           const total = results.length;
           const correct = results.filter(r => r.isRight).length;
           const score = total ? Math.round((correct / total) * 100) : 100;
-          await completeGrammarLesson(id, { score, completedNodes: results.map((r, i) => String(i)) });
+          const elapsedSec = Math.max(0, Math.round((Date.now() - (sessionStartedRef.current || Date.now())) / 1000));
+          await completeGrammarLesson(id, {
+            score,
+            completedNodes: results.map((r, i) => String(i)),
+            timeSpentSec: elapsedSec,
+          });
           setSubmittedComplete(true);
         } catch (err) {
           console.error('[GrammarLesson] completeGrammar:', err);
@@ -866,6 +874,8 @@ export default function GrammarLesson() {
   }, [stage, arenaRes, submittedComplete, id]);
 
   const replay = () => {
+    sessionStartedRef.current = Date.now();
+    setSubmittedComplete(false);
     setStage(STAGE.HOOK);
     setHookAns([]);
     setArenaRes(null);

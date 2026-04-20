@@ -4,6 +4,25 @@ const LessonProgress = require('../models/LessonProgress');
 const mongoose = require('mongoose');
 const { updatePlanTaskStatus } = require('./LearningController');
 
+const LIMITED_READING_QUERY = {
+  $or: [
+    { level: 'beginner' },
+    { cefr_level: { $in: ['A1', 'A2'] } },
+  ],
+};
+
+async function resolveReadingAccess(userId) {
+  const aiService = require('../services/aiService');
+  const plan = await aiService.getActivePlan(userId);
+  const readingAccess = plan?.quota?.reading_passages_access || 'limited';
+  const isLimited = plan?.slug !== 'admin' && readingAccess !== 'full';
+  return {
+    slug: plan?.slug || 'free',
+    readingAccess,
+    isLimited,
+  };
+}
+
 /**
  * Reading Passage Controller
  * Manages CRUD operations for reading passages
@@ -659,9 +678,14 @@ exports.generateWithAI = async (req, res) => {
 // ── USER-FACING: get topics that have reading passages ───────────────────────
 exports.getReadingTopics = async (req, res) => {
   try {
+    const access = await resolveReadingAccess(req.userId);
+    const match = access.isLimited
+      ? { is_active: true, ...LIMITED_READING_QUERY }
+      : { is_active: true };
+
     // Aggregate: find all topic IDs that have at least 1 active passage
     const rows = await ReadingPassage.aggregate([
-      { $match: { is_active: true } },
+      { $match: match },
       { $unwind: '$topics' },
       { $group: { _id: '$topics', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
@@ -686,11 +710,13 @@ exports.getReadingTopics = async (req, res) => {
 
     // Count passages with no topic
     const uncategorized = await ReadingPassage.countDocuments({
-      is_active: true,
-      $or: [{ topics: { $exists: false } }, { topics: { $size: 0 } }],
+      ...match,
+      $and: [
+        { $or: [{ topics: { $exists: false } }, { topics: { $size: 0 } }] },
+      ],
     });
 
-    res.json({ success: true, data: { topics: result, uncategorized } });
+    res.json({ success: true, data: { topics: result, uncategorized, access } });
   } catch (err) {
     console.error('getReadingTopics error:', err);
     res.status(500).json({ message: 'Lỗi server' });
@@ -700,7 +726,10 @@ exports.getReadingTopics = async (req, res) => {
 exports.getPassagesForPractice = async (req, res) => {
   try {
     const { search, level, cefr_level, topic, uncategorized, page = 1, limit = 12 } = req.query;
-    const query = { is_active: true };
+    const access = await resolveReadingAccess(req.userId);
+    const query = access.isLimited
+      ? { is_active: true, ...LIMITED_READING_QUERY }
+      : { is_active: true };
 
     if (search) query.$text = { $search: search };
     if (level)      query.level      = level;
@@ -734,6 +763,7 @@ exports.getPassagesForPractice = async (req, res) => {
     res.json({
       success: true,
       data: {
+        access,
         passages: clean,
         total,
         totalPages: Math.ceil(total / limit),
@@ -753,8 +783,18 @@ exports.submitReading = async (req, res) => {
     const { id } = req.params;
     const { answers, timeSpentSec = 0 } = req.body;
 
+    const access = await resolveReadingAccess(req.userId);
+
     const passage = await ReadingPassage.findOne({ _id: id, is_active: true });
     if (!passage) return res.status(404).json({ message: 'Không tìm thấy bài đọc' });
+
+    if (access.isLimited && !(passage.level === 'beginner' || ['A1', 'A2'].includes(passage.cefr_level))) {
+      return res.status(403).json({
+        success: false,
+        code: 'PLAN_RESTRICTED',
+        message: 'Gói hiện tại chỉ truy cập Reading cơ bản (A1/A2). Vui lòng nâng cấp để mở khóa toàn bộ bài đọc.',
+      });
+    }
 
     // Simple grading
     let correct = 0;
@@ -817,11 +857,21 @@ exports.submitReading = async (req, res) => {
 
 exports.getPassageForPractice = async (req, res) => {
   try {
+    const access = await resolveReadingAccess(req.userId);
+
     const passage = await ReadingPassage.findOne({ _id: req.params.id, is_active: true })
       .populate('topics', 'name level')
       .lean();
 
     if (!passage) return res.status(404).json({ message: 'Không tìm thấy bài đọc' });
+
+    if (access.isLimited && !(passage.level === 'beginner' || ['A1', 'A2'].includes(passage.cefr_level))) {
+      return res.status(403).json({
+        success: false,
+        code: 'PLAN_RESTRICTED',
+        message: 'Gói hiện tại chỉ truy cập Reading cơ bản (A1/A2). Vui lòng nâng cấp để mở khóa toàn bộ bài đọc.',
+      });
+    }
 
     // Strip HTML from passage text
     passage.passage = (passage.passage || '')
@@ -830,7 +880,7 @@ exports.getPassageForPractice = async (req, res) => {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    res.json({ success: true, data: passage });
+    res.json({ success: true, data: passage, access });
   } catch (err) {
     console.error('getPassageForPractice error:', err);
     res.status(500).json({ message: 'Lỗi server' });

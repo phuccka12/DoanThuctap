@@ -3,18 +3,14 @@ const Vocabulary = require('../models/Vocabulary');
 const Topic = require('../models/Topic');
 const Pet = require('../models/Pet');
 const User = require('../models/User');
+const LessonProgress = require('../models/LessonProgress');
 const mongoose = require('mongoose');
 const { updatePlanTaskStatus } = require('./LearningController');
 const { rewardExercise } = require('../utils/rewardHelper');
 
-// ─── optional Gemini AI ───────────────────────────────────────────────────────
-let genAI = null;
-try {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  }
-} catch (_) { /* package not installed — AI fill disabled */ }
+// ─── AI Service ───────────────────────────────────────────────────────
+const aiProviderService = require('../services/aiProviderService');
+
 
 // ─── simple shuffle ──────────────────────────────────────────────────────────
 function shuffle(arr) {
@@ -136,6 +132,7 @@ exports.completeSession = async (req, res) => {
       totalCount = 1,
       wordIds = [],
       wrongCount = 0,
+      timeSpentSec = 0,
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
@@ -182,6 +179,19 @@ exports.completeSession = async (req, res) => {
     // ── 4. Accuracy & XP info ─────────────────────────────────────────────
     const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
+    // ── 4b. Persist session time/score for unified analytics ─────────────
+    try {
+      await LessonProgress.create({
+        userId: req.userId,
+        topicId,
+        score: Math.min(100, Math.max(0, Number(accuracy) || 0)),
+        timeSpentSec: Math.max(0, Number(timeSpentSec) || 0),
+        completedAt: new Date(),
+      });
+    } catch (progErr) {
+      console.error('[VocabLearn] save LessonProgress error:', progErr.message);
+    }
+
     // Sync with Roadmap V4.0
     await updatePlanTaskStatus(req.userId, topicId, 'completed');
 
@@ -212,24 +222,37 @@ exports.aiFill = async (req, res) => {
       return res.status(400).json({ message: 'Cần cung cấp word và meaning' });
     }
 
+    const aiService = require('../services/aiService');
+    const quota = await aiService.checkQuota(req.userId, 'recommendation');
+    if (!quota.allowed) {
+      return res.status(403).json({
+        message: quota.reason,
+        code: 'QUOTA_EXCEEDED',
+        limitReached: true,
+      });
+    }
+
     // If Gemini not available, return a simple fallback
     if (!genAI) {
       const fallback = example
         ? example.replace(new RegExp(`\\b${word}\\b`, 'gi'), '___')
         : `Please fill in the blank: ___ means "${meaning}".`;
-      return res.json({ sentence: fallback, answer: word });
+      await aiService.incrementUsage(req.userId, 'recommendation');
+      return res.json({ sentence: fallback, answer: word, quotaRemaining: Math.max(0, (quota.remaining ?? 1) - 1), engine: quota.mode });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `Create ONE short English sentence (max 15 words) that uses the word "${word}" (${meaning}) naturally in context. 
 Then output ONLY the sentence with the word replaced by "___".
 Do NOT include any explanation. Output format: just the sentence with ___ placeholder.
 Example output: "She ordered a ___ of coffee at the airport café."`;
 
-    const result = await model.generateContent(prompt);
-    const sentence = result.response.text().trim().replace(/^["']|["']$/g, '');
+    const aiResult = await aiProviderService.generateContent(prompt);
+    const sentence = aiResult.text.trim().replace(/^["']|["']$/g, '');
 
-    res.json({ sentence, answer: word });
+
+    await aiService.incrementUsage(req.userId, 'recommendation');
+
+    res.json({ sentence, answer: word, quotaRemaining: Math.max(0, (quota.remaining ?? 1) - 1), engine: quota.mode });
   } catch (err) {
     console.error('[VocabLearn] aiFill:', err);
     // Graceful fallback

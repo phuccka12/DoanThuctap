@@ -227,23 +227,29 @@ function ReverseSentenceRow({ sentence, isActive, answer, onAnswerChange, submit
 }
 
 // ─── CompletionScreen ─────────────────────────────────────────────────────────────
-function CompletionScreen({ reward, nextPartNum, storyId, onReplay, navigate }) {
+function CompletionScreen({ reward, nextPartNum, storyId, onReplay, navigate, partScore = 0 }) {
   const [show, setShow] = useState(false);
   const { isDark } = useTheme();
   useEffect(() => { setTimeout(() => setShow(true), 100); }, []);
+
+  const completionTier = partScore >= 8
+    ? { title: 'Xuất sắc!', subtitle: 'Bạn đã hoàn thành phần này rất ấn tượng.' }
+    : partScore >= 5
+      ? { title: 'Khá tốt!', subtitle: 'Bạn đã hoàn thành phần này thành công.' }
+      : { title: 'Hoàn thành!', subtitle: 'Bạn đã xong phần này, ôn lại thêm để tăng điểm nhé.' };
 
   return (
     <div className={cn(
       'min-h-screen flex flex-col items-center justify-center text-center px-6 transition-all duration-700',
       show ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
-      isDark ? 'bg-[#0F1117]' : 'bg-gradient-to-b from-white to-indigo-50'
+      isDark ? 'bg-[#0F1117]' : 'bg-linear-to-b from-white to-indigo-50'
     )}>
       <div className="text-7xl mb-4 animate-bounce">🎉</div>
-      <h2 className="text-3xl font-black bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent mb-2">
-        Xuất sắc!
+      <h2 className="text-3xl font-black bg-linear-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent mb-2">
+        {completionTier.title}
       </h2>
       <p className={cn('text-sm mb-8', isDark ? 'text-gray-400' : 'text-slate-500')}>
-        Bạn đã hoàn thành phần này thành công.
+        {completionTier.subtitle}
       </p>
 
       <div className="flex gap-4 mb-8 flex-wrap justify-center">
@@ -468,7 +474,7 @@ export default function StoryReader() {
       <LearnLayout breadcrumbs={breadcrumbs}>
         <CompletionScreen
           reward={reward} nextPartNum={nextPart}
-          storyId={storyId} onReplay={handleReplay} navigate={navigate}
+          storyId={storyId} onReplay={handleReplay} navigate={navigate} partScore={partScore}
         />
       </LearnLayout>
     );

@@ -228,6 +228,7 @@ function PracticePhase({ words, t, onComplete }) {
   const [petHp,     setPetHp]     = useState(100);
   const [loadingAI, setLoadingAI] = useState(false);
   const [sentence,  setSentence]  = useState('');
+  const [aiNotice,  setAiNotice]  = useState(null);
   const inputRef = useRef();
 
   // Build question list (up to 10, mix MCQ + fill-in)
@@ -252,6 +253,7 @@ function PracticePhase({ words, t, onComplete }) {
   // Load AI fill sentence when entering a fill question
   useEffect(() => {
     if (!q || q.type !== 'fill') return;
+    setAiNotice(null);
     if (q.word.example) {
       setSentence(q.word.example.replace(new RegExp(`\\b${q.word.word}\\b`, 'gi'), '___'));
       return;
@@ -259,7 +261,16 @@ function PracticePhase({ words, t, onComplete }) {
     setLoadingAI(true);
     getAiFill(q.word.word, q.word.meaning, q.word.example)
       .then(d => setSentence(d.sentence || `___ means "${q.word.meaning}".`))
-      .catch(() => setSentence(`___ means "${q.word.meaning}".`))
+      .catch((err) => {
+        const data = err?.response?.data || {};
+        if (data?.code === 'QUOTA_EXCEEDED' || err?.response?.status === 403) {
+          setAiNotice({
+            type: 'quota',
+            message: data?.message || 'Bạn đã hết lượt AI Fill trong ngày. Hệ thống đang chuyển sang chế độ câu mẫu cơ bản.',
+          });
+        }
+        setSentence(`___ means "${q.word.meaning}".`);
+      })
       .finally(() => setLoadingAI(false));
   }, [qIdx, q]);
 
@@ -326,6 +337,18 @@ function PracticePhase({ words, t, onComplete }) {
 
       {/* Question card */}
       <div className={cn('rounded-2xl border p-5 space-y-4', t.card, t.border)}>
+        {aiNotice && (
+          <div className="rounded-xl border px-3 py-2 text-xs bg-amber-500/10 border-amber-500/30 text-amber-300 flex items-center justify-between gap-3">
+            <span>{aiNotice.message}</span>
+            <button
+              onClick={() => window.location.assign('/pricing')}
+              className="px-2.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 font-semibold whitespace-nowrap"
+            >
+              Nâng cấp
+            </button>
+          </div>
+        )}
+
         {q.type === 'mcq' ? (
           <>
             <p className={cn('text-xs uppercase tracking-wide font-semibold text-purple-400')}>
@@ -749,8 +772,10 @@ export default function VocabularyLearn() {
       return next;
     });
   };
+  const sessionStartRef = useRef(Date.now());
 
   useEffect(() => {
+    sessionStartRef.current = Date.now();
     getTopicWords(topicId)
       .then(d => setData(d))
       .catch(() => setError('Không tải được từ vựng'))
@@ -787,6 +812,7 @@ export default function VocabularyLearn() {
       totalCount:   totalQ,
       wordIds,
       wrongCount:   wrongQ,
+      timeSpentSec: Math.max(0, Math.round((Date.now() - (sessionStartRef.current || Date.now())) / 1000)),
     }).then(result => {
       console.log('[VocabLearn] saved:', result);
       setSummarySync(s => ({
@@ -801,6 +827,7 @@ export default function VocabularyLearn() {
   }, [topicId, data]);
 
   const handleReplay = () => {
+    sessionStartRef.current = Date.now();
     const init = { practiceCorrect: 0, practiceTotal: 0, practiceWrong: 0, gameScore: 0, gameCombo: 0, coinsEarned: 0, expEarned: 0, accuracy: 0, petHp: 100 };
     summaryRef.current = init;
     setSummary(init);

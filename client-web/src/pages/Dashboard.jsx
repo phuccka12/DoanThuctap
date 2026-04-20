@@ -46,6 +46,30 @@ export default function Dashboard() {
 
   const t = isDark ? darkTheme : theme;
 
+  const mapTodayTasks = (tasks = []) => {
+    const mapped = tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      subtitle: task.subtitle || task.description,
+      percent: task.progress || 0,
+      completed: Boolean(task.completed) || (task.progress || 0) >= 100,
+      type: task.type,
+      actionUrl: task.actionUrl,
+      actionText: task.actionText,
+      reward: task.reward,
+      lessonId: task.lessonId,
+      lessonType: task.lessonType,
+    }));
+
+    // Unfinished tasks first (stable order inside each group)
+    return mapped.sort((a, b) => {
+      const aDone = a.completed || a.percent >= 100;
+      const bDone = b.completed || b.percent >= 100;
+      if (aDone === bDone) return 0;
+      return aDone ? 1 : -1;
+    });
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!user) { setLoading(false); return; }
@@ -112,18 +136,7 @@ export default function Dashboard() {
               return arr;
             })(),
           },
-          todayTasks: todayTasks.map((task) => ({
-            id: task.id,
-            title: task.title,
-            subtitle: task.subtitle || task.description,
-            percent: task.progress || 0,
-            type: task.type,
-            actionUrl: task.actionUrl,
-            actionText: task.actionText,
-            reward: task.reward,
-            lessonId: task.lessonId,
-            lessonType: task.lessonType,
-          })),
+          todayTasks: mapTodayTasks(todayTasks),
           weeklyTimeSpent: {
             total: timeSpent.total || 0,
             breakdown: timeSpent.breakdown || [],
@@ -190,11 +203,7 @@ export default function Dashboard() {
           level: userInfo.gamification_data?.level || 1,
           coins: userInfo.gamification_data?.coins ?? userInfo.gamification_data?.gold ?? 0,
         },
-        todayTasks: todayTasks.map((task) => ({
-          ...task,
-          percent: task.progress || 0,
-          subtitle: task.subtitle || task.description,
-        })),
+        todayTasks: mapTodayTasks(todayTasks),
         weeklyTimeSpent: {
           total: timeSpent.total || 0,
           breakdown: timeSpent.breakdown || [],
@@ -253,6 +262,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const upNextTask = dashboardData.todayTasks.find(task => (task.percent || 0) < 100) || dashboardData.todayTasks[0] || null;
 
   return (
     <div className={cn("min-h-screen", t.page)}>
@@ -326,12 +337,14 @@ export default function Dashboard() {
             <div className="xl:col-span-2 flex flex-col gap-6">
 
               {/* Highlight AI Suggestion */}
-              {dashboardData.todayTasks.length > 0 ? (
+              {upNextTask ? (
                 <UpNextCard
-                  title={dashboardData.todayTasks[0].title}
-                  skill={dashboardData.todayTasks[0].subtitle || "IELTS"}
-                  duration={dashboardData.todayTasks[0].lessonType === 'continue' ? "Tiếp tục" : "Bắt đầu"}
-                  onClick={() => navigate(dashboardData.todayTasks[0].actionUrl || "/learn")}
+                  title={upNextTask.title}
+                  skill={upNextTask.subtitle || "IELTS"}
+                  duration={(upNextTask.percent || 0) >= 100
+                    ? "Đã hoàn thành"
+                    : upNextTask.lessonType === 'continue' ? "Tiếp tục" : "Bắt đầu"}
+                  onClick={() => navigate(upNextTask.actionUrl || "/learn")}
                 />
               ) : (
                 <div className="h-[120px] rounded-3xl bg-slate-900 flex items-center justify-center border-4 border-white shadow-lg">

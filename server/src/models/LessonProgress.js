@@ -98,6 +98,13 @@ const lessonProgressSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    // ── AI Writing Prompt fields ──
+    writingPromptId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'WritingPrompt',
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -112,6 +119,11 @@ const lessonProgressSchema = new mongoose.Schema(
 lessonProgressSchema.index(
   { userId: 1, lessonId: 1 },
   { unique: true, partialFilterExpression: { lessonId: { $type: 'objectId' } } }
+);
+
+lessonProgressSchema.index(
+  { userId: 1, writingPromptId: 1 },
+  { unique: true, partialFilterExpression: { writingPromptId: { $type: 'objectId' } } }
 );
 
 module.exports = mongoose.model('LessonProgress', lessonProgressSchema);

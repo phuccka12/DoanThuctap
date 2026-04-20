@@ -13,6 +13,10 @@ const api = axios.create({
 
 // Flag tránh redirect nhiều lần cùng lúc
 let isRedirectingToMaintenance = false;
+const PUBLIC_PATHS = ['/', '/maintenance', '/login', '/register', '/forgot-password', '/reset-password', '/pricing'];
+
+const isPublicPath = (path) =>
+  PUBLIC_PATHS.some((p) => (p === '/' ? path === '/' : path.startsWith(p)));
 
 // Request interceptor - Add token to all requests
 api.interceptors.request.use(
@@ -40,10 +44,9 @@ api.interceptors.response.use(
       // Handle 503 Maintenance Mode
       if (error.response.status === 503 && error.response.data?.maintenance) {
         const path = window.location.pathname;
-        const isPublicPath = ['/maintenance', '/login', '/register', '/forgot-password', '/reset-password', '/pricing']
-          .some(p => path.startsWith(p));
+        const isPublic = isPublicPath(path);
         // Không redirect nếu đang ở trang public hoặc admin
-        if (!isPublicPath && !path.startsWith('/admin')) {
+        if (!isPublic && !path.startsWith('/admin')) {
           if (!isRedirectingToMaintenance) {
             isRedirectingToMaintenance = true;
             window.location.href = '/maintenance?from=api';
@@ -55,7 +58,9 @@ api.interceptors.response.use(
       if (error.response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        if (!window.location.pathname.includes('/login')) {
+        const path = window.location.pathname;
+        const isPublic = isPublicPath(path);
+        if (!isPublic && !path.includes('/login')) {
           window.location.href = '/login';
         }
       }

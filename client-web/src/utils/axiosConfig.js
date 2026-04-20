@@ -39,6 +39,9 @@ axiosInstance.interceptors.request.use(
 
 // Flag to prevent multiple maintenance redirects
 let isRedirectingToMaintenance = false;
+const PUBLIC_PATHS = ['/', '/maintenance', '/login', '/register', '/forgot-password', '/reset-password', '/pricing'];
+const isPublicPath = (path) =>
+  PUBLIC_PATHS.some((p) => (p === '/' ? path === '/' : path.startsWith(p)));
 
 // Response interceptor - Handle token expiration
 axiosInstance.interceptors.response.use(
@@ -51,9 +54,8 @@ axiosInstance.interceptors.response.use(
     // Handle 503 Maintenance Mode
     if (error.response?.status === 503 && error.response?.data?.maintenance) {
       const path = window.location.pathname;
-      const isPublicPath = ['/maintenance', '/login', '/register', '/forgot-password', '/reset-password', '/pricing']
-        .some(p => path.startsWith(p));
-      if (!isPublicPath && !path.startsWith('/admin')) {
+      const isPublic = isPublicPath(path);
+      if (!isPublic && !path.startsWith('/admin')) {
         if (!isRedirectingToMaintenance) {
           isRedirectingToMaintenance = true;
           window.location.href = '/maintenance';
@@ -136,7 +138,10 @@ axiosInstance.interceptors.response.use(
         console.warn('Session expired. Please login again.');
         
         // Redirect to login page
-        window.location.href = '/login';
+        const path = window.location.pathname;
+        if (!isPublicPath(path) && !path.includes('/login')) {
+          window.location.href = '/login';
+        }
 
         return Promise.reject(refreshError);
       }

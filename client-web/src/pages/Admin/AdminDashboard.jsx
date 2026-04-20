@@ -30,41 +30,160 @@ function MiniDonut({ percent, color, size = 56 }) {
   );
 }
 
-// ─── Stacked Bar Chart ────────────────────────────────────────────────────────
+// ─── Multi Line Trend Chart (nhấp nhô) ────────────────────────────────────────
 function BarChart({ data, seriesKeys, colors, labels, height = 200 }) {
-  const maxVal = Math.max(...data.map(d => seriesKeys.reduce((s, k) => s + (d[k] || 0), 0)), 1);
+  const [activeIdx, setActiveIdx] = useState(null);
+
+  const CHART_W = 1200;
+  const CHART_H = 260;
+  const PAD = { top: 16, right: 18, bottom: 26, left: 24 };
+  const innerW = CHART_W - PAD.left - PAD.right;
+  const innerH = CHART_H - PAD.top - PAD.bottom;
+
+  const rawMax = Math.max(1, ...data.flatMap((d) => seriesKeys.map((k) => Number(d[k] || 0))));
+  const base = rawMax <= 10 ? 1 : 10 ** Math.floor(Math.log10(rawMax));
+  const yMax = Math.max(5, Math.ceil((rawMax * 1.15) / base) * base);
+
+  const xAt = (idx) =>
+    PAD.left + (data.length <= 1 ? innerW / 2 : (idx / (data.length - 1)) * innerW);
+  const yAt = (val) => PAD.top + (1 - (Number(val || 0) / yMax)) * innerH;
+
+  const pointsFor = (key) => data.map((item, idx) => ({
+    x: xAt(idx),
+    y: yAt(item[key]),
+    v: Number(item[key] || 0),
+    month: item.month,
+  }));
+
+  const smoothPath = (pts) => {
+    if (!pts.length) return '';
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p = pts[i];
+      const n = pts[i + 1];
+      const cx = (p.x + n.x) / 2;
+      d += ` C ${cx} ${p.y}, ${cx} ${n.y}, ${n.x} ${n.y}`;
+    }
+    return d;
+  };
+
+  const monthStep = data.length > 1 ? innerW / (data.length - 1) : innerW;
+  const activeMonth = activeIdx !== null ? data[activeIdx] : null;
+  const activeX = activeIdx !== null ? xAt(activeIdx) : null;
+
   return (
-    <div className="flex items-end gap-1" style={{ height }}>
-      {data.map((item, idx) => {
-        const total = seriesKeys.reduce((s, k) => s + (item[k] || 0), 0);
-        const barH = Math.max((total / maxVal) * 100, total > 0 ? 3 : 0);
-        return (
-          <div key={idx} className="flex-1 flex flex-col items-center gap-1 group">
-            <div className="w-full relative" style={{ height: `${barH}%`, minHeight: total > 0 ? 3 : 0 }}>
-              <div className="absolute inset-0 rounded-t overflow-hidden flex flex-col-reverse">
-                {seriesKeys.map((k, ki) => {
-                  const seg = item[k] || 0;
-                  const segPct = total > 0 ? (seg / total) * 100 : 0;
-                  return <div key={k} style={{ height: `${segPct}%`, backgroundColor: colors[ki] }} className="w-full group-hover:brightness-110 transition-all" />;
-                })}
+    <div className="space-y-2" style={{ height }}>
+      <div className="relative w-full" style={{ height: Math.max(height - 26, 130) }}>
+        <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full h-full overflow-visible">
+          <defs>
+            {colors.map((c, i) => (
+              <linearGradient key={i} id={`area-${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={c} stopOpacity="0.25" />
+                <stop offset="100%" stopColor={c} stopOpacity="0" />
+              </linearGradient>
+            ))}
+          </defs>
+
+          {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
+            const y = PAD.top + t * innerH;
+            const tickVal = Math.round(yMax * (1 - t));
+            return (
+              <g key={idx}>
+                <line
+                  x1={PAD.left}
+                  y1={y}
+                  x2={CHART_W - PAD.right}
+                  y2={y}
+                  stroke="rgba(75,85,99,0.35)"
+                  strokeWidth="1"
+                  strokeDasharray="6 7"
+                />
+                <text x={4} y={y + 3} fontSize="10" fill="rgba(148,163,184,0.65)">
+                  {tickVal}
+                </text>
+              </g>
+            );
+          })}
+
+          {seriesKeys.map((k, ki) => {
+            const pts = pointsFor(k);
+            const line = smoothPath(pts);
+            const area = `${line} L ${pts[pts.length - 1]?.x ?? PAD.left} ${PAD.top + innerH} L ${pts[0]?.x ?? PAD.left} ${PAD.top + innerH} Z`;
+            return (
+              <g key={k}>
+                <path d={area} fill={`url(#area-${ki})`} />
+                <path
+                  d={line}
+                  fill="none"
+                  stroke={colors[ki]}
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                {activeIdx !== null && pts[activeIdx] && (
+                  <circle cx={pts[activeIdx].x} cy={pts[activeIdx].y} r="4" fill={colors[ki]} stroke="#0f172a" strokeWidth="2" />
+                )}
+              </g>
+            );
+          })}
+
+          {activeIdx !== null && activeX !== null && (
+            <line
+              x1={activeX}
+              y1={PAD.top}
+              x2={activeX}
+              y2={PAD.top + innerH}
+              stroke="rgba(167,139,250,0.55)"
+              strokeWidth="1.2"
+              strokeDasharray="5 5"
+            />
+          )}
+
+          {data.map((_, idx) => {
+            const x = xAt(idx);
+            return (
+              <rect
+                key={`hit-${idx}`}
+                x={x - monthStep / 2}
+                y={PAD.top}
+                width={monthStep}
+                height={innerH}
+                fill="transparent"
+                onMouseEnter={() => setActiveIdx(idx)}
+                onMouseMove={() => setActiveIdx(idx)}
+              />
+            );
+          })}
+        </svg>
+
+        {activeMonth && activeX !== null && (
+          <div
+            className="absolute -top-2 -translate-x-1/2 bg-gray-950/95 border border-gray-700 rounded-xl px-3 py-2 text-xs shadow-2xl pointer-events-none"
+            style={{ left: `${(activeX / CHART_W) * 100}%` }}
+          >
+            <div className="font-bold text-gray-200 mb-1">{activeMonth.month}</div>
+            {seriesKeys.map((k, i) => (
+              <div key={k} className="flex items-center gap-1.5 text-gray-300">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[i] }} />
+                <span>{labels?.[i] || k}:</span>
+                <span className="font-semibold text-white">{fmt(Number(activeMonth[k] || 0))}</span>
               </div>
-              {total > 0 && (
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-950 border border-gray-700 px-2 py-1.5 rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-xl pointer-events-none">
-                  <div className="font-semibold text-gray-300 mb-1">{item.month}</div>
-                  {seriesKeys.map((k, ki) => (
-                    <div key={k} className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors[ki] }} />
-                      <span className="text-gray-400">{labels?.[ki] || k}:</span>
-                      <span className="font-bold">{item[k] || 0}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <span className="text-[9px] text-gray-600 font-medium">{item.month}</span>
+            ))}
           </div>
-        );
-      })}
+        )}
+      </div>
+
+      <div className="grid grid-cols-12 gap-1 px-1" onMouseLeave={() => setActiveIdx(null)}>
+        {data.map((item, idx) => (
+          <span
+            key={idx}
+            className={`text-[10px] font-medium text-center transition-colors ${activeIdx === idx ? 'text-purple-300' : 'text-gray-600'}`}
+          >
+            {item.month}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -195,8 +314,14 @@ function AdminDashboard() {
 
   const [totals, setTotals] = useState({ topics: 0, speaking: 0, writing: 0, users: 0, vocab: 0, reading: 0, listening: 0 });
   const [userStats, setUserStats] = useState({ active: 0, banned: 0, verified: 0, onboarded: 0, byRole: { standard: 0, vip: 0, admin: 0 } });
+  const [finance, setFinance] = useState({ totalRevenue: 0, successTransactions: 0, revenueByMonth: {} });
+  const [aiUsage, setAiUsage] = useState({ speakingChecks: 0, writingChecks: 0, chatMessages: 0, roleplaySessions: 0, blockedUsers: 0 });
+  const [topTopics, setTopTopics] = useState([]);
+  const [topTopicsWindow, setTopTopicsWindow] = useState('30d');
+  const [topUsers, setTopUsers] = useState([]);
+  const [opsAlerts, setOpsAlerts] = useState([]);
   const [monthly, setMonthly] = useState(
-    Array.from({ length: 12 }, (_, i) => ({ month: `T${i + 1}`, topics: 0, speaking: 0, writing: 0 }))
+    Array.from({ length: 12 }, (_, i) => ({ month: `T${i + 1}`, newUsers: 0, verifiedUsers: 0, onboardedUsers: 0 }))
   );
 
   useEffect(() => { loadAll(); }, [year]);
@@ -214,7 +339,30 @@ function AdminDashboard() {
       if (results[0].status === 'fulfilled') {
         const d = results[0].value.data.data;
         setTotals(prev => ({ ...prev, topics: d.totals?.topics || 0, speaking: d.totals?.speaking || 0, writing: d.totals?.writing || 0, users: d.totals?.users || 0 }));
-        if (d.monthly?.length) setMonthly(d.monthly.map(m => ({ month: `T${m.month}`, topics: m.topics || 0, speaking: m.speaking || 0, writing: m.writing || 0 })));
+        if (d.userMonthly?.length) {
+          setMonthly(d.userMonthly.map(m => ({
+            month: `T${m.month}`,
+            newUsers: m.newUsers || 0,
+            verifiedUsers: m.verifiedUsers || 0,
+            onboardedUsers: m.onboardedUsers || 0
+          })));
+        }
+        setFinance({
+          totalRevenue: d.finance?.totalRevenue || 0,
+          successTransactions: d.finance?.successTransactions || 0,
+          revenueByMonth: d.finance?.revenueByMonth || {}
+        });
+        setAiUsage({
+          speakingChecks: d.aiUsage?.speakingChecks || 0,
+          writingChecks: d.aiUsage?.writingChecks || 0,
+          chatMessages: d.aiUsage?.chatMessages || 0,
+          roleplaySessions: d.aiUsage?.roleplaySessions || 0,
+          blockedUsers: d.aiUsage?.blockedUsers || 0,
+        });
+        setTopTopics(Array.isArray(d.topTopics) ? d.topTopics : []);
+  setTopTopicsWindow(d.topTopicsWindow || '30d');
+        setTopUsers(Array.isArray(d.topUsers) ? d.topUsers : []);
+        setOpsAlerts(Array.isArray(d.opsAlerts) ? d.opsAlerts : []);
       }
       if (results[1].status === 'fulfilled') {
         const d = results[1].value.data.data;
@@ -265,21 +413,8 @@ function AdminDashboard() {
     { label: 'Admin',    count: userStats.byRole.admin,    color: '#ef4444' },
   ];
 
-  // Mock top leaderboard (thực tế sẽ gọi API riêng)
-  const topTopics = [
-    { name: 'Technology & AI', count: 124 },
-    { name: 'Environment', count: 98 },
-    { name: 'Health & Medicine', count: 87 },
-    { name: 'Education', count: 76 },
-    { name: 'Economy', count: 61 },
-  ];
-  const topUsers = [
-    { name: 'Nguyễn Văn A', xp: 4820 },
-    { name: 'Trần Thị B', xp: 3990 },
-    { name: 'Lê Minh C', xp: 3550 },
-    { name: 'Phạm Thu D', xp: 2880 },
-    { name: 'Đỗ Hoàng E', xp: 2410 },
-  ];
+  const revenueInMillions = finance.totalRevenue > 0 ? `${(finance.totalRevenue / 1e6).toFixed(1)}M ₫` : '0 ₫';
+  const totalAiRequests = aiUsage.speakingChecks + aiUsage.writingChecks + aiUsage.chatMessages + aiUsage.roleplaySessions;
 
   const now = new Date();
 
@@ -352,9 +487,9 @@ function AdminDashboard() {
           {/* Card 2: Revenue/VIP */}
           <PulseCard
             label="Doanh thu ước tính"
-            mainValue={estimatedRevenue > 0 ? `${(estimatedRevenue / 1e6).toFixed(1)}M ₫` : '—'}
-            trendValue={`${fmt(userStats.byRole.vip)} tài khoản VIP`}
-            trendUp={userStats.byRole.vip > 0}
+            mainValue={revenueInMillions}
+            trendValue={`${fmt(finance.successTransactions)} giao dịch thành công`}
+            trendUp={finance.totalRevenue > 0}
             icon={FaCrown}
             accentColor="#f59e0b"
             borderColor="border-amber-500/20 hover:border-amber-500/50"
@@ -364,7 +499,7 @@ function AdminDashboard() {
               <MiniDonut percent={vipPercent} color="#f59e0b" size={44} />
               <div>
                 <div className="text-sm font-bold text-white">{vipPercent}% là VIP</div>
-                <div className="text-xs text-gray-600">~199k đ/tháng/user</div>
+                <div className="text-xs text-gray-600">Doanh thu thật từ transaction</div>
               </div>
             </div>
           </PulseCard>
@@ -399,9 +534,9 @@ function AdminDashboard() {
           {/* Card 4: AI Burn Rate */}
           <PulseCard
             label="AI Burn Rate"
-            mainValue="—"
-            trendValue="Chưa có dữ liệu API"
-            trendUp={undefined}
+            mainValue={fmt(totalAiRequests)}
+            trendValue={`${fmt(aiUsage.blockedUsers)} user bị chặn AI`}
+            trendUp={aiUsage.blockedUsers === 0}
             icon={FiAlertTriangle}
             accentColor="#f97316"
             borderColor="border-orange-500/30 hover:border-orange-500/60"
@@ -409,7 +544,7 @@ function AdminDashboard() {
           >
             <div className="mt-4 pt-3 border-t border-gray-800">
               <div className="text-xs text-gray-600 leading-relaxed">
-                Kết nối API <span className="text-orange-400 font-medium">OpenAI Usage</span> để hiển thị số token và chi phí AI tháng này.
+                Speaking: <span className="text-orange-300 font-medium">{fmt(aiUsage.speakingChecks)}</span> · Writing: <span className="text-orange-300 font-medium">{fmt(aiUsage.writingChecks)}</span> · Chat: <span className="text-orange-300 font-medium">{fmt(aiUsage.chatMessages)}</span>
               </div>
             </div>
           </PulseCard>
@@ -431,11 +566,11 @@ function AdminDashboard() {
           <div className="col-span-12 lg:col-span-8 bg-gray-900 rounded-2xl p-6 border border-gray-700/40 hover:border-gray-600/60 transition-colors shadow-lg">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h3 className="text-base font-bold text-white">Năng suất sản xuất Content</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Topics · Speaking · Writing tạo mới mỗi tháng — {year}</p>
+                <h3 className="text-base font-bold text-white">Tăng trưởng người dùng theo tháng</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Đăng ký mới · Đã xác thực · Đã onboard — {year}</p>
               </div>
               <div className="flex gap-3">
-                {[['Topics','#a78bfa'],['Speaking','#60a5fa'],['Writing','#f472b6']].map(([k,c]) => (
+                {[['New users','#a78bfa'],['Verified','#60a5fa'],['Onboarded','#34d399']].map(([k,c]) => (
                   <div key={k} className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: c }} />
                     <span className="text-xs text-gray-500">{k}</span>
@@ -445,9 +580,9 @@ function AdminDashboard() {
             </div>
             <BarChart
               data={monthly}
-              seriesKeys={['topics','speaking','writing']}
-              colors={['#a78bfa','#60a5fa','#f472b6']}
-              labels={['Topics','Speaking','Writing']}
+              seriesKeys={['newUsers','verifiedUsers','onboardedUsers']}
+              colors={['#a78bfa','#60a5fa','#34d399']}
+              labels={['Đăng ký mới','Đã xác thực','Đã onboard']}
               height={210}
             />
           </div>
@@ -575,17 +710,19 @@ function AdminDashboard() {
 
             {/* Top Topics */}
             <div className="mb-5">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🏆 Top 5 Topic phổ biến nhất</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                🏆 Top 5 Topic phổ biến nhất {topTopicsWindow === 'all' ? '(toàn thời gian)' : '(30 ngày gần nhất)'}
+              </div>
               <div className="space-y-2">
-                {topTopics.map((t, i) => (
+                {(topTopics.length > 0 ? topTopics : [{ name: 'Chưa có dữ liệu', count: 0 }]).map((t, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? 'bg-amber-500 text-black' : i === 1 ? 'bg-gray-400 text-black' : i === 2 ? 'bg-amber-700 text-white' : 'bg-gray-800 text-gray-500'}`}>{i + 1}</span>
                     <span className="flex-1 text-sm text-gray-300 truncate">{t.name}</span>
                     <div className="flex items-center gap-1.5">
-                      <div className="h-1.5 rounded-full bg-amber-500/30" style={{ width: `${(t.count / topTopics[0].count) * 60}px` }}>
+                      <div className="h-1.5 rounded-full bg-amber-500/30" style={{ width: `${((t.count || 0) / Math.max(topTopics[0]?.count || 1, 1)) * 60}px` }}>
                         <div className="h-full rounded-full bg-amber-400" style={{ width: '100%' }} />
                       </div>
-                      <span className="text-xs font-bold text-amber-400 w-10 text-right">{t.count}</span>
+                      <span className="text-xs font-bold text-amber-400 w-10 text-right">{fmt(t.count || 0)}</span>
                     </div>
                   </div>
                 ))}
@@ -593,13 +730,13 @@ function AdminDashboard() {
             </div>
 
             <div className="border-t border-gray-800 pt-4">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">⚡ Top 5 User nhiều EXP nhất</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">⚡ Top 5 User nhiều EXP nhất (toàn hệ thống)</div>
               <div className="space-y-2">
-                {topUsers.map((u, i) => (
+                {(topUsers.length > 0 ? topUsers : [{ name: 'Chưa có dữ liệu', xp: 0 }]).map((u, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-500'}`}>{i + 1}</span>
                     <span className="flex-1 text-sm text-gray-300 truncate">{u.name}</span>
-                    <span className="text-xs font-bold text-purple-400">{fmt(u.xp)} XP</span>
+                    <span className="text-xs font-bold text-purple-400">{fmt(u.xp || 0)} XP</span>
                   </div>
                 ))}
               </div>
@@ -627,25 +764,23 @@ function AdminDashboard() {
 
             {/* Pending Reports */}
             <div className="border-t border-gray-800 pt-4">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🚩 Khiếu nại chờ duyệt (AI Review)</div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">🚩 Cảnh báo vận hành (real-time)</div>
               <div className="space-y-2">
-                {[
-                  { user: 'user_2847', type: 'Phúc khảo AI Speaking', time: '5p trước', urgent: true },
-                  { user: 'user_1923', type: 'Kết quả Writing bị sai', time: '23p trước', urgent: true },
-                  { user: 'user_4401', type: 'Báo lỗi câu hỏi Listening', time: '1h trước', urgent: false },
-                  { user: 'user_3312', type: 'Phúc khảo AI Speaking', time: '2h trước', urgent: false },
-                  { user: 'user_0099', type: 'Topic không load được', time: '3h trước', urgent: false },
-                ].map((r, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-2.5 rounded-xl border ${r.urgent ? 'border-red-500/30 bg-red-500/5' : 'border-gray-800'}`}>
-                    <FiFlag size={13} className={r.urgent ? 'text-red-400' : 'text-gray-600'} />
+                {(opsAlerts.length > 0 ? opsAlerts : [{ key: 'none', label: 'Chưa có dữ liệu cảnh báo', value: 0, desc: 'Không có cảnh báo vận hành lúc này', severity: 'low' }]).map((r, i) => {
+                  const urgent = r.severity === 'high';
+                  const warn = r.severity === 'medium';
+                  return (
+                  <div key={r.key || i} className={`flex items-center gap-3 p-2.5 rounded-xl border ${urgent ? 'border-red-500/30 bg-red-500/5' : warn ? 'border-amber-500/25 bg-amber-500/5' : 'border-gray-800'}`}>
+                    <FiFlag size={13} className={urgent ? 'text-red-400' : warn ? 'text-amber-400' : 'text-gray-600'} />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium text-gray-300 truncate block">{r.type}</span>
-                      <span className="text-[10px] text-gray-600">{r.user}</span>
+                      <span className="text-xs font-medium text-gray-300 truncate block">{r.label}</span>
+                      <span className="text-[10px] text-gray-600 truncate block">{r.desc}</span>
                     </div>
-                    <span className="text-[10px] text-gray-600 shrink-0">{r.time}</span>
-                    {r.urgent && <span className="text-[10px] font-bold text-red-400 shrink-0">Gấp</span>}
+                    <span className="text-[10px] text-gray-400 shrink-0 font-semibold">{fmt(r.value)}</span>
+                    {urgent && <span className="text-[10px] font-bold text-red-400 shrink-0">Gấp</span>}
+                    {warn && <span className="text-[10px] font-bold text-amber-400 shrink-0">Theo dõi</span>}
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </div>

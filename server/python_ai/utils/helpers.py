@@ -1,14 +1,14 @@
 import os
 import time
 
-def clean_temp_file(file_path):
+def clean_temp_file(*file_paths):
     """Xóa file tạm an toàn"""
-    try:
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-            # print(f"🗑️ Đã xóa file tạm: {file_path}")
-    except Exception as e:
-        print(f"⚠️ Lỗi khi xóa file {file_path}: {e}")
+    for file_path in file_paths:
+        try:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"⚠️ Lỗi khi xóa file {file_path}: {e}")
 
 def get_timestamp():
     """Lấy timestamp hiện tại"""

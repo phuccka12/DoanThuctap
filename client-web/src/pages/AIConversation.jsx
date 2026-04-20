@@ -4,8 +4,8 @@ import axiosInstance from '../utils/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FaMicrophone, FaStop, FaRedo, FaFire, FaTrophy, FaRobot, FaUser, FaHeadphones, FaLightbulb, FaCoins, FaChevronLeft 
+import {
+  FaMicrophone, FaStop, FaRedo, FaFire, FaTrophy, FaRobot, FaUser, FaHeadphones, FaLightbulb, FaCoins, FaChevronLeft
 } from 'react-icons/fa';
 import LoadingCat from '../components/shared/LoadingCat';
 import { Line } from 'react-chartjs-2';
@@ -67,26 +67,30 @@ const AIConversation = () => {
 
   useEffect(() => {
     if (!hasFetchedInitial.current) {
-        hasFetchedInitial.current = true;
-        fetchInitialGreeting();
+      hasFetchedInitial.current = true;
+      fetchInitialGreeting();
     }
     return () => {
-        if (activeAudio) {
-            activeAudio.pause();
-            activeAudio = null;
-        }
+      if (activeAudio) {
+        activeAudio.pause();
+        activeAudio = null;
+      }
     };
   }, []);
 
   const playAIResponse = (url) => {
     // Stop any existing global audio
     if (activeAudio) {
-        activeAudio.pause();
-        activeAudio.currentTime = 0;
+      activeAudio.pause();
+      activeAudio.currentTime = 0;
     }
     const audio = new Audio(url);
     activeAudio = audio;
-    audio.play().catch(e => console.error("Audio Play Error:", e));
+    audio.play().catch(e => {
+      if (e.name !== 'AbortError') {
+        console.error("Audio Play Error:", e);
+      }
+    });
   };
 
   const fetchInitialGreeting = async (voiceId = selectedVoice) => {
@@ -151,21 +155,25 @@ const AIConversation = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const data = res.data;
-      setMessages(prev => [...prev, 
-        { 
-          role: 'user', 
-          text: data.user_transcript, 
-          pitch: data.pitch_data, 
-          correction: data.correction,
-          analytics: data.analytics // Lưu trữ dữ liệu phân tích mới
-        },
-        { role: 'ai', text: data.ai_response_text }
+      setMessages(prev => [...prev,
+      {
+        role: 'user',
+        text: data.user_transcript,
+        pitch: data.pitch_data,
+        correction: data.correction,
+        analytics: data.analytics // Lưu trữ dữ liệu phân tích mới
+      },
+      { role: 'ai', text: data.ai_response_text }
       ]);
       if (data.ai_audio_url) {
         playAIResponse(data.ai_audio_url);
       }
     } catch (e) {
       console.error(e);
+      const serverMsg = e.response?.data?.error || e.response?.data?.message;
+      if (typeof window !== 'undefined' && window.alert && serverMsg) {
+        window.alert(serverMsg);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -177,8 +185,8 @@ const AIConversation = () => {
   };
 
   return (
-    <div className="h-screen bg-[#08090D] relative flex items-center justify-center p-0 md:p-10 overflow-hidden font-sans select-none">
-      
+    <div className="h-screen bg-slate-50 dark:bg-[#08090D] transition-colors duration-300 relative flex items-center justify-center p-0 md:p-10 overflow-hidden font-sans select-none">
+
       {/* Immersive Background */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-indigo-600/10 rounded-full blur-[160px] animate-pulse" />
@@ -186,67 +194,67 @@ const AIConversation = () => {
       </div>
 
       {/* HUMANIZED POPUP WIDGET - WIDER LAYOUT */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-2xl h-full md:h-[90vh] bg-[#14171E] md:rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden z-20 relative border-none md:border md:border-white/5"
+        className="w-full max-w-2xl h-full md:h-[90vh] bg-white dark:bg-[#14171E] md:rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.1)] dark:shadow-[0_0_100px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden z-20 relative border-none md:border md:border-slate-200 dark:md:border-white/5 shadow-2xl transition-colors duration-300"
       >
         {/* Minimalist Header */}
         <div className="shrink-0 p-6 px-8 flex items-center justify-between bg-white/[0.02] backdrop-blur-3xl z-30">
           <div className="flex items-center gap-5">
-             <button onClick={() => navigate('/dashboard')} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-all border border-white/5">
-                <FaChevronLeft size={16} />
-             </button>
-             <div className="relative group">
-                {/* Human Avatar instead of Robot */}
-                <div className="w-14 h-14 bg-linear-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-transform">
-                   <span className="text-white font-black text-xl">A</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#14171E] rounded-full shadow-lg" />
-             </div>
-             <div>
-                <h2 className="text-white font-black text-lg tracking-tight">Alex</h2>
-                <div className="flex items-center gap-2 mt-0.5">
-                   <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">IELTS Specialist</span>
-                </div>
-             </div>
+            <button onClick={() => navigate('/dashboard')} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all border border-slate-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <FaChevronLeft size={16} />
+            </button>
+            <div className="relative group">
+              {/* Human Avatar instead of Robot */}
+              <div className="w-14 h-14 bg-linear-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-transform">
+                <span className="text-white font-black text-xl">A</span>
+              </div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#14171E] rounded-full shadow-lg" />
+            </div>
+            <div>
+              <h2 className="text-slate-900 dark:text-white font-black text-lg tracking-tight leading-none">Alex</h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-indigo-600 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest">IELTS Specialist</span>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-             {/* Voice Switcher */}
-             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 mr-2">
-                <button 
-                  onClick={() => {
-                    setSelectedVoice('en-GB-SoniaNeural');
-                    handleReset('en-GB-SoniaNeural');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-SoniaNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  NỮ
-                </button>
-                <button 
-                  onClick={() => {
-                    setSelectedVoice('en-GB-RyanNeural');
-                    handleReset('en-GB-RyanNeural');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-RyanNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  NAM
-                </button>
-             </div>
 
-             <div className="hidden sm:flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20">
-                <FaFire className="text-indigo-400" />
-                <span className="text-indigo-400 font-black text-xs">{stats.streak} Streak</span>
-             </div>
-             <button onClick={handleReset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-all border border-white/5">
-                <FaRedo size={12} />
-             </button>
+          <div className="flex items-center gap-3">
+            {/* Voice Switcher */}
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 mr-2">
+              <button
+                onClick={() => {
+                  setSelectedVoice('en-GB-SoniaNeural');
+                  handleReset('en-GB-SoniaNeural');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-SoniaNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                NỮ
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedVoice('en-GB-RyanNeural');
+                  handleReset('en-GB-RyanNeural');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${selectedVoice === 'en-GB-RyanNeural' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                NAM
+              </button>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 bg-indigo-500/10 px-4 py-2 rounded-xl border border-indigo-500/20">
+              <FaFire className="text-orange-500 dark:text-indigo-400" />
+              <span className="text-orange-600 dark:text-indigo-400 font-black text-xs">{stats.streak} Streak</span>
+            </div>
+            <button onClick={handleReset} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition-all border border-slate-200 dark:border-white/5 shadow-sm dark:shadow-none">
+              <FaRedo size={12} />
+            </button>
           </div>
         </div>
 
         {/* Chat Body - Ultra Smooth Scroll */}
-        <div 
+        <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-8 md:px-10 py-10 space-y-10 custom-scrollbar overscroll-contain"
@@ -261,14 +269,13 @@ const AIConversation = () => {
               >
                 <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[80%]`}>
                   {/* Human-like bubbles: softer gradients and clean typography */}
-                  <div className={`px-6 py-4 rounded-[2rem] text-[15px] leading-relaxed shadow-xl ${
-                    msg.role === 'user' 
-                      ? 'bg-indigo-600 text-white rounded-br-none' 
-                      : 'bg-white/10 border border-white/5 text-slate-50 rounded-bl-none font-medium'
-                  }`}>
+                  <div className={`px-6 py-4 rounded-[2rem] text-[15px] leading-relaxed shadow-xl ${msg.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-br-none shadow-indigo-500/20'
+                      : 'bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/5 text-slate-800 dark:text-slate-50 rounded-bl-none font-medium'
+                    }`}>
                     {msg.text}
                   </div>
-                  
+
                   {msg.correction && (
                     <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="mt-3 bg-emerald-500/10 border border-emerald-500/10 px-4 py-2.5 rounded-2xl text-[11px] text-emerald-300 flex items-start gap-2 shadow-sm">
                       <FaLightbulb className="shrink-0 mt-0.5 text-emerald-400" />
@@ -277,40 +284,40 @@ const AIConversation = () => {
                   )}
 
                   {msg.role === 'user' && msg.analytics && (
-                    <motion.div 
-                       initial={{ opacity: 0, y: 5 }} 
-                       animate={{ opacity: 1, y: 0 }}
-                       className="mt-3 flex flex-wrap gap-2"
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-3 flex flex-wrap gap-2"
                     >
-                       <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">Fluency</span>
-                          <span className="text-[11px] text-indigo-400 font-black">
-                             {Math.round((msg.analytics.lexical.word_count / (msg.analytics.fluency.total_duration || 1)) * 60)} WPM
-                          </span>
-                          <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                          <span className="text-[11px] text-rose-400 font-black">{msg.analytics.fluency.num_pauses} Pauses</span>
-                       </div>
-                       <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">Vocab</span>
-                          <span className="text-[11px] text-emerald-400 font-black">
-                             {Math.round(msg.analytics.lexical.lexical_diversity * 100)}% Div
-                          </span>
-                          <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                          <span className="text-[11px] text-amber-400 font-black">{msg.analytics.lexical.adjectives_count} Adj</span>
-                       </div>
+                      <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Fluency</span>
+                        <span className="text-[11px] text-indigo-400 font-black">
+                          {Math.round((msg.analytics.lexical.word_count / (msg.analytics.fluency.total_duration || 1)) * 60)} WPM
+                        </span>
+                        <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                        <span className="text-[11px] text-rose-400 font-black">{msg.analytics.fluency.num_pauses} Pauses</span>
+                      </div>
+                      <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Vocab</span>
+                        <span className="text-[11px] text-emerald-400 font-black">
+                          {Math.round(msg.analytics.lexical.lexical_diversity * 100)}% Div
+                        </span>
+                        <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                        <span className="text-[11px] text-amber-400 font-black">{msg.analytics.lexical.adjectives_count} Adj</span>
+                      </div>
                     </motion.div>
                   )}
 
                   {msg.role === 'user' && msg.pitch && msg.pitch.length > 0 && (
-                     <div className="w-32 h-8 mt-3 bg-white/5 rounded-full p-1.5 opacity-40 border border-white/5 flex items-center justify-center">
-                        <Line 
-                            data={{
-                               labels: msg.pitch.map((_, i) => i),
-                               datasets: [{ data: msg.pitch, borderColor: '#818cf8', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.4 }]
-                            }}
-                            options={{ responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } } }}
-                        />
-                     </div>
+                    <div className="w-32 h-8 mt-3 bg-white/5 rounded-full p-1.5 opacity-40 border border-white/5 flex items-center justify-center">
+                      <Line
+                        data={{
+                          labels: msg.pitch.map((_, i) => i),
+                          datasets: [{ data: msg.pitch, borderColor: '#818cf8', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.4 }]
+                        }}
+                        options={{ responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } } }}
+                      />
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -330,15 +337,15 @@ const AIConversation = () => {
         {/* Input Footer - Minimalist & Interactive */}
         <div className="shrink-0 p-8 pb-10 bg-white/[0.03] backdrop-blur-3xl border-t border-white/5">
           <div className="mb-4 h-6 flex items-center justify-center">
-             <AnimatePresence>
-               {status === 'recording' && realtimeText && (
-                  <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-indigo-400 font-medium bg-indigo-400/5 px-4 py-1.5 rounded-full italic">
-                    "{realtimeText}..."
-                  </motion.p>
-               )}
-             </AnimatePresence>
+            <AnimatePresence>
+              {status === 'recording' && realtimeText && (
+                <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-indigo-400 font-medium bg-indigo-400/5 px-4 py-1.5 rounded-full italic">
+                  "{realtimeText}..."
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {status !== 'recording' ? (
               <motion.button
@@ -373,11 +380,14 @@ const AIConversation = () => {
         </div>
       </motion.div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 20px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.12); }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
       `}} />
     </div>
   );

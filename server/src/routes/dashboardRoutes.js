@@ -3,17 +3,14 @@ const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
 const { protect } = require('../middlewares/authMiddleware');
 
-// All routes require authentication
-router.use(protect);
-
 // Dashboard routes
-router.get('/dashboard', dashboardController.getDashboardData);
-router.get('/practice/today', dashboardController.getTodayTasks);
-router.get('/practice/today/refresh', dashboardController.getTodayTasks); // Real-time refresh endpoint
-router.get('/analytics/time-spent', dashboardController.getTimeSpent);
-router.get('/scores/latest', dashboardController.getLatestScores);
-router.get('/reminders', dashboardController.getReminders);
-router.get('/user/goals/current', dashboardController.getUserGoals);
-router.post('/heartbeat', dashboardController.heartbeat);
+router.get('/dashboard', protect, dashboardController.getDashboardData);
+router.get('/practice/today', protect, dashboardController.getTodayTasks);
+router.get('/practice/today/refresh', protect, dashboardController.getTodayTasks); // Real-time refresh endpoint
+router.get('/analytics/time-spent', protect, dashboardController.getTimeSpent);
+router.get('/scores/latest', protect, dashboardController.getLatestScores);
+router.get('/reminders', protect, dashboardController.getReminders);
+router.get('/user/goals/current', protect, dashboardController.getUserGoals);
+router.post('/heartbeat', protect, dashboardController.heartbeat);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/LearningController');
+const bonusCtrl = require('../controllers/BonusTasksController');
 const { protect } = require('../middlewares/authMiddleware');
 
 /**
@@ -42,6 +43,6 @@ router.get('/plan/current', protect, ctrl.getCurrentPlan);
 router.get('/progress', protect, ctrl.getProgress);
 
 // Get bonus tasks for active learning
-router.get('/bonus-tasks', protect, ctrl.getBonusTasks);
+router.get('/bonus-tasks', protect, bonusCtrl.getBonusTasks);
 
 module.exports = router;

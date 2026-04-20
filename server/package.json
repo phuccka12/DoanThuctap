@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "jest --runInBand",
-    "seed": "node src/seed/seedData.js"
+    "seed": "node src/seed/seedData.js",
+    "plan:recompute-status": "node scripts/recompute-plan-status.js",
+    "plan:recompute-status:commit": "node scripts/recompute-plan-status.js --commit"
   },
   "keywords": [],
   "author": "",

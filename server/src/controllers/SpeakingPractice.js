@@ -220,6 +220,12 @@ exports.evaluate = async (req, res) => {
     form.append('sample_answer', req.body.sample_answer || '');
     form.append('frontend_data', req.body.frontend_data || '{}');
     form.append('mode', quota.mode); // Gửi mode (Online/Offline) sang Python
+  // Force local trained model scoring for SpeakingPractice page
+  // Gemini chỉ dùng khi chủ động bật ở endpoint khác.
+  form.append('gemini_assist', '0');
+  form.append('use_gemini', '0');
+  form.append('use_gemini_full', '0');
+  form.append('scoring_profile', req.body.scoring_profile || 'strict');
 
     const response = await axios.post(
       `${AI_SERVICE_URL}/api/speaking-practice/evaluate`,
@@ -272,6 +278,7 @@ exports.evaluate = async (req, res) => {
         // 5. Return response
         return res.json({
           success: true,
+          evaluation,
           data: evaluation,
           score: Math.round(score),
           progressId: progress._id,

@@ -7,6 +7,7 @@ const aiUsageSchema = new mongoose.Schema({
 
   speaking_checks:      { type: Number, default: 0 },
   writing_checks:       { type: Number, default: 0 },
+  translation_checks:   { type: Number, default: 0 },
   ai_chat_messages:     { type: Number, default: 0 },
   ai_roleplay_sessions: { type: Number, default: 0 },
 

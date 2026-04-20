@@ -6,7 +6,54 @@ import {
   FaPlus, FaLightbulb, FaRocket, FaSpinner
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosConfig';
+
+const MotionDiv = motion.div;
+const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+
+const SKILL_TO_TYPE = {
+  reading: 'reading',
+  listening: 'listening',
+  speaking: 'speaking',
+  writing: 'writing',
+  vocabulary: 'vocabulary',
+  grammar: 'grammar',
+  quiz: 'topic',
+};
+
+function getRouteByType(type, id) {
+  switch (type) {
+    case 'topic': return id ? `/learn/topics/${id}` : '/learn';
+    case 'lesson': return id ? `/learn/lessons/${id}` : '/learn';
+    case 'reading': return id ? `/reading/${id}` : '/reading';
+    case 'speaking': return id ? `/speaking-practice/${id}` : '/speaking-practice';
+    case 'writing': return id ? `/ai-writing/${id}` : '/writing-scenarios';
+    case 'listening': return id ? `/ai-listening/${id}` : '/ai-listening';
+    case 'vocabulary': return id ? `/vocabulary/${id}/learn` : '/vocabulary';
+    case 'grammar': return id ? `/grammar/${id}` : '/grammar';
+    case 'story': return id ? `/stories/${id}` : '/stories';
+    default: return '/learn';
+  }
+}
+
+function getDisplayTasks(day) {
+  if (Array.isArray(day.tasks) && day.tasks.length > 0) return day.tasks;
+
+  const itemId = day.topicId || day.lessonId || day.itemId || null;
+  if (!itemId && !day.skill) return [];
+
+  const type = day.itemType || (day.topicId ? 'topic' : (day.lessonId ? 'lesson' : SKILL_TO_TYPE[day.skill] || 'topic'));
+  const name = day.topic?.name || day.lesson?.title || 'Bài học AI';
+
+  return [{
+    type,
+    itemId,
+    name,
+    title: name,
+    status: day.status || 'pending',
+    weight: 2,
+  }];
+}
 
 /**
  * ElasticTimeline - Giao diện lộ trình học tập "Dòng chảy" V4.0
@@ -14,6 +61,9 @@ import axios from 'axios';
  */
 export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDark, t, navigate }) {
   const scrollRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
   const [bonusTasks, setBonusTasks] = useState([]);
   const [loadingBonus, setLoadingBonus] = useState(false);
   const [showBonus, setShowBonus] = useState(false);
@@ -28,11 +78,33 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
   const totalCount = plan.dayItems.length;
   const progressPct = Math.round((doneCount / totalCount) * 100);
 
+  const planDetailRows = [...(plan.dayItems || [])]
+    .sort((a, b) => (a.dayIndex ?? 0) - (b.dayIndex ?? 0))
+    .map((day, idx) => {
+      const tasks = getDisplayTasks(day);
+      const firstTask = tasks[0];
+      const dayIdx = Number.isInteger(day.dayIndex) ? day.dayIndex : idx;
+      return {
+        dayLabel: DAY_LABELS[dayIdx] || `Ngày ${dayIdx + 1}`,
+        skill: day.skill || firstTask?.type || 'general',
+        taskName: firstTask?.name || firstTask?.title || day.topic?.name || 'Ôn tập linh hoạt',
+      };
+    });
+
+  const weakSkills = Object.entries(plan.metadata?.skillMastery || {})
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 2)
+    .map(([k]) => k);
+
+  const introSummary = weakSkills.length > 0
+    ? `Tuần này ưu tiên cải thiện ${weakSkills.join(' & ')} dựa trên dữ liệu học gần nhất của bạn.`
+    : 'Lộ trình 7 ngày được chia theo kỹ năng để bạn tiến đều và không quá tải.';
+
   const fetchBonusTasks = async () => {
     setLoadingBonus(true);
     setShowBonus(true);
     try {
-      const resp = await axios.get('/api/learn/bonus-tasks');
+      const resp = await axiosInstance.get('/learn/bonus-tasks');
       if (resp.data.success) {
         setBonusTasks(resp.data.data);
       }
@@ -40,6 +112,37 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
       console.error('Fetch bonus error:', err);
     } finally {
       setLoadingBonus(false);
+    }
+  };
+
+  const handleTimelineMouseDown = (e) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.pageX - el.offsetLeft;
+    dragStartScrollLeftRef.current = el.scrollLeft;
+  };
+
+  const handleTimelineMouseMove = (e) => {
+    const el = scrollRef.current;
+    if (!el || !isDraggingRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - dragStartXRef.current) * 1.2;
+    el.scrollLeft = dragStartScrollLeftRef.current - walk;
+  };
+
+  const stopTimelineDragging = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleTimelineWheel = (e) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Convert vertical wheel to horizontal movement for easier desktop navigation
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY;
+      e.preventDefault();
     }
   };
 
@@ -96,7 +199,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                 <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Tiến độ</p>
                 <p className="text-xl font-black text-[#6C5CE7]">{progressPct}%</p>
               </div>
-              <div className="w-[1px] h-10 bg-white/10" />
+              <div className="w-px h-10 bg-white/10" />
               <div className="text-center">
                 <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Đã xong</p>
                 <p className={cn("text-xl font-black", t.text)}>{doneCount}/{totalCount}</p>
@@ -112,16 +215,30 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
           </div>
         </div>
 
-        {/* AI Mentor Strategic Insight */}
-        {plan.metadata?.phase_explanation && (
+        {/* Plan Detail Intro */}
+        {planDetailRows.length > 0 && (
           <div className="mt-6 p-4 rounded-2xl bg-linear-to-r from-[#6C5CE7]/10 to-[#00CEC9]/5 border border-white/10 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-white/20">
                  <FaGraduationCap className="text-[#6C5CE7]" />
               </div>
               <div className="flex-1">
-                <p className={cn("text-xs font-bold uppercase text-[#6C5CE7] mb-1 tracking-widest")}>Phân tích chiến lược</p>
-                <p className={cn("text-sm leading-relaxed", t.text)}>{plan.metadata.phase_explanation}</p>
+                <p className={cn("text-xs font-bold uppercase text-[#6C5CE7] mb-1 tracking-widest")}>Giới thiệu lộ trình tuần này</p>
+                <p className={cn("text-sm leading-relaxed mb-3", t.text)}>{introSummary}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {planDetailRows.map((row, i) => (
+                    <div
+                      key={`${row.dayLabel}-${i}`}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border text-xs",
+                        isDark ? "bg-white/5 border-white/10" : "bg-white/60 border-[#6C5CE7]/15"
+                      )}
+                    >
+                      <div className="font-bold text-[#6C5CE7] mb-0.5">{row.dayLabel} • {String(row.skill).toUpperCase()}</div>
+                      <div className={cn("truncate", t.text)}>{row.taskName}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <button 
                 onClick={fetchBonusTasks}
@@ -137,7 +254,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
       {/* ── Bonus Tasks Panel (Active Learning) ──────────────────── */}
       <AnimatePresence>
         {showBonus && (
-          <motion.div 
+          <MotionDiv 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -168,7 +285,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {bonusTasks.map((task, idx) => (
-                    <motion.div 
+                    <MotionDiv 
                       key={idx}
                       whileHover={{ scale: 1.02 }}
                       onClick={() => navigate(task.type === 'topic' ? `/learn/topics/${task.id}` : `/reading/${task.id}`)}
@@ -185,32 +302,40 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                       </div>
                       <h4 className={cn("text-sm font-bold mb-1 line-clamp-1", t.text)}>{task.name}</h4>
                       <p className="text-[10px] opacity-60 italic">{task.reason}</p>
-                    </motion.div>
+                    </MotionDiv>
                   ))}
                   {bonusTasks.length === 0 && <p className="col-span-4 text-center py-6 opacity-40 italic">Chưa tìm được bài mới phù hợp...</p>}
                 </div>
               )}
             </div>
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
       {/* ── The Fluid Timeline ──────────────────────────────────────── */}
       <div 
         ref={scrollRef}
-        className="flex gap-6 overflow-x-auto pb-8 pt-4 no-scrollbar snap-x cursor-grab active:cursor-grabbing"
+        onMouseDown={handleTimelineMouseDown}
+        onMouseMove={handleTimelineMouseMove}
+        onMouseUp={stopTimelineDragging}
+        onMouseLeave={stopTimelineDragging}
+        onWheel={handleTimelineWheel}
+        className="flex gap-6 overflow-x-auto pb-8 pt-4 no-scrollbar snap-x cursor-grab active:cursor-grabbing select-none"
+        style={{ userSelect: 'none' }}
       >
         {plan.dayItems.map((day, idx) => {
-          const isToday = idx === todayIdx;
+          const dayIdx = Number.isInteger(day.dayIndex) ? day.dayIndex : idx;
+          const isToday = dayIdx === todayIdx;
           const isDone = day.status === 'completed';
-          const isFuture = idx > todayIdx;
+          const isFuture = dayIdx > todayIdx;
+          const displayTasks = getDisplayTasks(day);
           
           // Tính toán "Nhiệt độ" (Energy Level)
-          const load = day.tasks?.reduce((acc, t) => acc + (t.weight || 2), 0) || 0;
+          const load = displayTasks.reduce((acc, t) => acc + (t.weight || 2), 0) || 0;
           const isHeavy = load > 5;
           
           return (
-            <motion.div 
+            <MotionDiv 
               key={idx}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -218,7 +343,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
               className="flex-none w-72 snap-center"
             >
               <div className={cn(
-                "relative group flex flex-col h-full rounded-[2rem] border transition-all duration-500",
+                "relative group flex flex-col h-full rounded-4xl border transition-all duration-500",
                 isToday 
                   ? "ring-4 ring-[#6C5CE7]/20 border-[#6C5CE7] shadow-2xl scale-[1.02]" 
                   : "border-white/5 hover:border-white/20",
@@ -228,7 +353,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                 
                 {/* Connection Line */}
                 {idx < totalCount - 1 && (
-                  <div className="absolute top-1/2 -right-6 w-6 h-[2px] bg-linear-to-r from-white/10 to-white/5 hidden lg:block" />
+                  <div className="absolute top-1/2 -right-6 w-6 h-0.5 bg-linear-to-r from-white/10 to-white/5 hidden lg:block" />
                 )}
 
                 {/* Card Header */}
@@ -237,7 +362,7 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                      <span className={cn(
                        "text-sm font-black uppercase tracking-tighter opacity-50",
                        isToday && "opacity-100 text-[#6C5CE7]"
-                     )}>Thứ {idx + 2 === 8 ? 'CN' : idx + 2}</span>
+                     )}>Thứ {dayIdx + 2 === 8 ? 'CN' : dayIdx + 2}</span>
                      {isToday && (
                        <span className="px-2 py-0.5 rounded-md bg-[#6C5CE7] text-white text-[8px] font-black uppercase">Today</span>
                      )}
@@ -255,8 +380,8 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
 
                 {/* Card Body: Task Chain */}
                 <div className="p-5 flex-1 flex flex-col gap-3">
-                  {day.tasks && day.tasks.length > 0 ? (
-                    day.tasks.map((task, tIdx) => (
+                  {displayTasks.length > 0 ? (
+                    displayTasks.map((task, tIdx) => (
                       <div 
                         key={tIdx}
                         className={cn(
@@ -282,36 +407,11 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                         </div>
                         
                         {/* Linking Indicator and Chain */}
-                        {tIdx < day.tasks.length - 1 && (
-                          <div className="absolute -bottom-3 left-7 w-[2px] h-3 bg-linear-to-b from-[#6C5CE7]/40 to-transparent" />
+                        {tIdx < displayTasks.length - 1 && (
+                          <div className="absolute -bottom-3 left-7 w-0.5 h-3 bg-linear-to-b from-[#6C5CE7]/40 to-transparent" />
                         )}
                       </div>
                     ))
-                  ) : day.itemId ? (
-                    /* Legacy / Main Item View */
-                    <div 
-                      className={cn(
-                        "relative p-4 rounded-2xl border transition-all duration-300",
-                        isDark ? "bg-white/5 border-white/5" : "bg-gray-50 border-gray-100",
-                        isToday && "hover:bg-[#6C5CE7]/5 hover:border-[#6C5CE7]/30",
-                        isDone && (isDark ? "bg-emerald-900/20 border-emerald-500/20" : "bg-emerald-50 border-emerald-100")
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-sm",
-                          isDone ? "bg-emerald-500 text-white" : (idx % 2 === 0 ? "bg-[#6C5CE7]/20 text-[#6C5CE7]" : "bg-[#00CEC9]/20 text-[#00CEC9]")
-                        )}>
-                           {isDone ? <FaCheckCircle className="text-[10px]" /> : <FaCircle className="text-[6px]" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("text-xs font-black uppercase opacity-40 mb-0.5 tracking-widest")}>{day.itemType || 'Chủ đề'}</p>
-                          <p className={cn("text-sm font-bold truncate", isDone ? "text-emerald-500 line-through opacity-60" : t.text)}>
-                            {day.itemType === 'topic' ? 'Nghiên cứu chủ đề' : 'Bài tập yêu cầu'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   ) : (
                     /* Empty State */
                     <div className="flex-1 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center opacity-30 italic text-xs">
@@ -323,25 +423,18 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                 {/* Footer Action */}
                 <div className="p-5 pt-0 mt-auto">
                     {(() => {
-                      const firstPending = day.tasks?.find(t => t.status !== 'completed');
-                      const firstTask = firstPending || (day.tasks && day.tasks[0]);
+                      const firstPending = displayTasks.find(t => t.status !== 'completed');
+                      const firstTask = firstPending || displayTasks[0];
                       
                       let dest = null;
                       if (firstTask) {
                         const type = firstTask.type;
                         const id = firstTask.itemId;
-                        switch (type) {
-                          case 'topic': dest = `/learn/topics/${id}`; break;
-                          case 'reading': dest = `/reading/${id}`; break;
-                          case 'speaking': dest = `/speaking-practice/${id}`; break;
-                          case 'writing': dest = `/ai-writing/${id}`; break;
-                          case 'listening': dest = `/ai-listening/${id}`; break;
-                          case 'vocabulary': dest = id ? `/vocabulary/${id}/learn` : `/vocabulary`; break;
-                          case 'grammar': dest = `/grammar/${id}`; break;
-                          case 'story': dest = `/stories/${id}`; break;
-                          default: dest = `/learn/topics/${id}`;
-                        }
+                        dest = getRouteByType(type, id);
                       }
+
+                      const isPast = dayIdx < todayIdx;
+                      const actionLabel = isDone ? 'Hoàn thành' : (isToday ? 'Bắt đầu' : (isPast ? 'Làm bù' : 'Chưa đến lúc'));
 
                       return (
                         <button 
@@ -353,17 +446,19 @@ export default function ElasticTimeline({ plan, onRegenerate, planLoading, isDar
                               ? "bg-emerald-500 text-white shadow-emerald-500/20 shadow-lg" 
                               : isToday
                                 ? "bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] text-white shadow-[#6C5CE7]/30 shadow-xl hover:scale-[1.05]"
-                                : "bg-white/5 border border-white/10 text-gray-500 opacity-50 cursor-not-allowed"
+                                : isPast
+                                  ? "bg-amber-500/10 border border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                                  : "bg-white/5 border border-white/10 text-gray-500 opacity-50 cursor-not-allowed"
                           )}
                         >
-                          {isDone ? <FaCheckCircle /> : isToday ? 'Bắt đầu' : 'Chưa đến lúc'}
+                          {isDone ? <FaCheckCircle /> : actionLabel}
                           {!isDone && isToday && <FaArrowRight className="text-xs" />}
                         </button>
                       );
                     })()}
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           );
         })}
       </div>

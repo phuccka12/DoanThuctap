@@ -9,8 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 const RewardModal = ({ 
   isOpen, 
   onClose, 
-  title = "HOÀN THÀNH XUẤT SẮC!", 
-  subtitle = "Bạn đã làm rất tốt, tiếp tục phát huy nhé!",
+  title = "HOÀN THÀNH BÀI HỌC!", 
+  subtitle = "Bạn đã hoàn thành bài học. Hãy tiếp tục luyện tập nhé!",
   primaryStat = { label: "Điểm số", value: 0 },
   secondaryStat,  // optional { label: "Chính xác", value: "80%" }
   reward = { coins: 0, exp: 0 },
@@ -82,7 +82,7 @@ const RewardModal = ({
                   transition={{ type: "spring", delay: 0.2 }}
                   className="relative"
                 >
-                   <div className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-[#6C5CE7] to-[#a78bfa] flex items-center justify-center text-white shadow-2xl">
+                   <div className="w-24 h-24 rounded-4xl bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] flex items-center justify-center text-white shadow-2xl">
                       <FaAward size={40} />
                    </div>
                    <motion.div 
@@ -112,7 +112,7 @@ const RewardModal = ({
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className={cn("p-6 rounded-[32px] border", t.card)}
+                  className={cn("p-6 rounded-4xl border", t.card)}
                 >
                    <div className="flex flex-col items-center">
                       <span className="text-4xl font-black text-[#6C5CE7] mb-1">
@@ -126,7 +126,7 @@ const RewardModal = ({
                      initial={{ x: 20, opacity: 0 }}
                      animate={{ x: 0, opacity: 1 }}
                      transition={{ delay: 0.3 }}
-                     className={cn("p-6 rounded-[32px] border", t.card)}
+                     className={cn("p-6 rounded-4xl border", t.card)}
                    >
                       <div className="flex flex-col items-center">
                          <span className="text-4xl font-black text-emerald-500 mb-1">

@@ -9,6 +9,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 const WritingRewardModal = ({ isOpen, onClose, evaluation, reward, theme: t }) => {
   if (!isOpen) return null;
 
+  const overallScore = Number(evaluation?.overall_score) || 0;
+  const scoreTier = overallScore >= 85
+    ? { title: 'HOÀN THÀNH XUẤT SẮC!', subtitle: 'Bài viết của bạn rất thuyết phục và tự nhiên.' }
+    : overallScore >= 70
+      ? { title: 'HOÀN THÀNH TỐT!', subtitle: 'Bạn đã làm tốt, chỉ cần tinh chỉnh thêm để bứt phá.' }
+      : { title: 'HOÀN THÀNH BÀI VIẾT!', subtitle: 'Bạn đã nộp bài thành công, tiếp tục luyện để tăng điểm nhé.' };
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -73,7 +80,7 @@ const WritingRewardModal = ({ isOpen, onClose, evaluation, reward, theme: t }) =
                   transition={{ type: "spring", delay: 0.2 }}
                   className="relative"
                 >
-                   <div className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-[#6C5CE7] to-[#a78bfa] flex items-center justify-center text-white shadow-2xl">
+                   <div className="w-24 h-24 rounded-4xl bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] flex items-center justify-center text-white shadow-2xl">
                       <FaAward size={40} />
                    </div>
                    <motion.div 
@@ -90,10 +97,10 @@ const WritingRewardModal = ({ isOpen, onClose, evaluation, reward, theme: t }) =
              {/* Title */}
              <div>
                 <h2 className={cn("text-3xl font-black mb-2 tracking-tight", t.text)}>
-                  NHIỆM VỤ HOÀN THÀNH!
+                  {scoreTier.title}
                 </h2>
                 <p className={cn("text-sm font-bold opacity-60", t.sub)}>
-                  Ní đã hoàn thành bài viết một cách xuất sắc
+                  {scoreTier.subtitle}
                 </p>
              </div>
 
@@ -103,7 +110,7 @@ const WritingRewardModal = ({ isOpen, onClose, evaluation, reward, theme: t }) =
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className={cn("p-6 rounded-[32px] border", t.card)}
+                  className={cn("p-6 rounded-4xl border", t.card)}
                 >
                    <div className="flex flex-col items-center">
                       <span className="text-4xl font-black text-[#6C5CE7] mb-1">
@@ -116,7 +123,7 @@ const WritingRewardModal = ({ isOpen, onClose, evaluation, reward, theme: t }) =
                   initial={{ x: 20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className={cn("p-6 rounded-[32px] border", t.card)}
+                  className={cn("p-6 rounded-4xl border", t.card)}
                 >
                    <div className="flex flex-col items-center">
                       <span className="text-4xl font-black text-emerald-500 mb-1">

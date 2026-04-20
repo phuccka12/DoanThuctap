@@ -41,6 +41,7 @@ const AiWriting = () => {
   const [isGeneratingModel, setIsGeneratingModel] = useState(false);
   const [showHighlights, setShowHighlights] = useState(true);
   const [showModel, setShowModel] = useState(false);
+  const writingStartRef = useRef(Date.now());
 
   const stats = user?.gamification_data || { streak: 0, level: 1, coins: 0 };
   const minWords = taskType === "task1" ? 150 : 250;
@@ -65,11 +66,13 @@ const AiWriting = () => {
 
     try {
       // 1. Start Evaluation
+      const elapsedSec = Math.max(0, Math.round((Date.now() - (writingStartRef.current || Date.now())) / 1000));
       const res = await axiosInstance.post("/ai/writing/evaluate", {
         text: answer.trim(),
         topic: prompt.trim(),
         task: taskType,
-        promptId: promptId // Support roadmap sync
+        promptId: promptId, // Support roadmap sync
+        timeSpentSec: elapsedSec,
       });
 
       const tid = res.data.task_id;
@@ -79,7 +82,10 @@ const AiWriting = () => {
       const poll = setInterval(async () => {
         try {
           const statusRes = await axiosInstance.get(`/ai/writing/status/${tid}`, {
-            params: { promptId }
+            params: {
+              promptId,
+              timeSpentSec: Math.max(0, Math.round((Date.now() - (writingStartRef.current || Date.now())) / 1000)),
+            }
           });
           const task = statusRes.data;
 
@@ -88,6 +94,7 @@ const AiWriting = () => {
           if (task.status === "completed") {
             setResult(task.result);
             setLoading(false);
+            writingStartRef.current = Date.now();
             clearInterval(poll);
           } else if (task.status === "failed") {
             setErr("Lỗi xử lý bài viết: " + task.error);
@@ -100,7 +107,13 @@ const AiWriting = () => {
       }, 2000);
 
     } catch (e) {
-      setErr("Lỗi kết nối máy chủ AI. Vui lòng thử lại sau.");
+      console.error("Evaluation error", e);
+      const serverMsg = e.response?.data?.error || e.response?.data?.message;
+      if (serverMsg) {
+        setErr(serverMsg);
+      } else {
+        setErr("Lỗi kết nối máy chủ AI. Vui lòng thử lại sau.");
+      }
       setLoading(false);
     }
   };
@@ -138,15 +151,26 @@ const AiWriting = () => {
   };
   const HighlightTooltip = ({ h, text, colorClass }) => {
     const [hover, setHover] = useState(false);
-    const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+    const [coords, setCoords] = useState({ top: 0, bottom: 0, left: 0, width: 0 });
+    const [placement, setPlacement] = useState('top');
     const spanRef = useRef(null);
 
     useEffect(() => {
       if (hover && spanRef.current) {
         const rect = spanRef.current.getBoundingClientRect();
+        const spaceAbove = rect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        
+        let newPlacement = 'top';
+        if (spaceAbove < 280 && spaceBelow > spaceAbove) {
+           newPlacement = 'bottom';
+        }
+        
+        setPlacement(newPlacement);
         setCoords({
-          top: rect.top + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
           width: rect.width
         });
       }
@@ -165,14 +189,14 @@ const AiWriting = () => {
 
         {hover && ReactDOM.createPortal(
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: coords.top < 300 ? -10 : 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: placement === 'bottom' ? -10 : 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             style={{
-              position: 'fixed', // Sử dụng fixed để chuẩn xác tuyệt đối trên màn hình
-              top: coords.top < 300 ? (coords.top - window.scrollY + 30) : (coords.top - window.scrollY - 15),
-              left: coords.left - window.scrollX + (coords.width / 2),
-              transform: coords.top < 300 ? 'translateX(-50%)' : 'translateX(-50%) translateY(-100%)',
+              position: 'fixed',
+              top: placement === 'bottom' ? coords.bottom + 10 : coords.top - 10,
+              left: coords.left + (coords.width / 2),
+              transform: placement === 'bottom' ? 'translateX(-50%)' : 'translateX(-50%) translateY(-100%)',
               zIndex: 9999,
             }}
             className="w-80 pointer-events-none"
@@ -200,7 +224,7 @@ const AiWriting = () => {
               )}
 
               {/* Mũi tên - Tự động đổi hướng dựa trên vị trí */}
-              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 ${coords.top < 300 ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
+              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 ${placement === 'bottom' ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
                 }`} />
             </div>
           </motion.div>,
@@ -222,9 +246,9 @@ const AiWriting = () => {
         parts.push(answer.substring(lastIndex, h.start));
       }
 
-      const colorClass = h.category === 'grammar' ? 'bg-rose-500/20 border-rose-500/50 text-rose-300' :
-        h.category === 'vocab' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' :
-          'bg-blue-500/20 border-blue-500/50 text-blue-300';
+      const colorClass = h.category === 'grammar' ? 'bg-rose-500/20 border-rose-500/50 text-rose-700 dark:text-rose-300' :
+        h.category === 'vocab' ? 'bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300' :
+          'bg-blue-500/20 border-blue-500/50 text-blue-700 dark:text-blue-300';
 
       parts.push(
         <HighlightTooltip
@@ -261,7 +285,7 @@ const AiWriting = () => {
   }, [result]);
 
   return (
-    <div className="min-h-screen bg-[#0F1117] relative flex flex-col p-4 md:p-8 overflow-y-auto font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0F1117] relative flex flex-col p-4 md:p-8 overflow-y-auto font-sans transition-colors duration-300">
       {/* Background Blobs */}
       <div className="absolute top-[-5%] left-[20%] w-[45%] h-[45%] bg-blue-600/5 rounded-full blur-[120px] animate-float-slow" />
       <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[100px] animate-float" />
@@ -276,7 +300,7 @@ const AiWriting = () => {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/dashboard')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300/50 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all border border-slate-200 dark:border-white/5"
               title="Quay lại Dashboard"
             >
               <FaChevronLeft />
@@ -285,23 +309,23 @@ const AiWriting = () => {
               <FaPenFancy className="text-white text-2xl" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-white tracking-tight">Mentor Writing AI</h1>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Premium IELTS Essay Analysis</p>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Mentor Writing AI</h1>
+              <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest">Premium IELTS Essay Analysis (Gemini 2.5 Flash)</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
+            <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/10 whitespace-nowrap">
               <FaFire className="text-orange-500" />
-              <span className="text-white font-black text-sm">{stats.streak} Ngày</span>
+              <span className="text-slate-700 dark:text-white font-black text-sm">{stats.streak} Ngày</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
-              <FaTrophy className="text-yellow-500" />
-              <span className="text-white font-black text-sm">Level {stats.level}</span>
+            <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/10 whitespace-nowrap">
+              <FaTrophy className="text-yellow-600 dark:text-yellow-500" />
+              <span className="text-slate-700 dark:text-white font-black text-sm">Level {stats.level}</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 whitespace-nowrap">
-              <FaCoins className="text-amber-400" />
-              <span className="text-white font-black text-sm">{stats.coins} Xu</span>
+            <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/10 whitespace-nowrap">
+              <FaCoins className="text-amber-500 dark:text-amber-400" />
+              <span className="text-slate-700 dark:text-white font-black text-sm">{stats.gold ?? stats.coins ?? 0} Xu</span>
             </div>
           </div>
         </motion.div>
@@ -352,25 +376,25 @@ const AiWriting = () => {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Nhập yêu cầu đề bài hoặc dán câu hỏi IELTS vào đây..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-slate-200 text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[100px]"
+                  className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-slate-700 dark:text-slate-200 text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[100px] shadow-inner"
                 />
               </div>
 
               {/* Toolbar & Legend */}
               {result && (
-                <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Ngữ pháp</span>
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Ngữ pháp</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Từ vựng</span>
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Từ vựng</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Logic</span>
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Logic</span>
                     </div>
                   </div>
 
@@ -386,7 +410,7 @@ const AiWriting = () => {
 
               <div className="relative group min-h-[350px]">
                 {result && showHighlights ? (
-                  <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-slate-200 text-sm min-h-[350px] leading-relaxed whitespace-pre-line relative overflow-y-auto max-h-[500px] custom-scrollbar">
+                  <div className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-slate-800 dark:text-slate-200 text-sm min-h-[350px] leading-relaxed whitespace-pre-line relative overflow-y-auto max-h-[500px] custom-scrollbar shadow-inner">
                     {highlightedContent}
                   </div>
                 ) : (
@@ -394,7 +418,7 @@ const AiWriting = () => {
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     placeholder="Bắt đầu viết bài essay của bạn tại đây..."
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-slate-200 text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[350px] leading-relaxed custom-scrollbar"
+                    className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-slate-800 dark:text-slate-200 text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all min-h-[350px] leading-relaxed custom-scrollbar shadow-inner"
                   />
                 )}
               </div>
@@ -449,8 +473,8 @@ const AiWriting = () => {
                 <FaGraduationCap className="text-blue-400 text-xl" />
               </div>
               <div>
-                <p className="text-xs font-black text-white uppercase tracking-widest mb-1">Mẹo viết tốt</p>
-                <p className="text-slate-400 text-[10px] leading-relaxed font-bold uppercase tracking-tight">
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-1">Mẹo viết tốt</p>
+                <p className="text-slate-500 dark:text-slate-400 text-[10px] leading-relaxed font-bold uppercase tracking-tight">
                   TẬP TRUNG VÀO TÍNH MẠCH LẠC (CC) VÀ SỬ DỤNG TỪ VỰNG HỢP NGỮ CẢNH (LR) ĐỂ ĐẠT BAND CAO NHẤT.
                 </p>
               </div>
@@ -473,13 +497,13 @@ const AiWriting = () => {
                 <div className="glass-card p-8 bg-linear-to-br from-blue-600/10 via-indigo-600/5 to-transparent relative overflow-hidden">
                   <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                     <div className="text-center md:text-left flex flex-col items-center md:items-start shrink-0">
-                      <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                         <FaTrophy /> Điểm số tổng quát
                       </div>
-                      <div className="text-8xl font-black text-white leading-none tracking-tighter">
+                      <div className="text-8xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">
                         {result.scoring?.overall_band || "0.0"}
                       </div>
-                      <div className="mt-4 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <div className="mt-4 bg-slate-400/10 dark:bg-white/5 border border-slate-400/20 dark:border-white/10 px-4 py-1.5 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
                         IELTS Band Score
                       </div>
                     </div>
@@ -493,9 +517,12 @@ const AiWriting = () => {
                               scales: {
                                 r: {
                                   min: 0, max: 9, ticks: { display: false },
-                                  grid: { color: 'rgba(255,255,255,0.05)' },
-                                  angleLines: { color: 'rgba(255,255,255,0.05)' },
-                                  pointLabels: { color: 'rgba(255,255,255,0.5)', font: { size: 9, weight: 'bold' } }
+                                  grid: { color: 'rgba(148, 163, 184, 0.15)' },
+                                  angleLines: { color: 'rgba(148, 163, 184, 0.15)' },
+                                  pointLabels: { 
+                                    color: '#64748b', 
+                                    font: { size: 9, weight: 'bold' } 
+                                  }
                                 }
                               },
                               plugins: { legend: { display: false } }
@@ -519,9 +546,9 @@ const AiWriting = () => {
                       <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                         <FaLightbulb className="text-blue-400" />
                       </div>
-                      <h3 className="text-lg font-black text-white tracking-tight uppercase">Nhận xét từ Giám khảo AI</h3>
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight uppercase">Nhận xét từ Giám khảo AI</h3>
                     </div>
-                    <p className="text-slate-300 text-[14px] leading-relaxed whitespace-pre-line font-medium italic opacity-90 relative z-10">
+                    <p className="text-slate-700 dark:text-slate-300 text-[14px] leading-relaxed whitespace-pre-line font-medium italic opacity-90 relative z-10">
                       {result.ai_eyes.detailed_feedback}
                     </p>
                   </motion.div>
@@ -566,10 +593,10 @@ const AiWriting = () => {
                             <s.i className={s.cl} />
                             <div className={`text-sm font-black uppercase tracking-widest ${s.cl}`}>{s.l}</div>
                           </div>
-                          <div className="text-xl font-black text-white bg-white/5 px-3 py-1 rounded-lg">Band {s.v}</div>
+                          <div className="text-xl font-black text-slate-900 dark:text-white bg-slate-400/10 dark:bg-white/5 px-3 py-1 rounded-lg border border-slate-400/20 dark:border-white/10">Band {s.v}</div>
                         </div>
                         <div className="space-y-3">
-                          <p className="text-[13px] text-slate-200 leading-relaxed font-medium">{s.c}</p>
+                          <p className="text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed font-medium">{s.c}</p>
                           <div className="pt-2 border-t border-white/5 flex flex-wrap gap-x-4 gap-y-1">
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{s.details}</span>
                           </div>
@@ -591,8 +618,8 @@ const AiWriting = () => {
                         <FaStar className="text-amber-400 text-xl" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-black text-white tracking-tight">Cần một bản mẫu Band 9.0?</h3>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Nghiên cứu cách Phúc AI viết lại bài của bạn</p>
+                        <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Cần một bản mẫu Band 9.0?</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Nghiên cứu cách Phúc AI viết lại bài của bạn</p>
                       </div>
                     </div>
 
@@ -640,8 +667,8 @@ const AiWriting = () => {
                               <FaStar />
                             </div>
                             <div>
-                              <h2 className="text-xl font-black text-white tracking-tight">IELTS Model Essay (Band 9.0)</h2>
-                              <p className="text-[10px] text-amber-400 font-black uppercase tracking-widest">Nội dung được tối ưu bởi Phúc AI</p>
+                              <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">IELTS Model Essay (Band 9.0)</h2>
+                              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-widest">Nội dung được tối ưu bởi Phúc AI</p>
                             </div>
                           </div>
                           <button
@@ -658,7 +685,7 @@ const AiWriting = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none rotate-12">
                               <FaPenFancy className="text-9xl text-white" />
                             </div>
-                            <p className="text-slate-200 text-base leading-loose font-medium whitespace-pre-line italic">
+                            <p className="text-slate-800 dark:text-slate-200 text-base leading-loose font-medium whitespace-pre-line italic">
                               {result.ai_eyes?.model_essay}
                             </p>
                           </div>
@@ -691,11 +718,11 @@ const AiWriting = () => {
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="glass-card p-10 flex flex-col items-center text-center space-y-6">
-                  <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-                    <FaPenFancy className="text-4xl text-blue-500/30" />
+                  <div className="w-20 h-20 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-sm">
+                    <FaPenFancy className="text-4xl text-blue-500/30 dark:text-blue-500/30" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-black text-white tracking-tight">Chưa có kết quả</h3>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-white tracking-tight">Chưa có kết quả</h3>
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest px-8">Hãy hoàn thành bài viết của bạn rồi nhấn nút "Chấm điểm" ở bên trái.</p>
                   </div>
                 </div>
@@ -729,7 +756,8 @@ const AiWriting = () => {
         __html: `
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
       `}} />
     </div>
   );

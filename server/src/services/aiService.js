@@ -3,6 +3,22 @@ const User = require('../models/User');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const Transaction = require('../models/Transaction');
 
+const DEFAULT_QUOTA = {
+    speaking_checks_per_day: 100, // Tăng từ 3 lên 100 để test thoải mái
+    writing_checks_per_day: 100,  // Tăng từ 3 lên 100 
+    ai_chat_messages_per_day: 500,
+    ai_roleplay_sessions_per_day: 50,
+    reading_passages_access: 'full', // Chuyển sang full để không bị chặn
+};
+
+const SUPPORTED_FEATURES = new Set([
+    'speaking',
+    'writing',
+    'conversation',
+    'recommendation',
+    'translation',
+]);
+
 /**
  * Lấy thông tin gói cước hiện tại của người dùng.
  */
@@ -14,17 +30,20 @@ async function getActivePlan(userId) {
     if (user.role === 'admin') {
         return { 
             slug: 'admin', 
-            quota: { 
+            quota: {
+                ...DEFAULT_QUOTA,
                 speaking_checks_per_day: -1, 
                 writing_checks_per_day: -1, 
                 ai_chat_messages_per_day: -1, 
-                ai_roleplay_sessions_per_day: -1 
+                ai_roleplay_sessions_per_day: -1,
+                reading_passages_access: 'full',
             } 
         };
     }
 
-    // 2. VIP (Pro hoặc Premium): Check Transaction thành công gần nhất
-    const isVip = user.role === 'vip' && user.vip_expire_at && user.vip_expire_at > new Date();
+    // 2. VIP (Pro hoặc Premium): Check Transaction thành công gần nhất hoăc có role vip
+    // Nếu role là vip nhưng expire_at bị null (do set tay), vẫn ưu tiên cho qua trong môi trường dev
+    const isVip = user.role === 'vip' && (!user.vip_expire_at || user.vip_expire_at > new Date());
     
     if (isVip) {
         const lastTx = await Transaction.findOne({
@@ -37,7 +56,10 @@ async function getActivePlan(userId) {
         if (lastTx && lastTx.plan_id) {
             return {
                 slug: lastTx.plan_id.slug,
-                quota: lastTx.plan_id.quota
+                quota: {
+                    ...DEFAULT_QUOTA,
+                    ...(lastTx.plan_id.quota || {}),
+                }
             };
         }
     }
@@ -46,11 +68,9 @@ async function getActivePlan(userId) {
     const freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
     return {
         slug: 'free',
-        quota: freePlan ? freePlan.quota : { 
-            speaking_checks_per_day: 3, 
-            writing_checks_per_day: 3, 
-            ai_chat_messages_per_day: 10, 
-            ai_roleplay_sessions_per_day: 1 
+        quota: {
+            ...DEFAULT_QUOTA,
+            ...(freePlan?.quota || {}),
         }
     };
 }
@@ -59,6 +79,13 @@ async function getActivePlan(userId) {
  * Kiểm tra xem người dùng còn lượt sử dụng AI hay không và dùng mode nào.
  */
 async function checkQuota(userId, feature) {
+    if (!SUPPORTED_FEATURES.has(feature)) {
+        return {
+            allowed: false,
+            reason: `Tính năng AI không hợp lệ: ${feature}`,
+        };
+    }
+
     const plan = await getActivePlan(userId);
     if (!plan) return { allowed: false, reason: 'User or plan not found' };
 
@@ -101,25 +128,17 @@ async function checkQuota(userId, feature) {
     } else if (feature === 'translation') {
         // Translation cho phép vô hạn vì đã có cơ chế Offline/Online phân tầng
         limit = -1; 
-        currentUsage = 0;
-    }
-
-    // -1 mean unlimited
-    if (limit !== -1 && currentUsage >= limit) {
-        return { 
-            allowed: false, 
-            reason: `Bạn đã hết lượt sử dụng tính năng này trong ngày hôm nay (${limit} lượt). Hãy nâng cấp gói cước cao hơn để tiếp tục!`,
-            remaining: 0
-        };
+        currentUsage = usage.translation_checks || 0;
     }
 
     // Determine mode
     const mode = ((feature === 'writing' || feature === 'translation') && plan.slug === 'free') ? 'offline' : 'online';
 
+    // FOR THESIS DEFENSE: Always allow
     return { 
         allowed: true, 
         mode: mode, 
-        remaining: limit === -1 ? 999 : limit - currentUsage 
+        remaining: 999 
     };
 }
 
@@ -132,6 +151,7 @@ async function incrementUsage(userId, feature) {
     
     if (feature === 'speaking') update.speaking_checks = 1;
     else if (feature === 'writing') update.writing_checks = 1;
+    else if (feature === 'translation') update.translation_checks = 1;
     else if (feature === 'conversation') update.ai_roleplay_sessions = 1;
     else if (feature === 'recommendation') update.ai_chat_messages = 1;
 

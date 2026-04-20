@@ -13,7 +13,7 @@ if not api_key:
     raise ValueError("❌ Lỗi: Chưa có GEMINI_API_KEY trong .env")
 
 client = genai.Client(api_key=api_key)
-MODEL_NAME = 'gemini-2.5-flash'  # Bản Flash 1.5 ổn định nhất cho Writing Pro
+MODEL_NAME = 'gemini-2.5-flash'  # Cập nhật lên bản Flash 2.5 mới nhất theo yêu cầu VIP
 
 
 def genai_generate_with_backoff(contents, model=MODEL_NAME, max_retries=3, initial_delay=2, backoff=2, fail_fast_on_quota=True):

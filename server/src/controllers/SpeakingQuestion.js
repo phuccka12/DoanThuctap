@@ -197,3 +197,32 @@ exports.getPublicSpeakingQuestions = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách câu hỏi speaking' });
   }
 };
+
+// ─── Public: Lấy 1 câu hỏi ngẫu nhiên (cho AI Coach) ─────────────────────────
+exports.getRandomSpeakingQuestion = async (req, res) => {
+  try {
+    const { part, difficulty, exclude_id } = req.query;
+    const query = { is_active: true };
+    if (part) query.part = part;
+    if (difficulty) query.difficulty = difficulty;
+    // Loại trừ câu hỏi vừa hiển thị để tránh lặp
+    if (exclude_id && mongoose.Types.ObjectId.isValid(exclude_id)) {
+      query._id = { $ne: new mongoose.Types.ObjectId(exclude_id) };
+    }
+
+    const count = await SpeakingQuestion.countDocuments(query);
+    if (count === 0) return res.status(404).json({ message: 'Không có câu hỏi nào phù hợp' });
+
+    const randomSkip = Math.floor(Math.random() * count);
+    const questions = await SpeakingQuestion.find(query)
+      .populate('topic_id', 'name level')
+      .skip(randomSkip)
+      .limit(1);
+
+    const question = questions.length > 0 ? questions[0] : null;
+    res.json({ message: 'OK', data: question });
+  } catch (error) {
+    console.error('Error getting random speaking question:', error);
+    res.status(500).json({ message: 'Lỗi server khi lấy câu hỏi ngẫu nhiên' });
+  }
+};

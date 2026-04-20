@@ -3,10 +3,20 @@ const axios = require('axios');
 const aiService = require('../services/aiService');
 const { earnCoins, getNum, getPetState } = require('../services/economyService');
 const Pet = require('../models/Pet');
+const LessonProgress = require('../models/LessonProgress');
 const { updatePlanTaskStatus } = require('./LearningController');
 
 // Địa chỉ của Server Python (đang chạy ở cổng 5000)
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:5000';
+const writingTaskMeta = new Map();
+
+function extractWritingScore(result) {
+    if (!result || typeof result !== 'object') return 0;
+    if (Number.isFinite(result.overall_score)) return Number(result.overall_score);
+    if (Number.isFinite(result?.scoring?.overall)) return Number(result.scoring.overall) * 10;
+    if (Number.isFinite(result?.scoring?.band)) return Number(result.scoring.band) * 10;
+    return 0;
+}
 
 /** Helper: lấy trạng thái pet của user hiện tại */
 async function getUserPetState(userId) {
@@ -19,7 +29,7 @@ async function getUserPetState(userId) {
 // 1a. Chức năng Chấm bài Writing PRO (Hệ thống Async mới)
 exports.evaluateWriting = async (req, res) => {
     try {
-        const { text, topic } = req.body;
+        const { text, topic, promptId, timeSpentSec = 0 } = req.body;
         const userId = req.userId;
 
         // KIỂM TRA QUOTA
@@ -32,6 +42,14 @@ exports.evaluateWriting = async (req, res) => {
         const response = await axios.post(`${AI_SERVICE_URL}/api/ai/writing/evaluate`, { 
             text, topic 
         });
+
+        if (response.data?.task_id && userId) {
+            writingTaskMeta.set(String(response.data.task_id), {
+                userId,
+                promptId: promptId || null,
+                timeSpentSec: Math.max(0, Number(timeSpentSec) || 0),
+            });
+        }
 
         // Ghi nhận lượt sử dụng ngay khi bắt đầu (hoặc sau khi hoàn thành tùy logic)
         await aiService.incrementUsage(userId, 'writing');
@@ -48,13 +66,45 @@ exports.evaluateWriting = async (req, res) => {
 exports.getWritingStatus = async (req, res) => {
     try {
         const { taskId } = req.params;
-        const { promptId } = req.query;
+        const { promptId, timeSpentSec = 0 } = req.query;
         const response = await axios.get(`${AI_SERVICE_URL}/api/ai/writing/status/${taskId}`);
+        const taskMeta = writingTaskMeta.get(String(taskId));
+        const effectivePromptId = promptId || taskMeta?.promptId || null;
+        const effectiveUserId = req.userId || taskMeta?.userId;
+        const effectiveTimeSpent = Math.max(
+            0,
+            Number(timeSpentSec) || Number(taskMeta?.timeSpentSec) || 0
+        );
         
         // If task completed and we have promptId, trigger roadmap sync
-        if (response.data?.status === 'completed' && promptId) {
-            const userId = req.userId;
-            await updatePlanTaskStatus(userId, promptId, 'completed');
+        if (response.data?.status === 'completed') {
+            if (effectivePromptId && effectiveUserId) {
+                await updatePlanTaskStatus(effectiveUserId, effectivePromptId, 'completed');
+
+                const score = Math.min(100, Math.max(0, extractWritingScore(response.data?.result)));
+                await LessonProgress.findOneAndUpdate(
+                    { userId: effectiveUserId, writingPromptId: effectivePromptId },
+                    {
+                        $set: {
+                            score,
+                            completedAt: new Date(),
+                            rewarded: true,
+                        },
+                        $inc: {
+                            attemptCount: 1,
+                            timeSpentSec: effectiveTimeSpent,
+                        },
+                    },
+                    {
+                        upsert: true,
+                        new: true,
+                        setDefaultsOnInsert: true,
+                    }
+                );
+            }
+            writingTaskMeta.delete(String(taskId));
+        } else if (response.data?.status === 'failed') {
+            writingTaskMeta.delete(String(taskId));
         }
         
         res.json(response.data);
@@ -90,7 +140,7 @@ exports.generateModelEssay = async (req, res) => {
 // 1. Chức năng Chấm bài Writing (Route cũ - đồng bộ)
 exports.checkWriting = async (req, res) => {
     try {
-        const { text, topic } = req.body;
+        const { text, topic, promptId, timeSpentSec = 0 } = req.body;
         const userId = req.userId;
 
         // 🟢 KIỂM TRA QUOTA & QUYỀN TRUY CẬP
@@ -114,8 +164,29 @@ exports.checkWriting = async (req, res) => {
         await aiService.incrementUsage(userId, 'writing');
 
         // Sync with Roadmap V4.0 (if promptId provided)
-        if (req.body.promptId) {
-            await updatePlanTaskStatus(userId, req.body.promptId, 'completed');
+        if (promptId) {
+            await updatePlanTaskStatus(userId, promptId, 'completed');
+
+            const score = Math.min(100, Math.max(0, extractWritingScore(response.data)));
+            await LessonProgress.findOneAndUpdate(
+                { userId, writingPromptId: promptId },
+                {
+                    $set: {
+                        score,
+                        completedAt: new Date(),
+                        rewarded: true,
+                    },
+                    $inc: {
+                        attemptCount: 1,
+                        timeSpentSec: Math.max(0, Number(timeSpentSec) || 0),
+                    },
+                },
+                {
+                    upsert: true,
+                    new: true,
+                    setDefaultsOnInsert: true,
+                }
+            );
         }
 
         // Cộng Coins + check expLocked
@@ -178,12 +249,17 @@ exports.checkSpeaking = async (req, res) => {
                 filename: req.file.originalname || 'audio.mp3',
                 contentType: req.file.mimetype || 'audio/mpeg',
             });
-            // Gửi thêm mode sang Python
             form.append('mode', quota.mode);
 
-            response = await axios.post(`${AI_SERVICE_URL}/api/speaking/check`, form, {
+            // Xử lý stream
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            response = await axios.post(`${AI_SERVICE_URL}/api/speaking/check-stream`, form, {
                 headers: form.getHeaders(),
                 maxBodyLength: Infinity,
+                responseType: 'stream'
             });
         } else {
             return res.status(400).json({ error: "Cần upload file audio." });
@@ -192,36 +268,107 @@ exports.checkSpeaking = async (req, res) => {
         // Ghi nhận lượt sử dụng
         await aiService.incrementUsage(userId, 'speaking');
 
-        // Sync with Roadmap V4.0 (if speakingId provided)
-        if (req.body.speakingId) {
-            await updatePlanTaskStatus(userId, req.body.speakingId, 'completed');
-        }
-        if (req.body.question_id) {
-            await updatePlanTaskStatus(userId, req.body.question_id, 'completed');
-        }
+        // Khởi tạo biến để gom data stream
+        let finalDeepAnalysis = null;
+        let finalOverallScore = 0;
+        let isDone = false;
 
-        // Cộng Coins + check expLocked
-        let coinResult = null;
-        let petState = null;
-        if (userId) {
-            petState = await getUserPetState(userId);
-            if (petState.expLocked) {
-                coinResult = { earned: 0, expLocked: true, message: 'Pet đang hấp hối! Hãy cứu pet để nhận EXP và Coins.' };
-            } else {
-                const reward = await getNum('economy_reward_speaking', 50);
-                const finalReward = Math.round(reward * petState.expMultiplier);
-                coinResult = await earnCoins(userId, 'speaking', finalReward);
-                coinResult.expMultiplier = petState.expMultiplier;
-                coinResult.expLocked = false;
+        response.data.on('data', (chunk) => {
+            const chunkStr = chunk.toString();
+            res.write(chunkStr);
+            
+            // Thử trích xuất điểm số từ luồng dữ liệu 
+            // format: event: deep_analysis\ndata: { ... }\n\n
+            try {
+                const lines = chunkStr.split('\n');
+                let itIsDeepAnalysis = false;
+                for (let line of lines) {
+                    if (line.startsWith('event: deep_analysis') || line.startsWith('event: quick_score')) {
+                        itIsDeepAnalysis = true;
+                    }
+                    if (itIsDeepAnalysis && line.startsWith('data: ')) {
+                        const dataStr = line.substring(6).trim();
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            if (parsed && typeof parsed === 'object') {
+                                if (parsed.overall_score) {
+                                  finalOverallScore = Number(parsed.overall_score);
+                                  finalDeepAnalysis = parsed;
+                                } else if (parsed.scores?.overall) {
+                                  finalOverallScore = Number(parsed.scores.overall);
+                                  finalDeepAnalysis = parsed;
+                                }
+                            }
+                        } catch (e) {}
+                        itIsDeepAnalysis = false;
+                    }
+                }
+            } catch (err) {}
+        });
+
+        response.data.on('end', async () => {
+            if (isDone) return;
+            isDone = true;
+
+            // Sync with Roadmap V4.0
+            if (req.body.speakingId) {
+                await updatePlanTaskStatus(userId, req.body.speakingId, 'completed');
             }
-        }
+            if (req.body.question_id) {
+                await updatePlanTaskStatus(userId, req.body.question_id, 'completed');
+            }
 
-        res.json({ 
-            ...response.data, 
-            coinResult, 
-            petState,
-            quotaRemaining: quota.remaining - 1,
-            engine: quota.mode 
+            const speakingItemId = req.body.question_id || req.body.speakingId || null;
+            const timeSpentSec = Math.max(0, Number(req.body.timeSpentSec) || 0);
+
+            if (speakingItemId && userId) {
+                try {
+                    const score = finalOverallScore > 0
+                        ? Math.min(100, Math.max(0, Math.round(finalOverallScore * 10)))
+                        : 0;
+
+                    await LessonProgress.create({
+                        userId,
+                        speakingId: speakingItemId,
+                        score,
+                        timeSpentSec,
+                        completedAt: new Date(),
+                        rewarded: true,
+                    });
+                } catch (saveErr) {}
+            }
+
+            // Cộng Coins + check expLocked
+            let coinResult = null;
+            let petState = null;
+            if (userId) {
+                petState = await getUserPetState(userId);
+                if (petState.expLocked) {
+                    coinResult = { earned: 0, expLocked: true, message: 'Pet đang hấp hối! Hãy cứu pet để nhận EXP và Coins.' };
+                } else {
+                    const reward = await getNum('economy_reward_speaking', 50);
+                    const finalReward = Math.round(reward * petState.expMultiplier);
+                    coinResult = await earnCoins(userId, 'speaking', finalReward);
+                    coinResult.expMultiplier = petState.expMultiplier;
+                    coinResult.expLocked = false;
+                }
+            }
+
+            // Gửi event cuối kèm theo coin info
+            const finalEventPayload = {
+                ok: true,
+                coinResult,
+                petState,
+                quotaRemaining: quota.remaining - 1,
+                engine: quota.mode
+            };
+            res.write(`event: database_done\ndata: ${JSON.stringify(finalEventPayload)}\n\n`);
+            res.end();
+        });
+
+        response.data.on('error', (err) => {
+           console.error("Stream error in proxy:", err);
+           res.end();
         });
 
     } catch (error) {

@@ -81,7 +81,7 @@ router.post('/:id/complete', protect, async (req, res) => {
     const lesson = await GrammarLesson.findOne({ _id: gid, is_active: true, is_published: true }).lean();
     if (!lesson) return res.status(404).json({ message: 'Bài học không tồn tại' });
 
-    const { score = 100, completedNodes = [] } = req.body || {};
+  const { score = 100, completedNodes = [], timeSpentSec = 0 } = req.body || {};
 
     let progress = await LessonProgress.findOne({ userId: req.userId, lessonId: gid });
     if (!progress) {
@@ -96,6 +96,7 @@ router.post('/:id/complete', protect, async (req, res) => {
 
     progress.completedNodes = Array.isArray(completedNodes) ? completedNodes : [];
     progress.score = Math.min(100, Math.max(0, Number(score) || 0));
+  progress.timeSpentSec = (progress.timeSpentSec || 0) + Math.max(0, Number(timeSpentSec) || 0);
     progress.completedAt = new Date();
 
     await progress.save();

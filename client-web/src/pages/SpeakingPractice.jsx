@@ -1260,8 +1260,22 @@ export default function SpeakingPractice() {
       <RewardModal
         isOpen={showReward}
         onClose={() => setShowReward(false)}
-        title="HOÀN THÀNH LUYỆN NÓI!"
-        subtitle="Bạn đã hoàn thành bài luyện tập xuất sắc!"
+        title={(() => {
+          const overallBand = results.length
+            ? (results.reduce((s, r) => s + (r.evalResult?.scores?.overall || 0), 0) / results.length)
+            : 0;
+          if (overallBand >= 7.5) return 'LUYỆN NÓI XUẤT SẮC!';
+          if (overallBand >= 5.5) return 'HOÀN THÀNH LUYỆN NÓI!';
+          return 'BẠN ĐÃ HOÀN THÀNH BÀI NÓI!';
+        })()}
+        subtitle={(() => {
+          const overallBand = results.length
+            ? (results.reduce((s, r) => s + (r.evalResult?.scores?.overall || 0), 0) / results.length)
+            : 0;
+          if (overallBand >= 7.5) return 'Phần trình bày rất tự tin và trôi chảy!';
+          if (overallBand >= 5.5) return 'Bạn đã hoàn thành tốt, tiếp tục luyện để nâng band nhé!';
+          return 'Bạn đã hoàn thành bài nói. Hãy luyện thêm phát âm và độ trôi chảy để cải thiện.';
+        })()}
         primaryStat={{ 
           label: "Band Overall", 
           value: results.length ? (results.reduce((s, r) => s + (r.evalResult?.scores?.overall || 0), 0) / results.length).toFixed(1) : 0 

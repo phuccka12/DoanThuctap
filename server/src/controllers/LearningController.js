@@ -1,4 +1,17 @@
 'use strict';
+/**
+ * LearningController.js
+ * User-facing endpoints for the Learn / Practice module.
+ *
+ * Routes (all mounted under /api/learn):
+ *   GET  /topics                   — public topic list with user progress
+ *   GET  /topics/:topicId/lessons  — lessons for a topic (published only)
+ *   GET  /lessons/:lessonId        — single lesson with full nodes (auth optional)
+ *   POST /lessons/:lessonId/complete — mark lesson complete + award coins (auth required)
+ *   POST /generate-plan            — generate 7-day personalised plan (auth required)
+ *   GET  /plan/current             — get active plan for this user (auth required)
+ *   GET  /progress                 — summary of user's completed lessons & topics
+ */
 
 const mongoose = require('mongoose');
 const Lesson = require('../models/Lesson');
@@ -7,26 +20,16 @@ const LessonProgress = require('../models/LessonProgress');
 const UserPlan = require('../models/UserPlan');
 const User = require('../models/User');
 const Pet = require('../models/Pet');
-
-// New models for multi-source AI plan
 const Vocabulary = require('../models/Vocabulary');
 const ReadingPassage = require('../models/ReadingPassage');
+const ListeningPassage = require('../models/ListeningPassage');
 const SpeakingQuestion = require('../models/SpeakingQuestion');
 const WritingPrompt = require('../models/WritingPrompt');
-const Story = require('../models/Story');
-const ListeningPassage = require('../models/ListeningPassage');
 const GrammarLesson = require('../models/GrammarLesson');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const WritingScenarioProgress = require('../models/WritingScenarioProgress');
 
 const economyService = require('../services/economyService');
 const embeddingService = require('../services/embeddingService');
-const aiService = require('../services/aiService');
-const axios = require('axios');
-
-const TASK_WEIGHTS = {
-  reading: 3, listening: 3, speaking: 5, writing: 5,
-  vocabulary: 1, grammar: 2, story: 2
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +59,153 @@ function weekMonday(date = new Date()) {
   const day = d.getUTCDay(); // 0 = Sun
   d.setUTCDate(d.getUTCDate() - ((day + 6) % 7));
   return d;
+}
+
+function getAllowedCefrLevels(level) {
+  if (level === 'beginner') return ['A1', 'A2'];
+  if (level === 'intermediate') return ['A1', 'A2', 'B1', 'B2'];
+  return ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+}
+
+function normalizeTaskStatus(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (['completed', 'in_progress', 'pending', 'skipped'].includes(s)) return s;
+  return 'pending';
+}
+
+function computeDayStatus(day = {}) {
+  const tasks = Array.isArray(day.tasks) ? day.tasks : [];
+  if (tasks.length === 0) {
+    return normalizeTaskStatus(day.status || 'pending');
+  }
+
+  const statuses = tasks.map(t => normalizeTaskStatus(t.status));
+  const allCompleted = statuses.every(s => s === 'completed' || s === 'skipped');
+  if (allCompleted) return 'completed';
+  if (statuses.some(s => s === 'in_progress')) return 'in_progress';
+  return 'pending';
+}
+
+async function updatePlanTaskStatusInternal(userId, itemId, status = 'completed') {
+  if (!userId || !itemId) return null;
+
+  const targetId = String(itemId);
+  const nextStatus = normalizeTaskStatus(status);
+
+  const plan = await UserPlan.findOne({ userId, status: 'active' }).sort({ created_at: -1 });
+  if (!plan || !Array.isArray(plan.dayItems) || plan.dayItems.length === 0) return null;
+
+  let changed = false;
+
+  for (const day of plan.dayItems) {
+    let dayChanged = false;
+
+    if (Array.isArray(day.tasks) && day.tasks.length > 0) {
+      for (const task of day.tasks) {
+        if (!task?.itemId) continue;
+        if (String(task.itemId) !== targetId) continue;
+        if (task.status !== nextStatus) {
+          task.status = nextStatus;
+          dayChanged = true;
+        }
+      }
+
+      if (dayChanged) {
+        day.status = computeDayStatus(day);
+        day.completedAt = day.status === 'completed' ? (day.completedAt || new Date()) : null;
+        changed = true;
+      }
+      continue;
+    }
+
+    // Legacy shape (single item pointer, no tasks array)
+    if (day.itemId && String(day.itemId) === targetId) {
+      if (day.status !== nextStatus) {
+        day.status = nextStatus;
+        day.completedAt = nextStatus === 'completed' ? (day.completedAt || new Date()) : null;
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) return null;
+
+  plan.markModified('dayItems');
+  await plan.save();
+  return plan;
+}
+
+const TASK_TYPE_TO_SKILL = {
+  vocabulary: 'vocabulary',
+  reading: 'reading',
+  listening: 'listening',
+  speaking: 'speaking',
+  writing: 'writing',
+  grammar: 'grammar',
+  quiz: 'reading',
+  topic: 'general',
+  lesson: 'general',
+  story: 'reading',
+};
+
+async function estimateSkillMastery(userId, placement = {}) {
+  const SKILLS = ['vocabulary', 'listening', 'reading', 'writing', 'speaking', 'grammar'];
+  const stats = Object.fromEntries(SKILLS.map(s => [s, { alpha: 2, beta: 2, attempts: 0 }]));
+
+  // Placement-based priors (0..1)
+  const priors = {
+    vocabulary: placement.vocab_score != null ? Math.max(0, Math.min(1, placement.vocab_score / 40)) : 0.5,
+    reading: placement.reading_score != null ? Math.max(0, Math.min(1, placement.reading_score / 35)) : 0.5,
+    speaking: placement.speaking_score != null ? Math.max(0, Math.min(1, placement.speaking_score / 25)) : 0.5,
+    writing: 0.5,
+    listening: 0.5,
+    grammar: 0.5,
+  };
+
+  const [recentProgress, recentWriting] = await Promise.all([
+    LessonProgress.find({ userId, score: { $gt: 0 } })
+      .select('score passageType speakingId lessonId')
+      .sort({ updated_at: -1 })
+      .limit(220)
+      .lean(),
+    WritingScenarioProgress.find({ userId, bestScore: { $gt: 0 } })
+      .select('bestScore')
+      .sort({ updated_at: -1 })
+      .limit(80)
+      .lean(),
+  ]);
+
+  for (const row of recentProgress) {
+    let skill = null;
+    if (row.passageType === 'reading') skill = 'reading';
+    else if (row.passageType === 'listening') skill = 'listening';
+    else if (row.speakingId) skill = 'speaking';
+    else if (row.lessonId) skill = 'grammar'; // generic lesson progress fallback
+
+    if (!skill) continue;
+
+    const success = Number(row.score || 0) >= 70;
+    stats[skill].attempts += 1;
+    if (success) stats[skill].alpha += 1;
+    else stats[skill].beta += 1;
+  }
+
+  for (const row of recentWriting) {
+    const success = Number(row.bestScore || 0) >= 70;
+    stats.writing.attempts += 1;
+    if (success) stats.writing.alpha += 1;
+    else stats.writing.beta += 1;
+  }
+
+  const mastery = {};
+  for (const s of SKILLS) {
+    const st = stats[s];
+    const posterior = st.alpha / (st.alpha + st.beta);
+    const weight = st.attempts > 0 ? 0.65 : 0.0;
+    mastery[s] = Number((posterior * weight + priors[s] * (1 - weight)).toFixed(3));
+  }
+
+  return { mastery, stats, priors };
 }
 
 // ─── 1. Public topic list with user progress ─────────────────────────────────
@@ -118,10 +268,6 @@ exports.getTopicsWithProgress = async (req, res) => {
 exports.getLessonsForTopic = async (req, res) => {
   try {
     const { topicId } = req.params;
-
-    if (!topicId || topicId === 'null' || !mongoose.Types.ObjectId.isValid(topicId)) {
-      return res.status(400).json({ success: false, message: 'ID Chủ đề không hợp lệ' });
-    }
 
     const topic = await Topic.findById(topicId).lean();
     if (!topic) return res.status(404).json({ success: false, message: 'Không tìm thấy chủ đề' });
@@ -221,12 +367,9 @@ exports.completeLesson = async (req, res) => {
       progress.attemptCount += 1;
     }
 
-    // Sync with Roadmap V4.0
-    await exports.updatePlanTaskStatus(req.userId, lessonId, 'completed');
-
     progress.completedNodes = completedNodes;
     progress.score = scoreNum;
-    progress.timeSpentSec = (progress.timeSpentSec || 0) + timeSpentSec;
+    progress.timeSpentSec = timeSpentSec;
     progress.completedAt = new Date();
 
     // ── Award coins & EXP once per lesson (idempotency) ──────────────────
@@ -273,6 +416,13 @@ exports.completeLesson = async (req, res) => {
 
     await progress.save();
 
+    // Sync weekly plan task/day status if this lesson appears in current plan
+    try {
+      await updatePlanTaskStatusInternal(req.userId, lessonId, 'completed');
+    } catch (planSyncErr) {
+      console.error('[LearningController] completeLesson -> updatePlanTaskStatus:', planSyncErr.message);
+    }
+
     // Update lesson stats
     Lesson.findByIdAndUpdate(lessonId, { $inc: { 'stats.completions': 1 } }).exec();
 
@@ -304,250 +454,394 @@ exports.generatePlan = async (req, res) => {
     const user = await User.findById(req.userId).lean();
     if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy user' });
 
-    // 🟢 KIỂM TRA GÓI CƯỚC: Gói Free không được tạo lộ trình
-    const planInfo = await aiService.getActivePlan(req.userId);
-    if (planInfo && planInfo.slug === 'free') {
-      return res.status(403).json({
-        success: false,
-        message: 'Tài khoản Free không thể tạo lộ trình học cá nhân hóa. Hãy nâng cấp lên gói PRO hoặc PREMIUM để AI thiết kế kế hoạch dành riêng cho bạn! 🚀',
-        code: 'UPGRADE_REQUIRED'
-      });
-    }
-
     const prefs = user.learning_preferences || {};
     const placement = user.placement_test_result || {};
 
-    const userLevelStr = placement.cefr_level ? cefrToLessonLevel(placement.cefr_level) : normaliseLevelStr(prefs.current_level);
+    // ── 1. Determine user level ───────────────────────────────────────────────
+    const userLevelStr = placement.cefr_level
+      ? cefrToLessonLevel(placement.cefr_level)
+      : normaliseLevelStr(prefs.current_level);
     const allowedLevels = getAllowedLevels(userLevelStr);
 
-    // ── Fetch all multi-source data ───────────────────────────────────────────
-    // Try with is_active: true first, then fallback to no filter
-    let topics = await Topic.find({ is_active: true, level: { $in: allowedLevels } }).select('_id name description').lean();
-    if (topics.length === 0) {
-      console.warn('[generatePlan] No active topics found, fetching all topics...');
-      topics = await Topic.find({ level: { $in: allowedLevels } }).select('_id name description').limit(50).lean();
+    // ── 2. Fetch eligible topics + lesson counts ──────────────────────────────
+    // If level resolves to beginner but DB has no beginner topics, expand to all levels
+    let levelFilter = allowedLevels;
+    const topicCountAtLevel = await Topic.countDocuments({ is_active: true, level: { $in: allowedLevels } });
+    if (topicCountAtLevel === 0) {
+      levelFilter = ['beginner', 'intermediate', 'advanced']; // fallback: show all
     }
 
-    let readings = await ReadingPassage.find({ is_active: true }).limit(50).select('_id title').lean();
-    if (readings.length === 0) {
-      console.warn('[generatePlan] No active readings found, fetching all readings...');
-      readings = await ReadingPassage.find().limit(50).select('_id title').lean();
+    const allTopics = await Topic.find({
+      is_active: true,
+      level: { $in: levelFilter },
+    }).lean();
+
+    if (!allTopics.length) {
+      return res.status(200).json({ success: true, data: null, message: 'Chưa có chủ đề phù hợp trong hệ thống' });
     }
 
-    let speakings = await SpeakingQuestion.find({ is_active: true }).limit(50).select('_id question_text').lean();
-    if (speakings.length === 0) {
-      console.warn('[generatePlan] No active speakings found, fetching all speakings...');
-      speakings = await SpeakingQuestion.find().limit(50).select('_id question_text').lean();
+    const lessonCounts = await Lesson.aggregate([
+      { $match: { is_published: true, is_active: true } },
+      { $group: { _id: '$topic_id', count: { $sum: 1 } } },
+    ]);
+    const lessonCountMap = {};
+    lessonCounts.forEach(r => { lessonCountMap[r._id.toString()] = r.count; });
+
+    const topicsWithLessons = allTopics.filter(tp => (lessonCountMap[tp._id.toString()] || 0) > 0);
+    if (!topicsWithLessons.length) {
+      return res.status(200).json({ success: true, data: null, message: 'Chưa có chủ đề nào có bài học' });
     }
 
-    let writings = await WritingPrompt.find({ is_active: true }).limit(50).select('_id prompt').lean();
-    if (writings.length === 0) {
-      console.warn('[generatePlan] No active writings found, fetching all writings...');
-      writings = await WritingPrompt.find().limit(50).select('_id prompt').lean();
+    // ── 3. Get user's progress per topic ─────────────────────────────────────
+    const completedTopicAgg = await LessonProgress.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.userId), lessonId: { $ne: null }, completedAt: { $ne: null } } },
+      { $group: { _id: '$topicId', done: { $sum: 1 } } },
+    ]);
+    const completedTopicMap = {};
+    completedTopicAgg.forEach(r => { if (r._id) completedTopicMap[r._id.toString()] = r.done; });
+
+    // ── 4. Build topic profile texts (for semantic matching) ──────────────────
+    function buildTopicText(tp) {
+      const nodeTypeLabels = [...new Set((tp.nodes || []).map(n => n.type))].join(', ');
+      const parts = [
+        tp.name ? `Topic: ${tp.name}` : '',
+        tp.description ? tp.description : '',
+        tp.level ? `Level: ${tp.level}` : '',
+        tp.frequency ? `Importance: ${tp.frequency}` : '',
+        tp.keywords?.length ? `Keywords: ${tp.keywords.join(', ')}` : '',
+        nodeTypeLabels ? `Skills covered: ${nodeTypeLabels}` : '',
+      ];
+      return parts.filter(Boolean).join('. ').slice(0, 1000);
     }
 
-    let stories = await Story.find({ is_active: true, level: { $in: allowedLevels } }).limit(50).select('_id title').lean();
-    if (stories.length === 0) {
-      console.warn('[generatePlan] No active stories found, fetching all stories...');
-      stories = await Story.find({ level: { $in: allowedLevels } }).limit(50).select('_id title').lean();
-    }
-
-    let listenings = await ListeningPassage.find({ is_active: true }).limit(50).select('_id title').lean();
-    if (listenings.length === 0) {
-      console.warn('[generatePlan] No active listenings found, fetching all listenings...');
-      listenings = await ListeningPassage.find().limit(50).select('_id title').lean();
-    }
-
-    let grammars = await GrammarLesson.find({ is_active: true }).limit(50).select('_id title').lean();
-    if (grammars.length === 0) {
-      console.warn('[generatePlan] No active grammars found, fetching all grammars...');
-      grammars = await GrammarLesson.find().limit(50).select('_id title').lean();
-    }
-
-    let vocabularies = await Vocabulary.find({ is_active: true, level: { $in: allowedLevels } }).limit(50).select('_id word').lean();
-    if (vocabularies.length === 0) {
-      console.warn('[generatePlan] No active vocabularies found, fetching all vocabularies...');
-      vocabularies = await Vocabulary.find({ level: { $in: allowedLevels } }).limit(50).select('_id word').lean();
-    }
-
-    // Log data availability
-    console.log('[generatePlan] Data fetched:', {
-      topics: topics.length,
-      readings: readings.length,
-      speakings: speakings.length,
-      writings: writings.length,
-      stories: stories.length,
-      listenings: listenings.length,
-      grammars: grammars.length,
-      vocabularies: vocabularies.length
-    });
-
-    // Build content summary for AI
-    const contentSummary = `
-Available Topics: ${topics.length} items
-Available Reading Passages: ${readings.length} items
-Available Speaking Questions: ${speakings.length} items
-Available Writing Prompts: ${writings.length} items
-Available Stories: ${stories.length} items
-Available Listening Passages: ${listenings.length} items
-Available Grammar Lessons: ${grammars.length} items
-Available Vocabulary: ${vocabularies.length} items
-    `.trim();
-
-    const userProfile = `
-User Level: ${userLevelStr}
-CEFR: ${placement.cefr_level || 'N/A'}
-Goal: ${prefs.goal || 'general'}
-Focus Skills: ${(prefs.focus_skills || []).join(', ') || 'all'}
-    `.trim();
-
-    // --- TẦNG 1 & 2: GỌI PYTHON ĐỂ LẤY PERSONA & SEQUENCE TỐI ƯU ---
-    let strategy = { persona: { intensity: 'STEADY', tasks_per_day: 1 }, sequence: [] };
-    const pythonUrl = process.env.AI_SERVICE_URL || 'http://localhost:5000';
-    try {
-      // Giả lập lấy dữ liệu Mastery từ DB (Sẽ kết nối thật sau)
-      const masteryData = user.mastery || {}; // e.g. { reading: 0.8, grammar: 0.5 }
-      const lastSeen = user.last_activity_at || {}; // e.g. { reading: timestamp }
-
-      const strategyRes = await axios.post(`${pythonUrl}/api/ai/roadmap/generate`, {
-        profile: {
-          goal: prefs.goal,
-          current_level: userLevelStr,
-          study_hours_per_week: prefs.study_hours_per_week || 5,
-          focus_skills: prefs.focus_skills || [],
-          interests: prefs.interests || [], // Sở thích từ Onboarding
-          major: prefs.major || null,       // Chuyên ngành từ Onboarding
-          needs_review: Object.keys(masteryData).filter(k => masteryData[k] < 0.6)
-        },
-        days: 7
-      });
-      if (strategyRes.data.success) {
-        strategy = strategyRes.data;
-        console.log('[generatePlan] Strategy from Python:', strategy.persona);
-      }
-    } catch (pyErr) {
-      console.warn('[generatePlan] Python strategy failed, using default sequence:', pyErr.message);
-      const types = ["topic", "reading", "listening", "speaking", "writing", "vocabulary", "grammar"];
-      strategy.sequence = Array.from({ length: 7 }, (_, i) => ({ day: i + 1, tasks: [types[i % types.length]] }));
-    }
-
-    // --- TẦNG 3: MAPPING DANH SÁCH BÀI TẬP (V4.5 NEURAL MATCH) ---
-    const availableItems = {
-      reading: readings, listening: listenings, speaking: speakings,
-      writing: writings, vocabulary: vocabularies, grammar: grammars,
-      story: stories, topic: topics
+    // ── 5. Rank topics by semantic similarity (AI) with rule-based fallback ───
+    const NODE_TYPE_TO_SKILL = {
+      vocabulary: 'vocabulary',
+      video: 'listening',
+      listening: 'listening',
+      ai_roleplay: 'speaking',
+      grammar: 'writing',
+      quiz: 'reading',
     };
 
-    // 2. TÌM KIẾM BĂNG EMBEDDING (Neural Semantic Matching)
-    let neuralMatches = [];
+    // Map ALL possible goal values → node types to prioritise
+    const GOAL_NODE_MAP = {
+      speaking: ['ai_roleplay', 'video'],
+      listening: ['video', 'listening'],
+      writing: ['grammar', 'vocabulary'],
+      grammar: ['grammar', 'vocabulary'],
+      band: ['vocabulary', 'quiz', 'grammar'],
+      graduation: ['vocabulary', 'quiz', 'grammar', 'listening'],   // exam-style
+      study_abroad: ['ai_roleplay', 'vocabulary', 'listening'],        // communicative
+      other: [],  // no specific priority → let AI/progress decide
+    };
+
+    // Resolve focus_skills: "all" means all skills, normalise to known skill names
+    const ALL_SKILLS = ['vocabulary', 'listening', 'reading', 'writing', 'speaking'];
+    const rawFocusSkills = Array.isArray(prefs.focus_skills) ? prefs.focus_skills : [];
+    const focusSkills = rawFocusSkills.includes('all') ? ALL_SKILLS
+      : rawFocusSkills.filter(s => ALL_SKILLS.includes(s));
+
+    const userGoal = prefs.goal || null;
+    const priorityNodeTypes = GOAL_NODE_MAP[userGoal] || [];
+
+    // ── 5x. Local ML layer: Bayesian mastery estimation from user history ───
+    const { mastery: skillMastery, stats: masteryStats, priors: masteryPriors } =
+      await estimateSkillMastery(req.userId, placement);
+
+    let scored; // [{ topic, totalScore, pct, lessonCount }]
+
     try {
-      const response = await axios.post(`${pythonUrl}/api/ai/roadmap/semantic-match`, {
-        interests: prefs.interests || [],
-        major: prefs.major || '',
-        level: userLevelStr,
-        mastery: user.learning_stats?.mastery || {},
-        n_results: 20 // Lấy dư để phân bổ cho 7 ngày
+      // ── 5a. Build user profile text & embed ──────────────────────────────
+      const userProfileText = embeddingService.buildUserProfileText(user);
+      const userVector = await embeddingService.embedText(userProfileText);
+
+      // Check if we got a real (non-zero) vector — zero vector means API failed silently
+      const isZeroVector = userVector.every(v => v === 0);
+      if (isZeroVector) throw new Error('Embedding API returned zero vector — API key missing or quota exceeded');
+
+      // ── 5b. Embed each topic and compute cosine similarity in parallel ────
+      const topicTexts = topicsWithLessons.map(buildTopicText);
+      const topicVectors = await Promise.all(topicTexts.map(t => embeddingService.embedText(t)));
+
+      // ── 5c. Score = cosine similarity (0–1) + progress bonus ─────────────
+      scored = topicsWithLessons.map((tp, i) => {
+        const tid = tp._id.toString();
+        const total = lessonCountMap[tid] || 1;
+        const done = completedTopicMap[tid] || 0;
+        const pct = (done / total) * 100;
+
+        const similarity = embeddingService.cosineSimilarity(userVector, topicVectors[i]);
+
+        // Blend: 70% AI similarity + 30% progress bonus
+        // Progress bonus: in-progress=1.0, not-started=0.67, completed=0.17
+        const progressBonus = pct > 0 && pct < 100 ? 1.0 : pct === 0 ? 0.67 : 0.17;
+        const totalScore = similarity * 0.7 + progressBonus * 0.3;
+
+        return { topic: tp, totalScore, similarity, pct, lessonCount: total };
       });
-      if (response.data && response.data.success) {
-        neuralMatches = response.data.matches;
-        console.log(`🧠 [V4.5] Neural Roadmap: Found ${neuralMatches.length} semantic matches.`);
-      }
-    } catch (err) {
-      console.warn('⚠️ Neural Match failed, falling back to keywords:', err.message);
+
+      console.log('[generatePlan] AI vector ranking succeeded — top topic:', scored.sort((a, b) => b.totalScore - a.totalScore)[0]?.topic?.name);
+
+    } catch (aiErr) {
+      // ── 5d. Fallback: rule-based scoring (no API needed) ─────────────────
+      console.warn('[generatePlan] AI ranking failed, falling back to rule-based:', aiErr.message);
+
+      const rawScores = {
+        vocabulary: placement.vocab_score != null ? placement.vocab_score / 40 : null,
+        reading: placement.reading_score != null ? placement.reading_score / 35 : null,
+        speaking: placement.speaking_score != null ? placement.speaking_score / 25 : null,
+      };
+      const weakestSkill = Object.entries(rawScores)
+        .filter(([, v]) => v !== null)
+        .sort(([, a], [, b]) => a - b)[0]?.[0] || null;
+
+      scored = topicsWithLessons.map(tp => {
+        const tid = tp._id.toString();
+        const total = lessonCountMap[tid] || 1;
+        const done = completedTopicMap[tid] || 0;
+        const pct = (done / total) * 100;
+
+        const topicNodeTypes = (tp.nodes || []).map(n => n.type);
+        const scoreProgress = pct > 0 && pct < 100 ? 30 : pct === 0 ? 20 : 5;
+        const goalMatchCount = priorityNodeTypes.filter(nt => topicNodeTypes.includes(nt)).length;
+        const scoreGoal = Math.min(30, goalMatchCount * 10);
+        let scoreWeak = 0;
+        if (weakestSkill) {
+          const topicSkills = topicNodeTypes.map(nt => NODE_TYPE_TO_SKILL[nt]).filter(Boolean);
+          if (topicSkills.includes(weakestSkill)) scoreWeak = 20;
+        }
+        const topicSkills2 = topicNodeTypes.map(nt => NODE_TYPE_TO_SKILL[nt]).filter(Boolean);
+        const scoreFocus = focusSkills.length > 0
+          ? Math.min(20, focusSkills.filter(s => topicSkills2.includes(s)).length * 7) : 0;
+        const scoreFreq = tp.frequency === 'high' ? 15 : tp.frequency === 'medium' ? 8 : 0;
+        const kwMatch = (tp.keywords || []).filter(k => focusSkills.includes(k.toLowerCase())).length;
+        const scoreKw = Math.min(5, kwMatch * 3);
+
+        // Normalize to 0–1 range (max possible = 100)
+        const totalScore = (scoreProgress + scoreGoal + scoreWeak + scoreFocus + scoreFreq + scoreKw) / 100;
+        return { topic: tp, totalScore, similarity: 0, pct, lessonCount: total };
+      });
     }
 
-    const schedule = [];
-    const TASK_WEIGHTS = { reading: 3, listening: 3, speaking: 5, writing: 5, vocabulary: 1, grammar: 2, story: 2, topic: 0 };
+    // Sort descending by blended score
+    scored.sort((a, b) => b.totalScore - a.totalScore || a.pct - b.pct);
 
-    for (const dayData of strategy.sequence) {
-      const dayTasksDetail = [];
-      for (const type of dayData.tasks) {
-        const queue = availableItems[type] || [];
-        if (queue.length === 0) continue;
+    // ── 6. Build 7-day schedule (align days to user's focus skills) ───────────
+    const SKILL_CYCLE = ['vocabulary', 'listening', 'reading', 'writing', 'speaking', 'grammar', 'quiz'];
+    const adaptiveSkillRank = ['vocabulary', 'listening', 'reading', 'writing', 'speaking', 'grammar']
+      .map((skill) => {
+        const weakness = 1 - (skillMastery[skill] ?? 0.5);
+        const focusBoost = focusSkills.includes(skill) ? 0.18 : 0;
+        return { skill, score: weakness + focusBoost };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(x => x.skill);
 
-        let item = null;
+    const daySkillOrder = [...new Set([
+      ...adaptiveSkillRank,
+      ...focusSkills,
+      ...SKILL_CYCLE,
+    ])].slice(0, 7);
 
-        // 1. Ưu tiên Neural Match
-        const match = neuralMatches.find(m => m.type === type);
-        if (match) {
-          item = queue.find(it => it._id.toString() === match.id);
-          if (item) neuralMatches = neuralMatches.filter(m => m.id !== match.id);
+  const schedule = [];
+    const topicIdsForFilter = topicsWithLessons.map(t => t._id);
+    const cefrAllowed = getAllowedCefrLevels(userLevelStr);
+
+    // ── 6a. Skill-centric candidate pools ─────────────────────────────────
+    const [
+      vocabularyPool,
+      readingPool,
+      listeningPool,
+      speakingPool,
+      writingPool,
+      grammarPool,
+    ] = await Promise.all([
+      Vocabulary.find({ is_active: true, level: { $in: levelFilter } })
+        .select('_id word topics usage_count')
+        .sort({ usage_count: -1, created_at: -1 })
+        .limit(120)
+        .lean(),
+      ReadingPassage.find({ is_active: true, level: { $in: levelFilter } })
+        .select('_id title topics usage_count')
+        .sort({ usage_count: -1, created_at: -1 })
+        .limit(120)
+        .lean(),
+      ListeningPassage.find({ is_active: true, level: { $in: levelFilter } })
+        .select('_id title topics')
+        .sort({ created_at: -1 })
+        .limit(120)
+        .lean(),
+      SpeakingQuestion.find({ is_active: true, cefr_level: { $in: cefrAllowed }, topic_id: { $in: topicIdsForFilter } })
+        .select('_id question topic_id')
+        .sort({ createdAt: -1 })
+        .limit(120)
+        .lean(),
+      WritingPrompt.find({ is_active: true, topic_id: { $in: topicIdsForFilter } })
+        .select('_id prompt topic_id')
+        .sort({ createdAt: -1 })
+        .limit(120)
+        .lean(),
+      GrammarLesson.find({ is_active: true, is_published: true, level: { $in: levelFilter } })
+        .select('_id title')
+        .sort({ created_at: -1 })
+        .limit(120)
+        .lean(),
+    ]);
+
+    const usedByType = {
+      vocabulary: new Set(),
+      reading: new Set(),
+      listening: new Set(),
+      speaking: new Set(),
+      writing: new Set(),
+      grammar: new Set(),
+      topic: new Set(),
+    };
+
+    // ── 6b. Rolling-horizon carry-over (unfinished tasks from previous plan) ──
+    const previousPlan = await UserPlan.findOne({ userId: req.userId, status: { $in: ['active', 'replaced', 'expired'] } })
+      .sort({ created_at: -1 })
+      .lean();
+
+    const carryOverLimit = Math.min(2, Math.ceil(7 * 0.3)); // cap 30% weekly load
+    const carryOverMap = new Map();
+    if (previousPlan?.dayItems?.length) {
+      for (const day of previousPlan.dayItems) {
+        const dayTasks = Array.isArray(day.tasks) && day.tasks.length > 0
+          ? day.tasks
+          : (day.itemId
+            ? [{ type: day.itemType || 'topic', itemId: day.itemId, name: day.topic?.name || 'Bài học', status: day.status || 'pending', weight: 2 }]
+            : []);
+
+        for (const t of dayTasks) {
+          if (!t?.itemId) continue;
+          if (t.status === 'completed') continue;
+          const key = `${t.type}:${String(t.itemId)}`;
+          if (!carryOverMap.has(key)) {
+            carryOverMap.set(key, {
+              type: t.type || 'topic',
+              itemId: t.itemId,
+              name: t.name || t.title || 'Bài học dở dang',
+              status: t.status === 'in_progress' ? 'in_progress' : 'pending',
+              weight: Math.max(2, Number(t.weight) || 2),
+            });
+          }
+          if (carryOverMap.size >= carryOverLimit) break;
         }
+        if (carryOverMap.size >= carryOverLimit) break;
+      }
+    }
+    const carryQueue = [...carryOverMap.values()];
 
-        // 2. Fallback: Keyword Search
-        if (!item && (prefs.interests?.length > 0 || prefs.major)) {
-          const keywords = [...(prefs.interests || []), prefs.major].filter(Boolean);
-          item = queue.find(it => {
-            const title = (it.title || it.name || it.question || it.word || "").toLowerCase();
-            return keywords.some(k => title.includes(k.toLowerCase()));
-          });
-        }
+    function pickCandidate(type, pool, scoreFn) {
+      if (!Array.isArray(pool) || pool.length === 0) return null;
+      const ranked = [...pool].sort((a, b) => scoreFn(b) - scoreFn(a));
+      const fresh = ranked.find(it => !usedByType[type].has(String(it._id)));
+      const chosen = fresh || ranked[0] || null;
+      if (chosen) usedByType[type].add(String(chosen._id));
+      return chosen;
+    }
 
-        // 3. Fallback: Random
-        if (!item) {
-          item = queue[Math.floor(Math.random() * queue.length)];
-        }
+    function buildTaskForDay(skill, preferredTopicId, preferredTopicName) {
+      const topicIdStr = preferredTopicId ? String(preferredTopicId) : '';
+      const deficitBoost = 1 + (1 - (skillMastery[skill] ?? 0.5)) * 1.5;
+      const topicScore = (itemTopics) => {
+        const hasMatch = Array.isArray(itemTopics) && itemTopics.some(t => String(t) === topicIdStr);
+        return hasMatch ? 2 : 0;
+      };
 
-        if (item) {
-          dayTasksDetail.push({
-            type: type,
-            name: item.title || item.name || item.question || item.word || "Bài học AI",
-            itemId: item._id,
-            weight: TASK_WEIGHTS[type] || 2,
-            status: 'pending'
-          });
-          // Xóa khỏi queue để tránh trùng lặp
-          availableItems[type] = queue.filter(it => it._id.toString() !== item._id.toString());
+      if (skill === 'vocabulary') {
+        const picked = pickCandidate('vocabulary', vocabularyPool, (it) => ((it.usage_count || 0) + topicScore(it.topics)) * deficitBoost);
+        if (picked) return { type: 'vocabulary', itemId: picked._id, name: picked.word, weight: 2, status: 'pending' };
+      }
+      if (skill === 'reading') {
+        const picked = pickCandidate('reading', readingPool, (it) => ((it.usage_count || 0) + topicScore(it.topics)) * deficitBoost);
+        if (picked) return { type: 'reading', itemId: picked._id, name: picked.title, weight: 2, status: 'pending' };
+      }
+      if (skill === 'listening') {
+        const picked = pickCandidate('listening', listeningPool, (it) => (topicScore(it.topics) + 1) * deficitBoost);
+        if (picked) return { type: 'listening', itemId: picked._id, name: picked.title, weight: 2, status: 'pending' };
+      }
+      if (skill === 'speaking') {
+        const picked = pickCandidate('speaking', speakingPool, (it) => ((String(it.topic_id) === topicIdStr ? 2 : 0) + 1) * deficitBoost);
+        if (picked) return { type: 'speaking', itemId: picked._id, name: picked.question, weight: 2, status: 'pending' };
+      }
+      if (skill === 'writing') {
+        const picked = pickCandidate('writing', writingPool, (it) => ((String(it.topic_id) === topicIdStr ? 2 : 0) + 1) * deficitBoost);
+        if (picked) return { type: 'writing', itemId: picked._id, name: picked.prompt, weight: 2, status: 'pending' };
+      }
+      if (skill === 'grammar') {
+        const picked = pickCandidate('grammar', grammarPool, () => 1 * deficitBoost);
+        if (picked) return { type: 'grammar', itemId: picked._id, name: picked.title, weight: 2, status: 'pending' };
+      }
+
+      // quiz/general fallback -> topic-centric task
+      return {
+        type: 'topic',
+        itemId: preferredTopicId || null,
+        name: preferredTopicName || 'Chủ đề hôm nay',
+        weight: 2,
+        status: 'pending',
+      };
+    }
+
+    for (let day = 0; day < 7; day++) {
+      const daySkill = daySkillOrder[day] || SKILL_CYCLE[day % SKILL_CYCLE.length];
+
+      // Pick highest-scored topic whose nodes cover today's skill (not yet used this week)
+      let picked = scored.find(({ topic }) =>
+        !schedule.some(s => s.topicId.toString() === topic._id.toString()) &&
+        (topic.nodes || []).some(n => (NODE_TYPE_TO_SKILL[n.type] || '') === daySkill)
+      );
+
+      // Fallback: best unused topic regardless of skill
+      if (!picked) {
+        picked = scored.find(({ topic }) =>
+          !schedule.some(s => s.topicId.toString() === topic._id.toString())
+        ) || scored[day % scored.length];
+      }
+
+      const mainTask = buildTaskForDay(daySkill, picked.topic?._id, picked.topic?.name);
+      const dayTasks = [mainTask];
+
+      // Inject at most 1 carry-over task/day, prefer matching skill
+      let carryIndex = carryQueue.findIndex(ct => (TASK_TYPE_TO_SKILL[ct.type] || 'general') === daySkill);
+      if (carryIndex === -1 && carryQueue.length > 0 && day >= 5) {
+        // force-place remaining tasks at end of week
+        carryIndex = 0;
+      }
+
+      if (carryIndex !== -1) {
+        const carryTask = carryQueue.splice(carryIndex, 1)[0];
+        const isDuplicateMain =
+          String(carryTask.itemId) === String(mainTask.itemId) && carryTask.type === mainTask.type;
+        if (!isDuplicateMain) {
+          dayTasks.push(carryTask);
         }
       }
 
       schedule.push({
-        dayIndex: dayData.day - 1,
-        status: 'pending',
-        tasks: dayTasksDetail,
-        topicId: dayTasksDetail.find(t => t.type === 'topic')?.itemId || null,
-        similarityScore: 0.95
+        dayIndex: day,
+        topicId: picked.topic._id,
+        lessonId: null,
+        itemType: mainTask.type,
+        itemId: mainTask.itemId,
+        tasks: dayTasks,
+        skill: daySkill,
+        similarityScore: parseFloat(picked.totalScore.toFixed(2)),
+        isExploration: picked.pct === 100,
       });
     }
 
-    // --- TẦNG 4: LLM ORCHESTRATOR (GEMINI EXPLANATION) ---
-    const roadmapSummary = strategy.sequence.map(d => `Day ${d.day}: ${d.tasks.join(', ')}`).join('\n');
-    const finalPrompt = `Bạn là "Orchestrator" của Hệ điều hành Giáo dục AI (Phiên bản V4.5 Neural Match). 
-Dựa trên chiến lược tối ưu hóa đa mục tiêu và DỮ LIỆU ONBOARDING bên dưới, hãy viết một lời nhắn chào mừng cực kỳ truyền cảm hứng.
-
-DỮ LIỆU ONBOARDING:
-- Chuyên ngành: ${prefs.major || 'Chưa xác định'}
-- Sở thích: ${(prefs.interests || []).join(', ') || 'Chung chung'}
-- Mục tiêu: ${prefs.goal || 'Tiếng Anh tổng quát'}
-
-CHIẾN LƯỢC V4.5 (NEURAL MATCH):
-- Tìm kiếm bài học bằng Embedding (Vector Search) dựa trên sở thích ${prefs.major} và ${(prefs.interests || []).join(', ')}.
-- Hybrid Matching: Kết hợp Semantic Similarity + Level Match + BKT Mastery.
-- Progressive Overload: Tăng tải bứt phá cuối tuần.
-
-TRÌNH TỰ LỘ TRÌNH:
-${roadmapSummary}
-
-Trả về JSON: { "welcome_message": "...", "phase_explanation": "..." }
-Lời nhắn cần thể hiện sự thấu hiểu sâu sắc rằng bạn biết họ là ai và lộ trình này được "đo ni đóng giày" bằng trí tuệ nhân tạo.`;
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    let aiExplanation = { welcome_message: "Khởi đầu hành trình chinh phục IELTS của bạn ngay hôm nay!", phase_explanation: "Lộ trình được thiết kế để cân bằng các kỹ năng." };
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(finalPrompt);
-      const resText = result.response.text();
-      const jsonMatch = resText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) aiExplanation = JSON.parse(jsonMatch[0]);
-    } catch (err) { console.error('Gemini Orchestration failed:', err); }
-
-    // --- LƯU LỘ TRÌNH & TRẢ VỀ ---
-    await UserPlan.updateMany({ userId: req.userId, status: 'active' }, { $set: { status: 'replaced' } });
+    // ── 7. Expire old plan & persist new one ─────────────────────────────────
+    await UserPlan.updateMany(
+      { userId: req.userId, status: 'active' },
+      { $set: { status: 'replaced' } }
+    );
 
     const monday = weekMonday();
-    const sunday = new Date(monday);
-    sunday.setUTCDate(sunday.getUTCDate() + 6);
+    const sunday = new Date(monday); sunday.setUTCDate(sunday.getUTCDate() + 6);
 
     const plan = await UserPlan.create({
       userId: req.userId,
@@ -555,23 +849,38 @@ Lời nhắn cần thể hiện sự thấu hiểu sâu sắc rằng bạn biế
       weekEnd: sunday,
       dayItems: schedule,
       generatedForLevel: userLevelStr,
-      explorationRatio: 0,
+      explorationRatio: scored.filter(s => s.pct === 100).length / scored.length,
       status: 'active',
-      generationMethod: 'v4.5_neural_match',
+      generationMethod: 'hybrid_embedding_bayesian_skill_scheduler',
       metadata: {
-        persona: strategy.persona.persona,
-        welcome_message: aiExplanation.welcome_message,
-        phase_explanation: aiExplanation.phase_explanation,
-        mastery_stats: strategy.persona.masteryData || {},
-        method: 'v4.5_neural_match',
-        generated_at: new Date()
-      }
+        algorithm: 'hybrid_embedding_bayesian_skill_scheduler',
+        adaptiveSkillOrder: daySkillOrder,
+        skillMastery,
+        masteryStats,
+        masteryPriors,
+        carryOverCount: carryOverMap.size,
+        carryOverApplied: carryOverMap.size > 0,
+      },
     });
 
-    console.log('[generatePlan] New Neural V4.5 Plan created:', plan._id);
-    res.json({ success: true, data: plan });
+    // ── 8. Populate topic info for response ───────────────────────────────────
+    const topicIds = [...new Set(schedule.map(s => s.topicId?.toString()))];
+    const topics = await Topic.find({ _id: { $in: topicIds } })
+      .select('name description cover_image icon_name level frequency')
+      .lean();
+    const topicMap = {};
+    topics.forEach(tp => { topicMap[tp._id.toString()] = tp; });
+
+    const enrichedItems = plan.dayItems.map(item => ({
+      ...item,
+      topic: topicMap[item.topicId?.toString()] || null,
+      lesson: null,
+    }));
+
+    res.json({ success: true, data: { ...plan.toObject(), dayItems: enrichedItems } });
   } catch (err) {
-    console.error('[LearningController] generatePlan Error:', err);
+    console.error('[LearningController] generatePlan:', err);
+    res.status(500).json({ success: false, message: 'Lỗi server khi tạo lộ trình' });
   }
 };
 
@@ -579,70 +888,38 @@ Lời nhắn cần thể hiện sự thấu hiểu sâu sắc rằng bạn biế
 exports.getCurrentPlan = async (req, res) => {
   try {
     const plan = await UserPlan.findOne({ userId: req.userId, status: 'active' })
-      .sort({ created_at: -1 });
+      .sort({ created_at: -1 })
+      .lean();
 
     if (!plan) return res.json({ success: true, data: null });
 
-    console.log('[getCurrentPlan] Found plan with', plan.dayItems?.length || 0, 'dayItems');
+    // Populate topic info for each day item (new topic-based plan)
+    const topicIds = plan.dayItems.map(d => d.topicId).filter(Boolean);
+    const topics = await Topic.find({ _id: { $in: topicIds } })
+      .select('name description cover_image icon_name level')
+      .lean();
+    const topicMap = {};
+    topics.forEach(tp => { topicMap[tp._id.toString()] = tp; });
 
-    // Populate different item types
-    const populatedItems = [];
-    for (let item of plan.dayItems) {
-      const itemData = {
-        dayIndex: item.dayIndex,
-        status: item.status,
-        completedAt: item.completedAt,
-        tasks: []
-      };
-
-      // V4.0: Populate the 'tasks' array
-      if (item.tasks && item.tasks.length > 0) {
-        for (let task of item.tasks) {
-          const taskData = { ...task.toObject() };
-
-          if (task.type === 'topic' && task.itemId) {
-            taskData.content = await Topic.findById(task.itemId).select('name description cover_image icon_name level').lean();
-          } else if (task.type === 'reading' && task.itemId) {
-            taskData.content = await ReadingPassage.findById(task.itemId).select('title level').lean();
-          } else if (task.type === 'speaking' && task.itemId) {
-            taskData.content = await SpeakingQuestion.findById(task.itemId).select('question_text level topic_id').lean();
-          } else if (task.type === 'writing' && task.itemId) {
-            taskData.content = await WritingPrompt.findById(task.itemId).select('prompt type topic_id').lean();
-          } else if (task.type === 'story' && task.itemId) {
-            taskData.content = await Story.findById(task.itemId).select('title level').lean();
-          } else if (task.type === 'vocabulary' && task.itemId) {
-            taskData.content = await Vocabulary.findById(task.itemId).select('word meaning level topics').lean();
-          } else if (task.type === 'listening' && task.itemId) {
-            taskData.content = await ListeningPassage.findById(task.itemId).select('title').lean();
-          } else if (task.type === 'grammar' && task.itemId) {
-            taskData.content = await GrammarLesson.findById(task.itemId).select('title').lean();
-          }
-
-          itemData.tasks.push(taskData);
-        }
-      }
-
-      // Backward compatibility: maintain lesson/topic refs for older UI
-      if (itemData.tasks.length > 0) {
-        const mainTask = itemData.tasks[0];
-        itemData.topic = mainTask.type === 'topic' ? mainTask.content : null;
-        itemData.lesson = mainTask.type !== 'topic' ? {
-          _id: mainTask.itemId,
-          title: mainTask.content?.title || mainTask.content?.name || mainTask.content?.word || mainTask.name,
-          itemType: mainTask.type
-        } : null;
-      }
-
-      populatedItems.push(itemData);
+    // Populate lesson info only if present (legacy plans)
+    const lessonIds = plan.dayItems.map(d => d.lessonId).filter(Boolean);
+    const lessonMap = {};
+    if (lessonIds.length > 0) {
+      const lessons = await Lesson.find({ _id: { $in: lessonIds } })
+        .populate('topic_id', 'name cover_image')
+        .lean();
+      lessons.forEach(l => { lessonMap[l._id.toString()] = l; });
     }
 
-    const responseData = {
-      ...plan.toObject(),
-      dayItems: populatedItems
-    };
+    const enriched = plan.dayItems.map(item => ({
+      ...item,
+      topic: topicMap[item.topicId?.toString()] || null,
+      lesson: item.lessonId ? (lessonMap[item.lessonId?.toString()] || null) : null,
+      status: computeDayStatus(item),
+      progress: null,
+    }));
 
-    console.log('[getCurrentPlan] Returning populated plan with', populatedItems.length, 'items with content');
-    res.json({ success: true, data: responseData });
+    res.json({ success: true, data: { ...plan, dayItems: enriched } });
   } catch (err) {
     console.error('[LearningController] getCurrentPlan:', err);
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -686,96 +963,6 @@ exports.getProgress = async (req, res) => {
   }
 };
 
-// ─── 8. Multi-task Synchronization ──────────────────────────────────────────
-/**
- * Global helper to mark a task as completed in the active roadmap.
- * To be called by all practice controllers (Reading, Speaking, etc.)
- */
-exports.updatePlanTaskStatus = async (userId, itemId, status = 'completed') => {
-  try {
-    const plan = await UserPlan.findOne({ userId, status: 'active' });
-    if (!plan) return false;
-
-    let modified = false;
-    for (let day of plan.dayItems) {
-      // 1. Check top-level itemId (Main Item)
-      if (day.itemId && day.itemId.toString() === itemId.toString()) {
-        day.status = status;
-        day.completedAt = (status === 'completed') ? new Date() : null;
-        modified = true;
-      }
-
-      // 2. Check sub-tasks array
-      if (day.tasks && day.tasks.length > 0) {
-        for (let task of day.tasks) {
-          if (task.itemId && task.itemId.toString() === itemId.toString()) {
-            task.status = status;
-            modified = true;
-          }
-        }
-
-        // Update day overall status if all sub-tasks are done
-        const allDone = day.tasks.every(t => t.status === 'completed');
-        if (allDone && day.status !== 'completed') {
-          day.status = 'completed';
-          day.completedAt = new Date();
-          modified = true;
-        }
-      }
-    }
-
-    if (modified) {
-      await plan.save();
-      console.log(`[updatePlanTaskStatus] Sync: Item ${itemId} -> ${status}`);
-      return true;
-    }
-    return false;
-  } catch (err) {
-    console.error('[updatePlanTaskStatus] Error:', err);
-    return false;
-  }
-};
-
-/**
- * 9. Get Bonus Tasks (Active Learning)
- * When a user wants to study more than the assigned roadmap.
- */
-exports.getBonusTasks = async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).lean();
-    const onboarding = await mongoose.model('UserOnboarding').findOne({ user_id: req.userId }).lean();
-
-    // Fetch some high-relevance items based on interests
-    const interests = onboarding?.interests || [];
-    const major = onboarding?.major || '';
-    const level = normaliseLevelStr(onboarding?.current_level);
-
-    // Quick search for related topics/passages
-    const topics = await Topic.find({
-      $or: [
-        { name: { $in: interests.map(i => new RegExp(i, 'i')) } },
-        { description: new RegExp(major, 'i') }
-      ],
-      level: { $in: getAllowedLevels(level) }
-    }).limit(3).lean();
-
-    const readings = await ReadingPassage.find({
-      is_active: true,
-      level: { $in: getAllowedLevels(level) }
-    }).sort({ usage_count: -1 }).limit(3).lean();
-
-    const bonus = [
-      ...topics.map(t => ({ id: t._id, type: 'topic', name: t.name, icon: '🔥', reason: 'Dựa trên sở thích của ní' })),
-      ...readings.map(r => ({ id: r._id, type: 'reading', name: r.title, icon: '📖', reason: 'Bài đọc hot nhất tuần' }))
-    ].sort(() => 0.5 - Math.random()).slice(0, 4);
-
-    res.json({ success: true, data: bonus });
-  } catch (err) {
-    console.error('[getBonusTasks] Error:', err);
-    res.status(500).json({ success: false, message: 'Lỗi server' });
-  }
-};
-
 // ─── Helper: convert CEFR → lesson level string ──────────────────────────────
 function cefrToLessonLevel(cefr) {
   if (!cefr) return 'beginner';
@@ -811,3 +998,6 @@ function getAllowedLevels(level) {
   if (level === 'intermediate') return ['beginner', 'intermediate'];
   return ['beginner', 'intermediate', 'advanced']; // advanced sees all
 }
+
+// Shared helper for cross-module plan sync (Reading/Speaking/Writing/Vocab/Story...)
+exports.updatePlanTaskStatus = updatePlanTaskStatusInternal;

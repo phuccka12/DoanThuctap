@@ -66,6 +66,20 @@ const getTopicIcon = (name = '') => {
   return '📖';
 };
 
+const ACCESS_LABEL = {
+  limited: 'Reading cơ bản (A1/A2)',
+  full: 'Toàn bộ Reading',
+};
+
+const extractApiErrorMeta = (err) => {
+  const data = err?.response?.data || {};
+  return {
+    status: err?.response?.status,
+    code: data?.code,
+    message: data?.message || err?.message || 'Có lỗi xảy ra.',
+  };
+};
+
 // ─── HighlightWord ────────────────────────────────────────────────────────────
 function HighlightWord({ word, vocab }) {
   const [open, setOpen] = useState(false);
@@ -445,24 +459,33 @@ function TopicsPhase({ t, isDark, onSelectTopic, onRetryPassage, topicProgress, 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  PHASE 1 — Passage List within topic
 // ═══════════════════════════════════════════════════════════════════════════════
-function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
+function PassageListPhase({ t, isDark, selectedTopic, access, onStart, onBack }) {
   const [passages, setPassages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [restrictionMsg, setRestrictionMsg] = useState('');
 
   const fetchPassages = useCallback(async () => {
     setLoading(true);
     try {
+      setRestrictionMsg('');
       const params = { page, limit: 12, search: search.trim(), cefr_level: levelFilter };
       if (selectedTopic) params.topic = selectedTopic._id;
       else params.uncategorized = '1';
       const res = await getReadingPassages(params);
       setPassages(res.data.data?.passages || []);
       setTotalPages(res.data.data?.totalPages || 1);
-    } catch { /* silent */ }
+    } catch (err) {
+      const meta = extractApiErrorMeta(err);
+      if (meta.code === 'PLAN_RESTRICTED' || meta.status === 403) {
+        setRestrictionMsg(meta.message || 'Gói hiện tại không cho phép truy cập nội dung này.');
+      }
+      setPassages([]);
+      setTotalPages(1);
+    }
     finally { setLoading(false); }
   }, [page, search, levelFilter, selectedTopic]);
 
@@ -514,6 +537,48 @@ function PassageListPhase({ t, isDark, selectedTopic, onStart, onBack }) {
           ))}
         </div>
       </div>
+
+      {access?.readingAccess && (
+        <div className={cn(
+          'mb-5 rounded-xl border px-4 py-3 text-xs flex flex-wrap items-center gap-2 justify-between',
+          access.readingAccess === 'full'
+            ? (isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700')
+            : (isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700')
+        )}>
+          <span>
+            Quyền Reading hiện tại: <strong>{ACCESS_LABEL[access.readingAccess] || access.readingAccess}</strong>
+          </span>
+          {access.readingAccess !== 'full' && (
+            <button
+              onClick={() => window.location.assign('/pricing')}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                isDark ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200' : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+              )}
+            >
+              Nâng cấp gói
+            </button>
+          )}
+        </div>
+      )}
+
+      {restrictionMsg && (
+        <div className={cn(
+          'mb-5 rounded-xl border px-4 py-3 text-sm flex items-center justify-between gap-3',
+          isDark ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
+        )}>
+          <span>{restrictionMsg}</span>
+          <button
+            onClick={() => window.location.assign('/pricing')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap',
+              isDark ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-rose-100 hover:bg-rose-200'
+            )}
+          >
+            Xem gói
+          </button>
+        </div>
+      )}
 
       {/* Grid */}
       {loading ? (
@@ -993,6 +1058,8 @@ export default function ReadingPractice() {
   const [passage, setPassage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [readingAccess, setReadingAccess] = useState(null);
+  const [restrictionMessage, setRestrictionMessage] = useState('');
   const startTimeRef = useRef(null);
 
   // ── Topic completion tracking (localStorage, per-user) ────────────────────
@@ -1009,11 +1076,19 @@ export default function ReadingPractice() {
   useEffect(() => {
     // If we have an ID but no topicIdFromUrl, it might be a passage ID from the roadmap
     if (id && !topics.some(t => t._id === id)) {
-       setLoading(true);
-       axiosInstance.get(`/reading/${id}`)
+      setLoading(true);
+      getReadingPassageById(id)
         .then(res => {
           setPassage(res.data.data || res.data);
+          setRestrictionMessage('');
           setPhase(PHASE.INTRO);
+        })
+        .catch((err) => {
+          const meta = extractApiErrorMeta(err);
+          if (meta.code === 'PLAN_RESTRICTED' || meta.status === 403) {
+            setRestrictionMessage(meta.message || 'Gói hiện tại không cho phép truy cập bài đọc này.');
+            setPhase(PHASE.TOPICS);
+          }
         })
         .finally(() => setLoading(false));
     }
@@ -1026,6 +1101,7 @@ export default function ReadingPractice() {
         const fetched = r.data.data?.topics || [];
         setTopics(fetched);
         setUncategorized(r.data.data?.uncategorized || 0);
+        setReadingAccess(r.data.data?.access || null);
 
         // Handle URL selection (if it's a topic ID)
         if (topicIdFromUrl) {
@@ -1036,7 +1112,12 @@ export default function ReadingPractice() {
           }
         }
       })
-      .catch(() => { })
+      .catch((err) => {
+        const meta = extractApiErrorMeta(err);
+        if (meta.code === 'PLAN_RESTRICTED' || meta.status === 403) {
+          setRestrictionMessage(meta.message || 'Gói hiện tại không cho phép truy cập mục Reading này.');
+        }
+      })
       .finally(() => setLoadingTopics(false));
   }, [topicIdFromUrl]);
 
@@ -1065,11 +1146,18 @@ export default function ReadingPractice() {
       const res = await getReadingPassageById(preview._id);
       const full = res.data.data;
       setPassage(full);
+      setRestrictionMessage('');
       startTimeRef.current = Date.now();
       setPhase(PHASE.INTRO);
-    } catch {
-      setPassage(preview);
-      setPhase(PHASE.INTRO);
+    } catch (err) {
+      const meta = extractApiErrorMeta(err);
+      if (meta.code === 'PLAN_RESTRICTED' || meta.status === 403) {
+        setRestrictionMessage(meta.message || 'Gói hiện tại không cho phép truy cập bài đọc này.');
+        setPhase(PHASE.LIST);
+      } else {
+        setPassage(preview);
+        setPhase(PHASE.INTRO);
+      }
     } finally {
       setLoading(false);
     }
@@ -1118,6 +1206,10 @@ export default function ReadingPractice() {
           }
           dashboardRefreshEmitter.emit();
         } catch (e) {
+          const meta = extractApiErrorMeta(e);
+          if (meta.code === 'PLAN_RESTRICTED' || meta.status === 403) {
+            setRestrictionMessage(meta.message || 'Bài đọc này vượt quyền truy cập của gói hiện tại.');
+          }
           console.error("Auto submit reading error:", e);
         }
       };
@@ -1259,8 +1351,31 @@ export default function ReadingPractice() {
             uncategorized={uncategorized}
           />
         )}
+        {restrictionMessage && [PHASE.TOPICS, PHASE.LIST].includes(phase) && (
+          <div className="max-w-5xl mx-auto px-4 pt-2">
+            <div className={cn(
+              'rounded-xl border px-4 py-3 text-sm flex items-center justify-between gap-3',
+              isDark ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
+            )}>
+              <span>{restrictionMessage}</span>
+              <button
+                onClick={() => window.location.assign('/pricing')}
+                className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap', isDark ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-rose-100 hover:bg-rose-200')}
+              >
+                Nâng cấp gói
+              </button>
+            </div>
+          </div>
+        )}
         {phase === PHASE.LIST && (
-          <PassageListPhase t={t} isDark={isDark} selectedTopic={selectedTopic} onStart={handleStart} onBack={handleBackTopics} />
+          <PassageListPhase
+            t={t}
+            isDark={isDark}
+            selectedTopic={selectedTopic}
+            access={readingAccess}
+            onStart={handleStart}
+            onBack={handleBackTopics}
+          />
         )}
         {phase === PHASE.INTRO && passage && (
           <LessonIntro
@@ -1311,8 +1426,16 @@ export default function ReadingPractice() {
           <RewardModal
             isOpen={showModal}
             onClose={() => setShowModal(false)}
-            title="ĐỌC HIỂU XUẤT SẮC!"
-            subtitle="Bạn đã hoàn thành bài đọc một cách tuyệt vời!"
+            title={Math.round((result.score / result.total) * 100) >= 90
+              ? 'ĐỌC HIỂU XUẤT SẮC!'
+              : Math.round((result.score / result.total) * 100) >= 60
+                ? 'HOÀN THÀNH BÀI ĐỌC!'
+                : 'BẠN ĐÃ HOÀN THÀNH BÀI ĐỌC!'}
+            subtitle={Math.round((result.score / result.total) * 100) >= 90
+              ? 'Bạn đã hoàn thành bài đọc một cách tuyệt vời!'
+              : Math.round((result.score / result.total) * 100) >= 60
+                ? 'Kết quả tốt, tiếp tục duy trì để tăng độ chính xác nhé!'
+                : 'Bạn đã nỗ lực hoàn thành bài đọc, hãy ôn lại và thử lại để cải thiện điểm.'}
             primaryStat={{ label: "Đúng", value: `${result.score}/${result.total}` }}
             secondaryStat={{ label: "Độ chính xác", value: `${Math.round((result.score / result.total) * 100)}%` }}
             reward={rewardData}

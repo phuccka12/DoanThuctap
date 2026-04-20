@@ -245,6 +245,7 @@ class WritingService:
     def analyze_cohesion_nli(self, sentences):
         """
         BƯỚC 2: Phân tích Logic NLI (Natural Language Inference)
+        Tối ưu: Xử lý tất cả cặp câu song song thay vì tuần tự.
         """
         if len(sentences) < 2:
             return {"score": 9.0, "details": "Bài viết quá ngắn."}
@@ -254,22 +255,33 @@ class WritingService:
             return {"error": "NLI Model not available"}
 
         try:
-            logic_scores = []
             plain_sentences = [s['text'] for s in sentences] if isinstance(sentences[0], dict) else sentences
-            for i in range(len(plain_sentences) - 1):
-                pair = f"{plain_sentences[i]} [SEP] {plain_sentences[i+1]}"
-                res = model(pair)
-                logic_scores.append({
-                    "pair": i,
-                    "label": res[0]['label'],
-                    "score": round(res[0]['score'], 3)
-                })
-            
+            pairs = [
+                (i, f"{plain_sentences[i]} [SEP] {plain_sentences[i+1]}")
+                for i in range(len(plain_sentences) - 1)
+            ]
+
+            def _score_pair(args):
+                idx, pair_text = args
+                res = model(pair_text)
+                return {"pair": idx, "label": res[0]['label'], "score": round(res[0]['score'], 3)}
+
+            # Chạy song song - số worker bằng số cặp câu (giới hạn tối đa 8)
+            max_workers = min(len(pairs), 8)
+            from concurrent.futures import ThreadPoolExecutor as _TPE
+            with _TPE(max_workers=max_workers) as pool:
+                logic_scores = list(pool.map(_score_pair, pairs))
+
+            # Sắp xếp lại theo thứ tự gốc
+            logic_scores.sort(key=lambda x: x["pair"])
+
             avg_score = sum([s['score'] for s in logic_scores]) / len(logic_scores) if logic_scores else 0
-            # Tính tỷ lệ mâu thuẫn (Contradiction Rate)
-            conflicts = [s for s in logic_scores if s['label'].upper() == 'CONTRADICTION' or s['label'].upper() == 'LABEL_2'] # LABEL_2 thường là contradiction
+            conflicts = [
+                s for s in logic_scores
+                if s['label'].upper() in ('CONTRADICTION', 'LABEL_2')
+            ]
             conflict_rate = (len(conflicts) / len(logic_scores)) * 100 if logic_scores else 0
-            
+
             return {
                 "logic_pairs": logic_scores,
                 "cohesion_index": round(avg_score, 2),

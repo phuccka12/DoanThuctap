@@ -116,8 +116,8 @@ const WritingScenarioPractice = () => {
       // Assuming 'text' is the submissionText and 'activeSeconds' is timeSpentRef.current
       const res = await writingScenarioService.evaluateSubmission(id, text, activeSeconds);
       dashboardRefreshEmitter.emit();
-      const evalData = res.evaluation;
-      const rewardData = res.reward;
+      const evalData = res.data?.evaluation;
+      const rewardData = res.data?.reward;
       
       setEvaluation(evalData);
       setCurrentReward(rewardData);
@@ -139,6 +139,13 @@ const WritingScenarioPractice = () => {
 
   const renderEvaluationView = (evalData, isHistory = false) => {
     if (!evalData) return null;
+
+      const overallScore = Number(evalData.overall_score) || 0;
+      const scoreTier = overallScore >= 85
+         ? { title: 'XUẤT SẮC!', subtitle: 'Bài viết rất nổi bật, cứ phát huy nhé!' }
+         : overallScore >= 70
+            ? { title: 'KHÁ TỐT!', subtitle: 'Bạn đang tiến bộ rõ rệt qua từng bài viết.' }
+            : { title: 'ĐANG TIẾN BỘ!', subtitle: 'Nền tảng đã có, thử cải thiện thêm từ vựng và ngữ pháp nhé.' };
 
     const chartData = {
       labels: ['Tone', 'Vocab', 'Creativity', 'Grammar'],
@@ -188,16 +195,16 @@ const WritingScenarioPractice = () => {
              <div className={cn("rounded-3xl p-8 border text-center relative overflow-hidden", t.card)}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <div className="relative">
-                   <div className="inline-flex items-center justify-center w-28 h-28 rounded-full bg-gradient-to-br from-[#6C5CE7] to-[#a78bfa] p-1 shadow-2xl mb-4">
+                   <div className="inline-flex items-center justify-center w-28 h-28 rounded-full bg-linear-to-br from-[#6C5CE7] to-[#a78bfa] p-1 shadow-2xl mb-4">
                       <div className={cn("w-full h-full rounded-full flex flex-col items-center justify-center", isDark ? "bg-[#1C1E28]" : "bg-white")}>
                          <span className="text-4xl font-black text-[#6C5CE7]">{evalData.overall_score}</span>
                          <span className="text-[8px] font-black uppercase tracking-widest opacity-40">Overall</span>
                       </div>
                    </div>
                    <h2 className={cn("text-xl font-black mb-1", t.text)}>
-                      {evalData.overall_score >= 80 ? 'XUẤS SẮC!' : 'KHÁ TỐT!'}
+                      {scoreTier.title}
                    </h2>
-                   <p className={cn("text-xs font-medium", t.sub)}>Ní đã làm rất tốt nhiệm vụ này.</p>
+                   <p className={cn("text-xs font-medium", t.sub)}>{scoreTier.subtitle}</p>
                 </div>
              </div>
 
@@ -446,7 +453,7 @@ const WritingScenarioPractice = () => {
                       
                       <div className="text-center">
                          <p className={cn("text-[8px] font-black uppercase tracking-[0.4em] opacity-20")}>
-                            AI Analysis powered by Gemini 2.0 Flash
+                            AI Analysis powered by Gemini 2.5 Flash
                          </p>
                       </div>
                    </div>

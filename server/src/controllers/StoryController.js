@@ -372,6 +372,10 @@ exports.submitPartTranslations = async (req, res) => {
       ? Math.round(gradedResults.reduce((s, r) => s + r.grade.total, 0) / gradedResults.length)
       : 0;
 
+    if (answeredCount > 0) {
+      await aiService.incrementUsage(req.userId, 'translation');
+    }
+
     res.json({
       success: true,
       data: {

@@ -67,15 +67,39 @@ exports.getTodayTasks = async (req, res) => {
     // Local Helper: Progress
     const getTaskProgress = async (type, itemId) => {
       if (type === 'writing') {
-        if (!itemId) return 0;
-        const wp = await WritingScenarioProgress.findOne({ userId, scenarioId: itemId, updatedAt: { $gte: start, $lte: end } });
-        return wp ? (wp.bestScore || 100) : 0;
+        if (itemId) {
+          const writingPromptProg = await LessonProgress.findOne({
+            userId,
+            writingPromptId: itemId,
+            completedAt: { $gte: start, $lte: end },
+          });
+          if (writingPromptProg) return writingPromptProg.score || 100;
+
+          const wp = await WritingScenarioProgress.findOne({ userId, scenarioId: itemId, updatedAt: { $gte: start, $lte: end } });
+          if (wp) return wp.bestScore || 100;
+
+          // Specific item requested but no matching progress today
+          return 0;
+        }
+
+        const anyWritingPrompt = await LessonProgress.findOne({
+          userId,
+          writingPromptId: { $ne: null },
+          completedAt: { $gte: start, $lte: end },
+        });
+        if (anyWritingPrompt) return anyWritingPrompt.score || 100;
+
+        const anyWp = await WritingScenarioProgress.findOne({ userId, updatedAt: { $gte: start, $lte: end } });
+        return anyWp ? (anyWp.bestScore || 100) : 0;
 
       } else if (type === 'listening') {
         // First try specific passage match (if itemId is a specific passage)
         if (itemId) {
           const lp = await LessonProgress.findOne({ userId, passageId: itemId, completedAt: { $gte: start, $lte: end } });
           if (lp) return lp.score || 100;
+
+          // Specific listening item requested but no matching progress
+          return 0;
         }
         // Fallback: any listening done today (covers generic "listening" tasks)
         const anyLp = await LessonProgress.findOne({ userId, passageType: 'listening', completedAt: { $gte: start, $lte: end } });
@@ -85,6 +109,9 @@ exports.getTodayTasks = async (req, res) => {
         if (itemId) {
           const lp = await LessonProgress.findOne({ userId, passageId: itemId, completedAt: { $gte: start, $lte: end } });
           if (lp) return lp.score || 100;
+
+          // Specific reading item requested but no matching progress
+          return 0;
         }
         // Fallback: any reading done today
         const anyLp = await LessonProgress.findOne({ userId, passageType: 'reading', completedAt: { $gte: start, $lte: end } });
@@ -94,14 +121,27 @@ exports.getTodayTasks = async (req, res) => {
         if (itemId) {
           const lp = await LessonProgress.findOne({ userId, speakingId: itemId, completedAt: { $gte: start, $lte: end } });
           if (lp) return lp.score || 100;
+
+          // Specific speaking item requested but no matching progress
+          return 0;
         }
         // Fallback: any speaking done today
         const anyLp = await LessonProgress.findOne({ userId, speakingId: { $ne: null }, completedAt: { $gte: start, $lte: end } });
         return anyLp ? (anyLp.score || 100) : 0;
 
-      } else if (type === 'topic' || type === 'lesson' || type === 'grammar' || type === 'vocabulary' || type === 'story') {
+      } else if (type === 'topic' || type === 'vocabulary') {
+        if (!itemId) return 0;
+        const lp = await LessonProgress.findOne({ userId, topicId: itemId, completedAt: { $gte: start, $lte: end } });
+        return lp ? (lp.score || 100) : 0;
+
+      } else if (type === 'lesson' || type === 'grammar') {
         if (!itemId) return 0;
         const lp = await LessonProgress.findOne({ userId, lessonId: itemId, completedAt: { $gte: start, $lte: end } });
+        return lp ? (lp.score || 100) : 0;
+
+      } else if (type === 'story') {
+        if (!itemId) return 0;
+        const lp = await LessonProgress.findOne({ userId, storyId: itemId, completedAt: { $gte: start, $lte: end } });
         return lp ? (lp.score || 100) : 0;
       }
       return 0;
@@ -115,6 +155,7 @@ exports.getTodayTasks = async (req, res) => {
       let subtitle = 'Nhiệm vụ từ AI';
       switch (type) {
         case 'topic': url = itemId ? `/learn/topics/${itemId}` : '/learn'; title = nameHint || 'Chủ đề hôm nay'; break;
+        case 'lesson': url = itemId ? `/learn/lessons/${itemId}` : '/learn'; title = nameHint || 'Bài học hôm nay'; break;
         case 'reading': url = itemId ? `/reading/${itemId}` : '/reading'; break;
         case 'speaking': url = itemId ? `/speaking-practice/${itemId}` : '/speaking-practice'; break;
         case 'writing': url = itemId ? `/ai-writing/${itemId}` : '/writing-scenarios'; break;
@@ -135,6 +176,42 @@ exports.getTodayTasks = async (req, res) => {
             const info = getTaskInfo(t.type, t.itemId, t.name || t.title);
             aiTasks.push({ id: `ai-${t.itemId || Math.random()}`, title: info.title, subtitle: info.subtitle, type: t.type, actionUrl: info.url, actionText: prog >= 80 ? 'Hoàn thành ✅' : 'Bắt đầu ngay', progress: Math.min(100, prog), reward: t.reward || null });
           }
+        } else if (todayItem.topicId || todayItem.lessonId || todayItem.skill) {
+          const skillToType = {
+            reading: 'reading',
+            listening: 'listening',
+            speaking: 'speaking',
+            writing: 'writing',
+            vocabulary: 'vocabulary',
+            grammar: 'grammar',
+            quiz: 'topic',
+          };
+
+          const inferredType = todayItem.topicId
+            ? 'topic'
+            : (todayItem.lessonId ? 'lesson' : (skillToType[todayItem.skill] || 'topic'));
+
+          const inferredItemId = todayItem.topicId || todayItem.lessonId || null;
+          const nameHint = todayItem.topic?.name || todayItem.lesson?.title || null;
+          const info = getTaskInfo(inferredType, inferredItemId, nameHint);
+
+          // If we don't have a concrete itemId (skill-only day), infer progress from day status
+          let prog = 0;
+          if (inferredItemId) {
+            prog = await getTaskProgress(inferredType, inferredItemId);
+          } else {
+            prog = todayItem.status === 'completed' ? 100 : (todayItem.status === 'in_progress' ? 50 : 0);
+          }
+
+          aiTasks.push({
+            id: `ai-plan-${todayItem.dayIndex ?? dayIndex}`,
+            title: info.title,
+            subtitle: info.subtitle,
+            type: inferredType,
+            actionUrl: info.url,
+            actionText: prog >= 80 ? 'Hoàn thành ✅' : 'Bắt đầu ngay',
+            progress: Math.min(100, prog),
+          });
         } else {
           const prog = await getTaskProgress(todayItem.itemType, todayItem.itemId);
           const info = getTaskInfo(todayItem.itemType, todayItem.itemId, null);
@@ -245,10 +322,12 @@ exports.getTimeSpent = async (req, res) => {
 
       const time = (lp.timeSpentSec || 0);
       if (lp.storyId) skillBreakdown.translation += time;
+      else if (lp.writingPromptId) skillBreakdown.writing += time;
       else if (lp.passageId) {
         if (lp.passageType === 'reading') skillBreakdown.reading += time;
         else skillBreakdown.listening += time;
       } else if (lp.speakingId) skillBreakdown.speaking += time;
+      else if (lp.topicId && !lp.lessonId) skillBreakdown.vocabulary += time;
       else if (lp.lessonId) {
         const type = lp.lessonId.type || 'lessons';
         if (skillBreakdown.hasOwnProperty(type)) skillBreakdown[type] += time;
@@ -367,6 +446,9 @@ exports.getLatestScores = async (req, res) => {
       } else if (prog.speakingId) {
         type = 'Speaking';
         title = 'Luyện Nói (IELTS Speaking)';
+      } else if (prog.writingPromptId) {
+        type = 'Writing';
+        title = 'Luyện Viết AI (IELTS Writing)';
       } else if (prog.passageId) {
         type = prog.passageType === 'reading' ? 'Reading' : 'Listening';
         title = prog.passageType === 'reading' ? 'Luyện Đọc (IELTS Reading)' : 'Luyện Nghe (IELTS Listening)';

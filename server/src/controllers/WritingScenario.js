@@ -416,14 +416,10 @@ exports.validateSubmission = async (req, res) => {
   }
 };
 
-// ─── optional Gemini AI ───────────────────────────────────────────────────────
-let genAI = null;
-try {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  }
-} catch (_) { /* package not installed — AI evaluation disabled */ }
+// ─── AI Service ───────────────────────────────────────────────────────
+const aiProviderService = require('../services/aiProviderService');
+const User = require('../models/User'); // Import User model to check role
+
 
 // ... (các hàm khác giữ nguyên)
 
@@ -464,13 +460,8 @@ exports.evaluateSubmission = async (req, res) => {
     // Ghi nhận lượt sử dụng AI
     await aiService.incrementUsage(req.userId, 'writing');
 
-    if (!genAI) {
-      return res.status(500).json({
-        message: 'AI Evaluation chưa được cấu hình (Thiếu API Key)'
-      });
-    }
+    // Mặc định prompt được giữ nguyên...
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
     const prompt = `
       Bạn là một AI đóng vai Persona để chấm điểm bài viết của học sinh.
@@ -525,35 +516,43 @@ exports.evaluateSubmission = async (req, res) => {
       }
     `;
 
-    let result;
+    let aiResult;
     try {
-      result = await model.generateContent(prompt);
+      aiResult = await aiProviderService.generateContent(prompt);
     } catch (aiError) {
-      console.error('Gemini AI Error:', aiError);
+      console.error('AI Provider Error:', aiError);
       
+      const user = await User.findById(req.userId);
+      const isVip = user && (user.role === 'vip' || user.role === 'admin');
+
       // Handle Service Unavailable (503)
       if (aiError.status === 503 || aiError.message?.includes('503')) {
         return res.status(503).json({
-          message: 'Dịch vụ AI đang bận (503). Ní vui lòng đợi vài giây rồi thử lại nhé! 🧘‍♂️'
+          message: isVip 
+            ? 'Hệ thống AI đang quá tải (503). Chúng mình đang nỗ lực xử lý, Ní vui lòng đợi vài giây rồi thử lại nhé! 🧘‍♂️'
+            : 'Dịch vụ AI đang bận (503). Ní vui lòng đợi vài giây rồi thử lại nhé! 🧘‍♂️'
         });
       }
 
       // Handle Quota (429)
-      if (aiError.status === 429 || aiError.message?.includes('429')) {
+      if (aiError.status === 429 || aiError.message?.includes('429') || aiError.message === 'AI_ALL_PROVIDERS_FAILED') {
         return res.status(429).json({
-          message: 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi 1 phút nhé! ⏳'
+          message: isVip
+            ? 'Hệ thống đang nhận rất nhiều yêu cầu. Ní vui lòng đợi khoảng 1 phút rồi thử lại để có kết quả tốt nhất nhé! 💎'
+            : 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi 1 phút nhé! ⏳'
         });
       }
 
       throw aiError; // Pass to general catch
     }
 
-    const response = await result.response;
-    const responseText = response.text();
+    const responseText = aiResult.text;
     
     // Parse JSON from AI response
     let evaluation;
     try {
+      console.log('🤖 Raw AI Response (Writing Scenario):', responseText.substring(0, 500) + '...');
+      
       // Clean up common AI JSON mistakes
       let cleanedText = responseText.trim();
       
@@ -569,10 +568,9 @@ exports.evaluateSubmission = async (req, res) => {
         
         try {
           evaluation = JSON.parse(jsonStr);
+          console.log('✅ Parsed Evaluation Score:', evaluation.overall_score || evaluation.overallScore);
         } catch (innerError) {
           console.error('Initial JSON parse failed, attempting loose parse:', innerError);
-          // Fallback: try to fix common quote issues or other minor syntax errors if possible
-          // For now, if it fails, throw to the outer catch
           throw innerError;
         }
       } else {
@@ -583,6 +581,14 @@ exports.evaluateSubmission = async (req, res) => {
       return res.status(500).json({
         message: 'AI trả về định dạng không hợp lệ. Ní thử nộp lại hoặc chỉnh sửa nội dung bài viết một chút nhé!'
       });
+    }
+
+    // Normalize evaluation object keys to snake_case if they came in camelCase
+    if (evaluation && evaluation.overallScore && !evaluation.overall_score) {
+      evaluation.overall_score = evaluation.overallScore;
+    }
+    if (evaluation && evaluation.radarChart && !evaluation.radar_chart) {
+      evaluation.radar_chart = evaluation.radarChart;
     }
 
     // Update scenario average score
@@ -712,9 +718,14 @@ exports.evaluateSubmission = async (req, res) => {
   } catch (error) {
     console.error('Error evaluating submission:', error);
     
-    if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota')) {
+    if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message === 'AI_ALL_PROVIDERS_FAILED') {
+      const user = await User.findById(req.userId);
+      const isVip = user && (user.role === 'vip' || user.role === 'admin');
+      
       return res.status(429).json({
-        message: 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi khoảng 1 phút nhé! ⏳'
+        message: isVip
+          ? 'Hệ thống AI tạm thời quá tải. Ní vui lòng đợi khoảng 1 phút nhé! 💎'
+          : 'Hết lượt sử dụng AI miễn phí (429). Ní vui lòng đợi khoảng 1 phút nhé! ⏳'
       });
     }
 

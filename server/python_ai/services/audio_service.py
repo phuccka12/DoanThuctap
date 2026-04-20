@@ -104,6 +104,97 @@ def transcribe_audio(audio_path, model_type="base"):
         return {"text": "", "error": str(e)}
 
 
+def transcribe_audio_detailed(audio_path, model_type="base"):
+    """Transcribe + word-level timestamps (nếu engine hỗ trợ)."""
+    try:
+        if not os.path.exists(audio_path):
+            return {"text": "", "segments": [], "words": [], "error": "File not found"}
+
+        audio = AudioSegment.from_file(audio_path)
+        audio = trim_silence(audio)
+        audio = audio.set_frame_rate(16000).set_channels(1)
+
+        processed_path = audio_path + "_detail_clean.wav"
+        audio.export(processed_path, format="wav")
+
+        result = {"text": "", "segments": [], "words": []}
+
+        if HAS_FASTER_WHISPER and faster_model is not None:
+            segments, info = faster_model.transcribe(
+                processed_path,
+                beam_size=5,
+                language="en",
+                vad_filter=True,
+                no_speech_threshold=0.6,
+                word_timestamps=True
+            )
+
+            all_text = []
+            all_segments = []
+            all_words = []
+
+            for seg in segments:
+                seg_text = (seg.text or "").strip()
+                if seg_text:
+                    all_text.append(seg_text)
+
+                all_segments.append({
+                    "start": float(getattr(seg, "start", 0.0) or 0.0),
+                    "end": float(getattr(seg, "end", 0.0) or 0.0),
+                    "text": seg_text
+                })
+
+                for w in (getattr(seg, "words", None) or []):
+                    word_text = (getattr(w, "word", "") or "").strip()
+                    if word_text:
+                        all_words.append({
+                            "word": word_text,
+                            "start": float(getattr(w, "start", 0.0) or 0.0),
+                            "end": float(getattr(w, "end", 0.0) or 0.0),
+                            "confidence": float(getattr(w, "probability", 0.0) or 0.0)
+                        })
+
+            transcript = " ".join(all_text).strip()
+
+            bad_patterns = [
+                "Thank you for watching", "Subtitles by", "Please subscribe",
+                "Thanks for watching", "translated by", "Re-edited by"
+            ]
+            if any(p.lower() in transcript.lower() for p in bad_patterns):
+                transcript = ""
+                all_segments = []
+                all_words = []
+
+            result = {
+                "text": transcript,
+                "segments": all_segments,
+                "words": all_words
+            }
+        else:
+            base_res = whisper_model.transcribe(processed_path, language="en", fp16=False)
+            text = (base_res.get("text", "") or "").strip() if isinstance(base_res, dict) else ""
+            segs = base_res.get("segments", []) if isinstance(base_res, dict) else []
+            norm_segments = []
+            for s in segs:
+                norm_segments.append({
+                    "start": float(s.get("start", 0.0) or 0.0),
+                    "end": float(s.get("end", 0.0) or 0.0),
+                    "text": (s.get("text", "") or "").strip()
+                })
+            result = {"text": text, "segments": norm_segments, "words": []}
+
+        if os.path.exists(processed_path):
+            try:
+                os.remove(processed_path)
+            except Exception:
+                pass
+
+        return result
+    except Exception as e:
+        print(f"⚠️ Lỗi Transcribe Detailed: {e}")
+        return {"text": "", "segments": [], "words": [], "error": str(e)}
+
+
 
 def get_file_hash(file_path):
     """Tính mã băm SHA-256 của file để làm key cache"""
@@ -167,9 +258,64 @@ def extract_pitch(audio_path):
             
         return result
         
+        return result
+        
     except Exception as e:
         print(f"⚠️ Lỗi trích xuất Pitch: {e}")
         return []
+
+def extract_audio_features_pro(audio_path):
+    """Trích xuất 44 đặc trưng âm học (Acoustic Features) cho mô hình XGBoost Pro"""
+    try:
+        if not os.path.exists(audio_path): return None
+        
+        # Load audio (16kHz mono là chuẩn cho speech features)
+        y, sr = librosa.load(audio_path, sr=16000)
+        
+        # 1. MFCC + Delta + Delta-Delta (Đo lường sự biến thiên âm sắc)
+        # 13 mfcc + 13 delta + 13 delta2 = 39 features
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        mfcc_delta = librosa.feature.delta(mfccs)
+        mfcc_delta2 = librosa.feature.delta(mfccs, order=2)
+        
+        # 2. Pitch (pYIN) & Jitter (Độ ổn định tần số)
+        # Sử dụng fmin, fmax chuẩn cho giọng người
+        f0, voiced_flag, voiced_probs = librosa.pyin(y, fmin=65, fmax=2093, sr=sr)
+        f0_clean = f0[~np.isnan(f0)]
+        pitch_mean = np.mean(f0_clean) if len(f0_clean) > 0 else 0
+        jitter = np.std(f0_clean) / np.mean(f0_clean) if len(f0_clean) > 0 else 0
+        
+        # 3. Energy & Shimmer (Độ ổn định biên độ)
+        rms = librosa.feature.rms(y=y)[0]
+        energy_mean = np.mean(rms)
+        shimmer = np.std(rms) / np.mean(rms) if np.mean(rms) > 0 else 0
+        
+        # 4. Fluency (Tỷ lệ im lặng)
+        # top_db=30 là ngưỡng chuẩn để phân biệt tiếng nói và nhiễu nền
+        non_silent = librosa.effects.split(y, top_db=30)
+        total_dur = len(y) / sr
+        speech_dur = sum([(e - s) / sr for s, e in non_silent])
+        silence_ratio = (total_dur - speech_dur) / total_dur if total_dur > 0 else 0
+        
+        # Gộp tất cả vào dictionary logic
+        feat = {
+            "pitch_mean": pitch_mean, 
+            "jitter": jitter,
+            "energy_mean": energy_mean, 
+            "shimmer": shimmer,
+            "silence_ratio": silence_ratio
+        }
+        
+        # Thêm 13 hệ số MFCC, Delta, Delta2
+        for i in range(13):
+            feat[f"mfcc_{i}"] = np.mean(mfccs[i])
+            feat[f"delta_{i}"] = np.mean(mfcc_delta[i])
+            feat[f"delta2_{i}"] = np.mean(mfcc_delta2[i])
+            
+        return feat
+    except Exception as e:
+        print(f"⚠️ Error in extract_audio_features_pro: {e}")
+        return None
 
 
 def get_audio_duration(audio_path):

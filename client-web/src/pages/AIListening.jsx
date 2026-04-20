@@ -1001,8 +1001,18 @@ export default function AIListening() {
       <RewardModal
         isOpen={showReward}
         onClose={() => setShowReward(false)}
-        title="BẬC THẦY LUYỆN NGHE!"
-        subtitle="Khả năng nghe hiểu của bạn đang tiến bộ thần tốc!"
+        title={(() => {
+          const percent = result?.total ? Math.round(((result?.correct || 0) / result.total) * 100) : 0;
+          if (percent >= 80) return 'LUYỆN NGHE XUẤT SẮC!';
+          if (percent >= 50) return 'HOÀN THÀNH BÀI NGHE!';
+          return 'BẠN ĐÃ HOÀN THÀNH BÀI NGHE!';
+        })()}
+        subtitle={(() => {
+          const percent = result?.total ? Math.round(((result?.correct || 0) / result.total) * 100) : 0;
+          if (percent >= 80) return 'Khả năng nghe hiểu của bạn đang tiến bộ rất nhanh!';
+          if (percent >= 50) return 'Kết quả ổn định, luyện thêm sẽ tăng band nhanh hơn.';
+          return 'Bạn đã hoàn thành bài nghe, hãy xem lại transcript và thử lại để cải thiện.';
+        })()}
         primaryStat={{ label: "Đúng", value: `${result?.correct || 0}/${result?.total || 0}` }}
         secondaryStat={{ label: "Band IELTS", value: result?.band || 0 }}
         reward={rewardData}

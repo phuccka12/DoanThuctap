@@ -26,7 +26,7 @@ const petSchema = new mongoose.Schema(
     happiness:     { type: Number, default: 80, min: 0, max: 100 },
     lastPlayedAt:  { type: Date, default: null },
 
-    coins:         { type: Number, default: 0, min: 0 },
+    coins:         { type: Number, default: 50, min: 0 },  // Khởi đầu 50 coins để user chơi được
 
     // Trang phục đang mặc
     equippedSkin:  { type: String, default: null },
