@@ -8,36 +8,31 @@ import {
 
 export const navGroups = [
   {
-    title: "QUẢN LÝ & LỘ TRÌNH",
+    title: "TRANG CHỦ & LỘ TRÌNH",
     items: [
       { key: "dashboard",    label: "Tổng quan",      icon: <FaHome />,           badge: null       },
       { key: "roadmap",      label: "Lộ trình AI",     icon: <FaCalendarAlt />,    badge: "AI"       },
-      { key: "topics",       label: "Kho Chủ đề",      icon: <FaGraduationCap />,  badge: null       },
-    ],
-  },
-  {
-    title: "KHO TÀI LIỆU",
-    items: [
-      { key: "vocabulary",   label: "Từ Vựng",         icon: <FaLayerGroup />,     badge: "NEW"      },
-      { key: "reading",      label: "Bài Đọc",          icon: <FaNewspaper />,      badge: "NEW"      },
-      { key: "grammar",      label: "Ngữ pháp",        icon: <FaBook />,           badge: "NEW"      },
-      { key: "stories",      label: "Câu chuyện",      icon: <FaBookOpen />,       badge: null       },
     ],
   },
   {
     title: "LUYỆN TẬP KỸ NĂNG",
     items: [
       { key: "listening",         label: "Luyện Listening",   icon: <FaHeadphones />,       badge: "AI"  },
+      { key: "reading",              label: "Luyện Reading",     icon: <FaNewspaper />,        badge: "NEW" },
       { key: "speaking-practice", label: "Luyện Speaking",    icon: <FaMicrophone />,       badge: "AI"  },
+      { key: "conversation",      label: "Hội thoại AI",      icon: <FaComments />,         badge: "AI"  },
+      { key: "speaking",          label: "AI Speaking",       icon: <FaMicrophoneAlt />,    badge: "AI"  },
+      { key: "writing-scenarios", label: "Nhiệm vụ Viết",     icon: <FaPenFancy />,         badge: "AI"  },
       { key: "writing",           label: "Luyện Writing",     icon: <FaPenFancy />,         badge: "AI"  },
     ],
   },
   {
-    title: "TÍNH NĂNG AI",
+    title: "KHO KIẾN THỨC",
     items: [
-      { key: "writing-scenarios", label: "Nhiệm vụ Viết",     icon: <FaPenFancy />,         badge: "AI"  },
-      { key: "speaking",          label: "AI Speaking",       icon: <FaMicrophoneAlt />,    badge: "AI"  },
-      { key: "conversation",      label: "Hội thoại AI",      icon: <FaComments />,         badge: "AI"  },
+      { key: "topics",       label: "Kho Chủ đề",      icon: <FaGraduationCap />,  badge: null       },
+      { key: "vocabulary",   label: "Từ Vựng",         icon: <FaLayerGroup />,     badge: "NEW"      },
+      { key: "grammar",      label: "Ngữ pháp",        icon: <FaBook />,           badge: "NEW"      },
+      { key: "stories",      label: "Câu chuyện",      icon: <FaBookOpen />,       badge: null       },
     ],
   },
   {

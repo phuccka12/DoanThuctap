@@ -4,6 +4,7 @@ import json
 from google import genai
 from dotenv import load_dotenv
 from utils.helpers import parse_json_safely
+from services.ollama_service import call_ollama
 
 load_dotenv()
 
@@ -122,7 +123,7 @@ def evaluate_writing_pro(content, task_type, topic, analysis_data):
             "highlights": [
                 {{ "original_text": "...", "suggestion": "...", "explanation": "...", "category": "grammar|vocab|logic" }}
             ],
-            "detailed_feedback": "Nhận xét tổng quát tiếng Việt đanh thép, nêu rõ điểm yếu chí mạng."
+            "detailed_feedback": "### 📋 ĐÁNH GIÁ TỔNG QUÁT\n[Nhận xét về cách bạn giải quyết đề bài]\n\n### ✅ ƯU ĐIỂM NỔI BẬT\n- **Từ vựng**: [Điểm sáng về từ vựng]\n- **Ngữ pháp**: [Điểm sáng về cấu trúc]\n\n### 🛠️ CÁC LỖI TRỌNG YẾU\n- **Logic**: [Phân tích sự thiếu gắn kết nếu có]\n- **Diễn đạt**: [Gợi ý cách viết tự nhiên hơn]\n\n### 🎯 CHIẾN LƯỢC CẢI THIỆN\n- [Bước 1: Tập trung vào học thêm từ nối...]\n- [Bước 2: Sử dụng nhiều câu phức hơn...]"
         }}
         """
         
@@ -152,5 +153,14 @@ def call_gemini_json(prompt, contents=None, fail_fast=True):
         
         return parse_json_safely(clean_text)
     except Exception as e:
-        print(f"❌ Gemini Error: {e}")
+        print(f"❌ Gemini Error: {e}. Attempting Ollama Fallback...")
+        # FALLBACK TO OLLAMA
+        try:
+            ollama_res = call_ollama(prompt)
+            if ollama_res:
+                print("✅ Ollama Fallback successful.")
+                return ollama_res
+        except Exception as oe:
+            print(f"❌ Ollama Fallback failed: {oe}")
+            
         return None

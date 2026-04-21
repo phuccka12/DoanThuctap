@@ -28,6 +28,7 @@ import {
   FaBookOpen, FaVolumeMute, FaVolumeUp, FaSpinner, FaPlay, FaPause, FaMagic, FaHistory,
   FaClock
 } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
 import { FiLoader, FiActivity } from 'react-icons/fi';
 import LoadingCat from '../components/shared/LoadingCat';
 import { dashboardRefreshEmitter } from '../utils/dashboardRefresh';
@@ -862,15 +863,23 @@ function ResultPhase({ isDark, t, results, topic, onRestart, onNewTopic }) {
               </div>
             )}
 
-            {/* Feedback bullets */}
+            {/* Feedback bullets or Markdown */}
             {ev.feedback && (
-              <div className="space-y-2 mb-3">
-                {Object.entries(ev.feedback).map(([k, v]) => (
-                  <div key={k} className="flex items-start gap-2">
-                    <FaChevronRight size={10} className="text-indigo-400 mt-1 shrink-0" />
-                    <p className={cn('text-xs', isDark ? 'text-gray-300' : 'text-slate-600')}>{v}</p>
+              <div className="mb-3">
+                {typeof ev.feedback === 'string' ? (
+                  <div className="prose prose-slate dark:prose-invert max-w-none text-xs prose-p:leading-relaxed prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
+                    <ReactMarkdown>{ev.feedback}</ReactMarkdown>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-2">
+                    {Object.entries(ev.feedback).map(([k, v]) => (
+                      <div key={k} className="flex items-start gap-2">
+                        <FaChevronRight size={10} className="text-indigo-400 mt-1 shrink-0" />
+                        <p className={cn('text-xs', isDark ? 'text-gray-300' : 'text-slate-600')}>{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

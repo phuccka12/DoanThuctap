@@ -102,14 +102,11 @@ DISCOURSE_MARKERS = {
     ]
 }
 
-# --- ACADEMIC WORD LIST (Mẫu rút gọn cho Band 7-9) ---
+# --- ACADEMIC WORD LIST (Mẫu mở rộng từ Sublist 1-5) ---
 AWL_SAMPLES = {
-    "analyze", "approach", "benefit", "concept", "consist", "context", "constitute", 
-    "establish", "indicate", "interpret", "method", "occur", "period", "principle", 
-    "proceed", "require", "respond", "significant", "structure", "theory", "vary",
-    "achieve", "attribute", "conclude", "conduct", "consequent", "construct", "consume",
-    "distinct", "element", "evaluate", "feature", "impact", "institute", "invest",
-    "maintenance", "obtain", "potential", "primary", "relevant", "survey", "transfer"
+    "analyse", "approach", "area", "assess", "assume", "authority", "available", "benefit", "concept", "consist", "constitute", "context", "create", "data", "define", "derive", "distribute", "economy", "environment", "establish", "estimate", "evident", "export", "factor", "finance", "formula", "function", "identify", "income", "indicate", "individual", "interpret", "involve", "issue", "labour", "legal", "legislate", "major", "method", "occur", "percent", "period", "policy", "principle", "proceed", "process", "programme", "project", "purchase", "range", "region", "register", "relevant", "require", "research", "respond", "section", "sector", "select", "significant", "similar", "source", "specific", "structure", "theory", "vary",
+    "achieve", "acquire", "administrate", "affect", "appropriate", "aspect", "assist", "category", "chapter", "commission", "community", "complex", "compute", "conclude", "conduct", "consequent", "construct", "consume", "credit", "culture", "design", "distinct", "element", "equate", "evaluate", "feature", "final", "focus", "impact", "injure", "institute", "invest", "item", "journal", "maintain", "normal", "obtain", "participate", "perceive", "positive", "potential", "previous", "primary", "purchase", "range", "region", "register", "relevant", "require", "research", "respond", "section", "sector", "select", "significant", "similar", "source", "specific", "structure", "theory", "vary",
+    "alternative", "circumstance", "comment", "compensate", "component", "consent", "considerable", "constant", "constrain", "contribute", "convene", "coordinate", "core", "corporate", "correspond", "criteria", "deduce", "demonstrate", "document", "dominate", "emphasis", "ensure", "exclude", "framework", "fund", "illustrate", "immigrate", "imply", "initial", "instance", "interact", "justify", "layer", "link", "locate", "maximise", "minor", "negate", "outcome", "partner", "philosophy", "physical", "proportion", "publish", "react", "register", "reliance", "remove", "scheme", "sequence", "shift", "specify", "sufficient", "technical", "technique", "technology", "valid", "volume"
 }
 
 # --- RF MODEL PATH ---

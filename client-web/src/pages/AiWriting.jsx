@@ -10,6 +10,7 @@ import {
   FaStar, FaFire, FaGraduationCap, FaRocket, FaBook, FaMedal,
   FaHeart, FaCoins, FaChevronRight, FaChevronLeft, FaTimes
 } from "react-icons/fa";
+import ReactMarkdown from 'react-markdown';
 import LoadingCat from '../components/shared/LoadingCat';
 
 import {
@@ -151,22 +152,40 @@ const AiWriting = () => {
   };
   const HighlightTooltip = ({ h, text, colorClass }) => {
     const [hover, setHover] = useState(false);
-    const [coords, setCoords] = useState({ top: 0, bottom: 0, left: 0, width: 0 });
+    const [coords, setCoords] = useState({ top: 0, bottom: 0, left: 0, right: 0, width: 0 });
     const [placement, setPlacement] = useState('top');
+    const [horizontalOffset, setHorizontalOffset] = useState(0);
     const spanRef = useRef(null);
 
     useEffect(() => {
       if (hover && spanRef.current) {
         const rect = spanRef.current.getBoundingClientRect();
+        const tooltipWidth = 320; // w-80 is 20rem or 320px
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
         const spaceAbove = rect.top;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        
+        const spaceBelow = viewportHeight - rect.bottom;
+
+        // Vertical Placement
         let newPlacement = 'top';
         if (spaceAbove < 280 && spaceBelow > spaceAbove) {
-           newPlacement = 'bottom';
+          newPlacement = 'bottom';
         }
-        
+
+        // Horizontal Adjustment (ensure it stays in viewport)
+        const centerX = rect.left + (rect.width / 2);
+        let offset = 0;
+        const padding = 20;
+
+        if (centerX - (tooltipWidth / 2) < padding) {
+          offset = padding - (centerX - (tooltipWidth / 2));
+        } else if (centerX + (tooltipWidth / 2) > viewportWidth - padding) {
+          offset = (viewportWidth - padding) - (centerX + (tooltipWidth / 2));
+        }
+
         setPlacement(newPlacement);
+        setHorizontalOffset(offset);
         setCoords({
           top: rect.top,
           bottom: rect.bottom,
@@ -195,11 +214,11 @@ const AiWriting = () => {
             style={{
               position: 'fixed',
               top: placement === 'bottom' ? coords.bottom + 10 : coords.top - 10,
-              left: coords.left + (coords.width / 2),
+              left: coords.left + (coords.width / 2) + horizontalOffset,
               transform: placement === 'bottom' ? 'translateX(-50%)' : 'translateX(-50%) translateY(-100%)',
               zIndex: 9999,
             }}
-            className="w-80 pointer-events-none"
+            className="w-80 pointer-events-auto"
           >
             <div className="bg-[#1A1D26] border border-white/20 rounded-2xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
@@ -224,8 +243,10 @@ const AiWriting = () => {
               )}
 
               {/* Mũi tên - Tự động đổi hướng dựa trên vị trí */}
-              <div className={`absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 ${placement === 'bottom' ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
-                }`} />
+              <div
+                style={{ left: `calc(50% - ${horizontalOffset}px)` }}
+                className={`absolute w-3 h-3 bg-[#1A1D26] rotate-45 border-white/20 transition-all duration-300 ${placement === 'bottom' ? "-top-1.5 border-l border-t" : "-bottom-1.5 border-r border-b"
+                  }`} />
             </div>
           </motion.div>,
           document.body
@@ -548,9 +569,11 @@ const AiWriting = () => {
                       </div>
                       <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight uppercase">Nhận xét từ Giám khảo AI</h3>
                     </div>
-                    <p className="text-slate-700 dark:text-slate-300 text-[14px] leading-relaxed whitespace-pre-line font-medium italic opacity-90 relative z-10">
-                      {result.ai_eyes.detailed_feedback}
-                    </p>
+                    <div className="text-slate-700 dark:text-slate-300 text-[14px] leading-relaxed font-medium opacity-90 relative z-10 prose prose-slate dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:mb-4 prose-headings:mt-6 first:prose-headings:mt-0">
+                      <ReactMarkdown>
+                        {result.ai_eyes.detailed_feedback}
+                      </ReactMarkdown>
+                    </div>
                   </motion.div>
                 )}
 
@@ -634,7 +657,7 @@ const AiWriting = () => {
                     ) : (
                       <button
                         onClick={() => setShowModel(true)}
-                        className="px-8 py-3 bg-white/5 border border-white/10 text-white rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-3"
+                        className="px-8 py-3 bg-slate-200/50 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-slate-300/50 dark:hover:bg-white/10 transition-all flex items-center gap-3"
                       >
                         <FaBook /> Xem bài mẫu Band 9.0
                       </button>
@@ -658,7 +681,7 @@ const AiWriting = () => {
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="relative w-full max-w-4xl max-h-[90vh] glass-card overflow-hidden flex flex-col border-white/20 shadow-2xl"
+                        className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#1A1D26] rounded-[2.5rem] overflow-hidden flex flex-col border border-slate-200 dark:border-white/20 shadow-2xl"
                       >
                         {/* Modal Header */}
                         <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -681,11 +704,11 @@ const AiWriting = () => {
 
                         {/* Modal Content */}
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                          <div className="bg-black/40 rounded-3xl border border-white/10 p-8 shadow-inner relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none rotate-12">
-                              <FaPenFancy className="text-9xl text-white" />
+                          <div className="bg-slate-50 dark:bg-black/40 rounded-3xl border border-slate-200 dark:border-white/10 p-8 shadow-inner relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 pointer-events-none rotate-12">
+                              <FaPenFancy className="text-9xl text-slate-900 dark:text-white" />
                             </div>
-                            <p className="text-slate-800 dark:text-slate-200 text-base leading-loose font-medium whitespace-pre-line italic">
+                            <p className="text-slate-700 dark:text-slate-200 text-base leading-loose font-medium whitespace-pre-line italic relative z-10">
                               {result.ai_eyes?.model_essay}
                             </p>
                           </div>
