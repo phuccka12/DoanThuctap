@@ -22,4 +22,7 @@ router.post('/hatch', protect, petController.hatch);
 // Rename
 router.patch('/rename', protect, petController.rename);
 
+// Cure sickness
+router.post('/cure', protect, petController.curePet);
+
 module.exports = router;

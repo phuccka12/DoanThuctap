@@ -65,6 +65,10 @@ exports.getStatus = async (req, res) => {
       pet = await Pet.create({ user: userId });
     }
 
+    // ⚡️ ADAPTIVE DECAY: Tính toán hunger/sick trước khi trả về
+    const { computePetDecay } = require('../services/economyService');
+    await computePetDecay(pet);
+
     const petData = await buildPetResponse(pet);
     return res.json({ success: true, pet: petData, userGold: 0 });
   } catch (err) {
@@ -429,3 +433,41 @@ exports.hatch = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+/**
+ * POST /api/pet/cure
+ * Chữa bệnh cho pet khi bị Sick.
+ * Chi phí: 150 coins.
+ */
+exports.curePet = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const CURE_COST = 150;
+    
+    const pet = await Pet.findOne({ user: userId });
+    if (!pet) return res.status(404).json({ success: false, message: 'Chưa có thú cưng' });
+    
+    if (!pet.isSick) {
+      return res.status(400).json({ success: false, message: 'Pet không bị bệnh!' });
+    }
+    
+    if (pet.coins < CURE_COST) {
+      return res.status(400).json({ success: false, message: `Không đủ Coins để mua thuốc (Cần ${CURE_COST})` });
+    }
+    
+    pet.coins -= CURE_COST;
+    pet.isSick = false;
+    pet.hunger = Math.min(pet.hunger, 80); // Giảm hunger xuống ngưỡng an toàn hơn
+    pet.happiness = Math.min(100, pet.happiness + 20);
+    
+    await pet.save();
+    await syncUserCoinsFromPet(userId, pet);
+    
+    const petData = await buildPetResponse(pet);
+    return res.json({ success: true, message: 'Đã chữa khỏi bệnh cho Pet!', pet: petData });
+  } catch (err) {
+    console.error('curePet error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+

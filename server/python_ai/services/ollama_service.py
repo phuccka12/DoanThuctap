@@ -77,7 +77,7 @@ def call_ollama(prompt):
             }
         }
         print(f"🏠 [OLLAMA] Đang sử dụng AI nội bộ (Model: {OLLAMA_MODEL})...")
-        response = requests.post(OLLAMA_GENERATE_URL, json=payload, timeout=20)
+        response = requests.post(OLLAMA_GENERATE_URL, json=payload, timeout=60)
         if response.status_code == 200:
             result = response.json()
             return parse_json_safely(result.get("response", "{}"))

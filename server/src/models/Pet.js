@@ -48,6 +48,13 @@ const petSchema = new mongoose.Schema(
     studyTimeToday:   { type: Number, default: 0 },
     studyTimeDate:    { type: String, default: '' }, // format: YYYY-MM-DD UTC
 
+    // ── Adaptive Survival System ──────────────────────────────────────────
+    // lastDecayAt: Lần cuối cùng hunger được tính toán/cập nhật
+    lastDecayAt: { type: Date, default: Date.now },
+    // isSick: Trạng thái bị bệnh (khi đói quá lâu)
+    isSick:      { type: Boolean, default: false },
+    // ──────────────────────────────────────────────────────────────────────
+
     inventory: [
       {
         itemId: { type: String },

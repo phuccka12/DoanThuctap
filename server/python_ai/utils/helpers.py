@@ -32,19 +32,30 @@ def parse_json_safely(text, default_value=None):
         
         text_to_parse = text[start_idx:]
         
-        # 3. Last ditch effort: Sửa các lỗi phổ biến (Trailing commas, unescaped newlines)
-        # Xóa trailing commas: ,} -> } và ,] -> ]
-        text_to_parse = re.sub(r',\s*}', '}', text_to_parse)
-        text_to_parse = re.sub(r',\s*]', ']', text_to_parse)
+        # 🚀 [MỚI] Xử lý mạnh tay các lỗi JSON phổ biến của LLM
+        # 1. Loại bỏ các ký tự điều khiển (Control characters) ẩn bên trong text
+        text_to_parse = re.sub(r'[\x00-\x1F\x7F]', ' ', text_to_parse)
 
-        # 🚀 [MỚI] Escape các ký tự điều khiển gây lỗi JSON (newline, tab) nằm TRONG dấu ngoặc kép
-        def escape_inside_quotes(match):
+        # 2. Escape các dấu ngoặc kép nằm bên trong chuỗi (ví dụ: "He said "Hello" to me")
+        # Thuật toán: Tìm các dấu " không đứng sau dấu : hoặc dấu , hoặc { [ và không đứng trước các dấu đó
+        # Tuy nhiên regex này phức tạp, ta dùng một Heuristic đơn giản hơn: 
+        # Chỉ những dấu " ở đầu/cuối của key/value mới được giữ lại
+        
+        def fix_quotes(match):
             s = match.group(0)
+            if len(s) <= 2: return s
             content = s[1:-1]
-            content = content.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+            # Escape " bên trong nếu chưa được escape
+            content = re.sub(r'(?<!\\)"', '\\"', content)
+            # Thay thế các newline thực tế bằng \n
+            content = content.replace('\n', '\\n').replace('\r', '\\r')
             return f'"{content}"'
 
-        text_to_parse = re.sub(r'"(?:\\.|[^"\\])*"', escape_inside_quotes, text_to_parse)
+        text_to_parse = re.sub(r'"(?:\\.|[^"\\])*"', fix_quotes, text_to_parse)
+
+        # 3. Sửa lỗi trailing commas: ,} -> } và ,] -> ]
+        text_to_parse = re.sub(r',\s*}', '}', text_to_parse)
+        text_to_parse = re.sub(r',\s*]', ']', text_to_parse)
 
         # 4. Sử dụng JSONDecoder
         decoder = json.JSONDecoder()
@@ -53,6 +64,7 @@ def parse_json_safely(text, default_value=None):
             return obj
         except json.JSONDecodeError:
             # Nếu vẫn lỗi, thử dùng json.loads trên toàn bộ text đã clean
+            # Tìm dấu } cuối cùng
             end_idx = text_to_parse.rfind('}')
             if end_idx != -1:
                 return json.loads(text_to_parse[:end_idx+1])

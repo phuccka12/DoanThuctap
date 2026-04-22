@@ -2,6 +2,8 @@ import spacy
 import textstat
 import language_tool_python
 import re as _re
+import hashlib
+from functools import lru_cache
 from spacy.matcher import Matcher
 
 # --- KHỞI TẠO ENGINES ---
@@ -14,18 +16,30 @@ except:
 
 print("⏳ Đang cấu hình Grammar Engine (LanguageTool - Lazy Mode)...")
 tool = None
+_tool_lock = __import__('threading').Lock()
+
 def get_tool():
     global tool
-    if tool is not None: return tool
-    try:
-        # Thử khởi tạo local mode (yêu cầu Java) hoặc bỏ qua nếu không có mạng
-        # Để tránh lỗi Resolution, chúng ta mặc định không dùng remote server trừ khi cần
-        tool = language_tool_python.LanguageTool('en-US')
-        return tool
-    except Exception as e:
-        print(f"ℹ️ LanguageTool local không sẵn sàng (Yêu cầu Java). Sẽ dùng Gemini/SpaCy thay thế.")
-        tool = False # Đánh dấu là đã thử nhưng fail
-        return None
+    # Fast path: đã khởi tạo rồi
+    if tool is not None:
+        return tool if tool is not False else None
+
+    # Thread-safe: chỉ 1 thread được khởi tạo tại 1 thời điểm
+    with _tool_lock:
+        # Double-check sau khi lấy được lock
+        if tool is not None:
+            return tool if tool is not False else None
+        try:
+            # config_path='auto': tự tìm Java, timeout 30s để tránh treo server
+            _t = language_tool_python.LanguageTool('en-US')
+            tool = _t
+            print("✅ LanguageTool đã khởi động thành công.")
+            return tool
+        except Exception as e:
+            print(f"ℹ️ LanguageTool không sẵn sàng ({type(e).__name__}). Dùng Gemini/SpaCy thay thế.")
+            tool = False  # Đánh dấu là đã thử nhưng fail, không thử lại
+            return None
+
 
 # --- DỮ LIỆU TỪ VỰNG & CẤU TRÚC ---
 ACADEMIC_WORD_LIST = {
@@ -136,16 +150,66 @@ def analyze_deep_tech(text):
     }
     return {"nlp": unique_matches, "math": stats}
 
+# Cache kết quả grammar check bằng hash của text để tránh gọi lại LanguageTool
+_grammar_cache = {}
+
+def _get_match_word(m):
+    """Lấy từ bị lỗi từ Match object - tương thích đa phiên bản language_tool_python."""
+    # Cách 1: contextOffset + errorLength (phiên bản 2.7+)
+    try:
+        ctx_off = getattr(m, 'contextOffset', None)
+        err_len = getattr(m, 'errorLength', None)
+        if ctx_off is not None and err_len is not None and err_len > 0:
+            return m.context[ctx_off:ctx_off + err_len]
+    except Exception:
+        pass
+    # Cách 2: offset + errorLength trong context
+    try:
+        err_len = getattr(m, 'errorLength', None)
+        if err_len is not None and err_len > 0:
+            return m.context[m.offset:m.offset + err_len]
+    except Exception:
+        pass
+    # Cách 3: matchedText trực tiếp (một số phiên bản)
+    try:
+        matched = getattr(m, 'matchedText', None)
+        if matched:
+            return matched
+    except Exception:
+        pass
+    # Cách 4: lấy từ replacements làm fallback
+    try:
+        if m.replacements:
+            return f"[~{m.replacements[0]}]"
+    except Exception:
+        pass
+    return "N/A"
+
 def check_grammar(text):
-    """Kiểm tra ngữ pháp bằng LanguageTool"""
+    """Kiểm tra ngữ pháp bằng LanguageTool (có Cache theo hash, tương thích đa phiên bản)"""
+    text_hash = hashlib.md5(text.encode()).hexdigest()
+    if text_hash in _grammar_cache:
+        return _grammar_cache[text_hash]
     current_tool = get_tool()
-    if not current_tool: return []
+    if not current_tool:
+        _grammar_cache[text_hash] = []
+        return []
     try:
         matches = current_tool.check(text)
-        return [{"word": m.context[m.offset:m.offset+m.errorLength], "error": m.message, "fix": (m.replacements[0] if m.replacements else "N/A")} for m in matches]
+        result = []
+        for m in matches:
+            result.append({
+                "word": _get_match_word(m),
+                "error": m.message,
+                "fix": (m.replacements[0] if m.replacements else "N/A")
+            })
+        if len(text) < 3000:
+            _grammar_cache[text_hash] = result
+        return result
     except Exception as e:
         print(f"⚠️ Lỗi Grammar Check: {e}")
         return []
+
 
 def _offline_writing_score(text, topic="General Topic", grammar_errors=None):
     """Hệ thống chấm điểm Writing dự phòng (Heuristic)"""

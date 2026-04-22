@@ -26,6 +26,8 @@ const PET_CONFIG = {
 
 const FEED_COST = 50;
 const PLAY_COST = 20;
+const CURE_COST = 150;
+
 
 export default function PetWidget({ theme = {} }) {
   const [pet, setPet]                   = useState(null);
@@ -154,6 +156,22 @@ export default function PetWidget({ theme = {} }) {
     }
   };
 
+  const handleCure = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await axiosInstance.post('/pet/cure');
+      setPet(res.data.pet);
+      spawnFloat('💊');
+      spawnFloat('✨');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Chữa bệnh thất bại');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+
   // ── Card wrapper ───────────────────────────────────────────────────────────
   const Card = ({ children, extra = '' }) => (
     <div className={`rounded-2xl border p-4 ${theme?.card || 'bg-gray-900/85'} ${theme?.border || 'border-gray-700'} ${extra}`}>
@@ -270,21 +288,26 @@ export default function PetWidget({ theme = {} }) {
 
   // ── Trạng thái hunger — 4 mức ──────────────────────────────────────────────
   const hungerPct = pet?.hunger ?? 0;
-  // happy:   hunger < 50  → buff EXP +10%
-  // neutral: 50 ≤ hunger < 80
-  // warning: 80 ≤ hunger < 100 → widget chớp đỏ, mặt buồn
+  // sick:    pet.isSick = true → EXP locked, animation xanh xao
   // dying:   hunger >= 100     → EXP locked, streak vỡ
-  const petStatus  = hungerPct >= 100 ? 'dying'
+  // warning: 80 ≤ hunger < 100 → widget chớp đỏ, mặt buồn
+  // happy:   hunger < 50  → buff EXP +10%
+  const petStatus  = pet?.isSick      ? 'sick'
+                   : hungerPct >= 100 ? 'dying'
                    : hungerPct >= 80  ? 'warning'
                    : hungerPct < 50   ? 'happy'
                    :                    'neutral';
+  const isSick     = petStatus === 'sick';
   const isDying    = petStatus === 'dying';
   const isWarning  = petStatus === 'warning';
   const isHappy    = petStatus === 'happy';
   const happiness  = pet?.happiness ?? 0;
 
   // Avatar expression theo trạng thái
-  const avatarEmoji = isDying || isWarning ? '\uD83D\uDE3F' : petCfg.emoji; // 😿
+  const avatarEmoji = isSick ? '\uD83E\uDD12' // 🤒
+                    : isDying || isWarning ? '\uD83D\uDE3F' // 😿
+                    : petCfg.emoji;
+
 
   const pixelImg   = pet?.evolutionImage || pet?.speciesRef?.base_image_url || null;
   const displayName = pet?.nickname || pet?.speciesRef?.name || petCfg.name;
@@ -292,9 +315,11 @@ export default function PetWidget({ theme = {} }) {
   const availableCoins = Number(pet?.coins ?? 0);
   const canFeed = availableCoins >= FEED_COST;
   const canPlay = availableCoins >= PLAY_COST;
+  const canCure = availableCoins >= CURE_COST;
 
   return (
-    <Card extra={`overflow-hidden relative ${isDying ? 'animate-[pulseRed_1s_ease-in-out_infinite]' : isWarning ? 'animate-[pulseRed_2s_ease-in-out_infinite]' : ''}`}>
+    <Card extra={`overflow-hidden relative ${isSick ? 'animate-[pulseGreen_2s_ease-in-out_infinite]' : isDying ? 'animate-[pulseRed_1s_ease-in-out_infinite]' : isWarning ? 'animate-[pulseRed_2s_ease-in-out_infinite]' : ''}`}>
+
       {/* Floating micro-interaction icons */}
       {floaties.map(fl => (
         <div
@@ -317,6 +342,16 @@ export default function PetWidget({ theme = {} }) {
       )}
 
       {/* ── Status banner ── */}
+      {isSick && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl
+                        bg-green-500/20 border border-green-500/50">
+          <span className="text-lg">🤒</span>
+          <div>
+            <p className="text-green-400 text-xs font-bold">Pet đang BỊ BỆNH!</p>
+            <p className="text-green-300 text-[10px]">Cần uống thuốc để hồi phục và nhận EXP buff.</p>
+          </div>
+        </div>
+      )}
       {isDying && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl
                         bg-red-500/20 border border-red-500/50 animate-pulse">
@@ -327,6 +362,7 @@ export default function PetWidget({ theme = {} }) {
           </div>
         </div>
       )}
+
       {!isDying && isWarning && (
         <div className="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-xl
                         bg-orange-500/15 border border-orange-500/30">
@@ -349,10 +385,12 @@ export default function PetWidget({ theme = {} }) {
         <div className={`w-16 h-16 rounded-xl shrink-0 overflow-hidden relative
                          bg-linear-to-br from-[#6C5CE7]/30 to-[#00CEC9]/30
                          border flex items-center justify-center shadow-lg
-                         ${isDying   ? 'border-red-600/80 animate-[pulseRed_0.8s_ease-in-out_infinite]'
+                         ${isSick    ? 'border-green-500/60'
+                         : isDying   ? 'border-red-600/80 animate-[pulseRed_0.8s_ease-in-out_infinite]'
                          : isWarning ? 'border-orange-500/60 animate-[pulseRed_1.5s_ease-in-out_infinite]'
                          :             'border-gray-700'}
                          ${showCongrats ? 'animate-bounce' : ''}`}>
+
           {isDying || isWarning ? (
             /* Khi warning/dying: emoji buồn */
             <span className="text-3xl">{avatarEmoji}</span>
@@ -409,18 +447,33 @@ export default function PetWidget({ theme = {} }) {
 
       {/* Actions */}
       <div className="mt-2 flex gap-2">
-        {/* Checkin */}
-        <button
-          onClick={handleCheckin}
-          disabled={busy || checkedInCooldown}
-          className={`flex-1 py-2 rounded-xl text-white text-xs font-semibold transition-all
-            ${checkedInCooldown
-              ? 'opacity-50 cursor-not-allowed bg-gray-700'
-              : 'bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] hover:scale-105 shadow-md active:scale-95'}
-          `}
-        >
-          {checkedInCooldown ? '✅ Điểm danh' : '📅 Điểm danh'}
-        </button>
+        {/* Cure button if sick */}
+        {isSick ? (
+          <button
+            onClick={handleCure}
+            disabled={busy || !canCure}
+            className={`flex-[2] py-2 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-2
+              ${canCure
+                ? 'bg-linear-to-r from-green-500 to-emerald-600 hover:scale-105 shadow-md active:scale-95'
+                : 'bg-gray-700 opacity-50 cursor-not-allowed'}
+            `}
+          >
+            💊 Mua thuốc ({CURE_COST} 🪙)
+          </button>
+        ) : (
+          <button
+            onClick={handleCheckin}
+            disabled={busy || checkedInCooldown}
+            className={`flex-1 py-2 rounded-xl text-white text-xs font-semibold transition-all
+              ${checkedInCooldown
+                ? 'opacity-50 cursor-not-allowed bg-gray-700'
+                : 'bg-linear-to-r from-[#6C5CE7] to-[#00CEC9] hover:scale-105 shadow-md active:scale-95'}
+            `}
+          >
+            {checkedInCooldown ? '✅ Điểm danh' : '📅 Điểm danh'}
+          </button>
+        )}
+
 
         {/* Feed — hiện giá, disabled nếu không đủ coins */}
         <button
@@ -482,7 +535,12 @@ export default function PetWidget({ theme = {} }) {
           0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
           50%     { box-shadow: 0 0 8px 2px rgba(239,68,68,0.4); }
         }
+        @keyframes pulseGreen {
+          0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+          50%     { box-shadow: 0 0 8px 2px rgba(34,197,94,0.4); }
+        }
       `}</style>
+
     </Card>
   );
 }

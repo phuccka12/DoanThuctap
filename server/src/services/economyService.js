@@ -8,6 +8,7 @@
  *   earnCoins(userId, source, rawAmount)   → { earned, totalToday, capReached, pet }
  *   spendCoins(userId, itemId, qty)        → { pet }
  *   getPetState(pet)                       → { status, expMultiplier, expLocked }
+ *   computePetDecay(pet)                   → { pet, decayedPoints, sickTriggered }
  *   getPetBuffMultiplier(pet, skill)       → Number (multiplier tổng của EXP)
  *   resolvePetEvolution(pet, species)      → currentImageUrl
  */
@@ -91,9 +92,56 @@ function resolvePetEvolution(pet, species) {
   return match?.image_url || species.base_image_url || '';
 }
 
-// ─── Pet state logic ─────────────────────────────────────────────────────────
 /**
- * Trả về trạng thái pet dựa trên hunger:
+ * Tính toán hunger decay dựa trên thời gian trôi qua.
+ * Tốc độ đói phụ thuộc vào việc user có học bài hay không (studyTimeToday).
+ */
+async function computePetDecay(pet) {
+  if (!pet || !pet.hatched) return { pet, decayedPoints: 0, sickTriggered: false };
+
+  const now = new Date();
+  const lastAt = pet.lastDecayAt ? new Date(pet.lastDecayAt) : new Date(pet.updatedAt || pet.createdAt);
+  const diffHours = (now - lastAt) / (1000 * 60 * 60);
+
+  // Chỉ tính nếu đã trôi qua ít nhất 15 phút để tránh update DB liên tục
+  if (diffHours < 0.25) return { pet, decayedPoints: 0, sickTriggered: false };
+
+  // 1. Lấy tốc độ gốc
+  const baseRatePerDay = await getNum('economy_hunger_decay_per_day', 24);
+  let ratePerHour = baseRatePerDay / 24;
+
+  // 2. Hệ số nhân "Thông minh"
+  // - Nếu chưa học phút nào hôm nay: đói nhanh gấp 1.5 lần
+  if ((pet.studyTimeToday || 0) <= 0) {
+    ratePerHour *= 1.5;
+  }
+  // - Bonus theo Level: mỗi level giảm 1% tốc độ đói (max 20%)
+  const levelBonus = Math.min(0.2, (pet.level - 1) * 0.01);
+  ratePerHour *= (1 - levelBonus);
+
+  // 3. Cập nhật hunger
+  const decayedPoints = diffHours * ratePerHour;
+  const oldHunger = pet.hunger || 0;
+  pet.hunger = Math.min(100, oldHunger + decayedPoints);
+
+  // 4. Logic gây bệnh (Sick): Nếu bị đói tối đa (100) trong hơn 12 tiếng
+  let sickTriggered = false;
+  if (oldHunger >= 99.9 && diffHours >= 12 && !pet.isSick) {
+    pet.isSick = true;
+    sickTriggered = true;
+  }
+
+  pet.lastDecayAt = now;
+  // Lưu pet document
+  await pet.save();
+
+  return { pet, decayedPoints, sickTriggered };
+}
+
+
+/**
+ * Trả về trạng thái pet dựa trên hunger & health:
+ *   sick    – pet.isSick = true           → expLocked=true
  *   happy   – hunger < happy_threshold    → +expBuff, expLocked=false
  *   neutral – hunger < warning_threshold  → expBuff=0, expLocked=false
  *   warning – hunger < dying_threshold    → expBuff=0, expLocked=false, widget chớp đỏ
@@ -104,6 +152,10 @@ async function getPetState(pet) {
   const warningThreshold = await getNum('economy_hunger_warning_threshold', 80);
   const dyingThreshold   = await getNum('economy_hunger_dying_threshold',  100);
   const expBuffPct       = await getNum('economy_exp_buff_happy_pct',       10);
+
+  if (pet.isSick) {
+    return { status: 'sick', expMultiplier: 1, expLocked: true };
+  }
 
   const h = pet.hunger ?? 0;
   if (h >= dyingThreshold) {
@@ -359,6 +411,7 @@ module.exports = {
   spendCoins,
   useItem,
   getPetState,
+  computePetDecay,
   getPetBuffMultiplier,
   resolvePetEvolution,
   adminAdjustCoins,

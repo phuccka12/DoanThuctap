@@ -131,7 +131,7 @@ def semantic_match_lessons():
 
 
 # --- THREAD POOL FOR PARALLEL TASKS ---
-executor = ThreadPoolExecutor(max_workers=4)
+executor = ThreadPoolExecutor(max_workers=8)  # Tăng lên 8 workers để xử lý song song tốt hơn
 
 # --- GLOBAL CACHE FOR QUOTA SAVING ---
 GREETING_CACHE = {} 
@@ -753,7 +753,6 @@ def check_writing():
         
         if not text: return jsonify({"error": "Chưa nhập nội dung!"}), 400
 
-        # Run Tech Analysis
         grammar_errors = check_grammar(text)
         tech_data = analyze_deep_tech(text)
 
@@ -911,45 +910,42 @@ def evaluate_speaking():
                 "source": "xgboost-hybrid-local"
             }), 200
 
-        # 6. Gemini/Ollama full narrative
+        # 6. Gemini/Ollama full narrative (với đầy đủ bằng chứng kỹ thuật)
         prompt = f"""
         Role: Senior IELTS Speaking Examiner (Hybrid AI Tutor).
-        Transcript: "{transcript}"
-        
+        Transcript: "{transcript[:2000]}"
+
         [PHYSICAL EVIDENCE FROM ACOUSTIC ANALYZER]:
         {tech_evidence}
 
-    [LANGUAGE QUALITY EVIDENCE]:
-    - Word Count: {lang_quality['word_count']}
-    - Relevance Ratio: {lang_quality['relevance_ratio']:.2f}
-    - Lexical Score (local): {local_hybrid['lexical']}/9.0
-    - Semantic Score (local): {local_hybrid['semantic']}/9.0
-    - Word Usage Score (local): {local_hybrid['word_usage']}/9.0
-    - Grammar Score (local): {local_hybrid['grammar']}/9.0
-    - Short Answer Penalty: {lang_quality['short_answer_penalty']:.1f}
-        
-        Instruction: 
-        1. Use the [PHYSICAL EVIDENCE] to provide evidence-based feedback. 
-        2. If Jitter/Shimmer is high, mention 'unstability' or 'nervousness'.
-        3. If MFCC_8 is low/high, interpret it as pronunciation clarity.
-        4. If Silence Ratio > 0.3, focus on 'Fluency and Coherence'.
-        5. The final overall_score should consider the XGBoost prediction but allow for your semantic correction.
+        [LANGUAGE QUALITY EVIDENCE]:
+        - Word Count: {lang_quality['word_count']}
+        - Relevance Ratio: {lang_quality['relevance_ratio']:.2f}
+        - Lexical Score (local): {local_hybrid['lexical']}/9.0
+        - Semantic Score (local): {local_hybrid['semantic']}/9.0
+        - Word Usage Score (local): {local_hybrid['word_usage']}/9.0
+        - Grammar Score (local): {local_hybrid['grammar']}/9.0
+        - Short Answer Penalty: {lang_quality['short_answer_penalty']:.1f}
 
-        Output JSON in Vietnamese: overall_score, radar_chart (TR, CC, LR, GRA), detailed_feedback, mistakes_timeline, vocab_upgrade, better_version.
+        Instructions:
+        1. Use the [PHYSICAL EVIDENCE] to provide evidence-based feedback.
+        2. If Jitter/Shimmer is high, mention 'instability' or 'nervousness'.
+        3. If Silence Ratio > 0.3, focus on 'Fluency and Coherence'.
+        4. The final overall_score should consider the XGBoost prediction but allow for your semantic correction.
+
+        Output JSON only (Vietnamese): overall_score, radar_chart (Fluency, Pronunciation, Lexical, Grammar),
+        detailed_feedback, mistakes_timeline, vocab_upgrade, better_version.
         """
-        
-        # Thử Gemini
+
         ai_result = None
         if time.time() - LAST_QUOTA_ERROR_TIME > OFFLINE_COOLDOWN:
             ai_result = gemini_service.call_gemini_json(prompt)
             if not ai_result:
                 LAST_QUOTA_ERROR_TIME = time.time()
-        
-        # Thử Ollama nếu cần
+
         if not ai_result and check_ollama_status():
-            print("🛡️ [OFFLINE EVALUATION] Using Ollama for Speaking Assessment.")
-            ai_result = call_ollama(prompt) # call_ollama cũng đã hỗ trợ JSON qua format="json"
-        
+            ai_result = call_ollama(prompt)
+
         clean_temp_file(tmp_path, wav_path)
 
         if ai_result:
@@ -958,6 +954,7 @@ def evaluate_speaking():
                 ai_score = float(ai_score)
             except Exception:
                 ai_score = float(local_hybrid["overall_score"])
+
 
             fused_score = _round_half((ai_score * 0.55) + (local_hybrid["overall_score"] * 0.45))
             ai_result["overall_score"] = fused_score
@@ -1841,5 +1838,26 @@ def generate_model_essay():
 
 
 if __name__ == '__main__':
+    import atexit
 
-    app.run(port=5000, debug=True)
+    # Dọn dẹp LanguageTool khi tắt server (tránh WinError 10038 socket leak)
+    def _cleanup_languagetool():
+        try:
+            from services.nlp_service import tool as lt_tool
+            if lt_tool and lt_tool is not False:
+                lt_tool.close()
+                print("✅ LanguageTool đã được đóng sạch.")
+        except Exception:
+            pass
+    atexit.register(_cleanup_languagetool)
+
+    # threaded=True: Mỗi request chạy trên 1 thread riêng → không bị block lẫn nhau
+    # use_reloader=False: Tắt Werkzeug auto-reloader trên Windows (gây WinError 10038)
+    # debug=False: Tắt debug mode để Flask dùng production threading model
+    print("🚀 Flask AI Server đang khởi động (Multi-threaded mode)...")
+    app.run(
+        port=5000,
+        debug=False,
+        threaded=True,
+        use_reloader=False
+    )
