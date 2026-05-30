@@ -15,7 +15,7 @@ import AIWriting from './pages/AiWriting';
 import AISpeaking from './pages/AISpeaking';
 import AIConversation from './pages/AIConversation';
 import Onboarding from './pages/Onboarding';
-import PlacementTest   from './pages/PlacementTest';
+import PlacementTest from './pages/PlacementTest';
 import PlacementResult from './pages/PlacementResult';
 import NotFound from './pages/NotFound';
 import Landingpage from './pages/Landingpage';
@@ -24,17 +24,17 @@ import MySubscription from './pages/MySubscription';
 import PaymentResult from './pages/PaymentResult';
 import MaintenancePage from './pages/MaintenancePage';
 // Learning module
-import Learn        from './pages/Learn';
-import TopicDetail  from './pages/TopicDetail';
+import Learn from './pages/Learn';
+import TopicDetail from './pages/TopicDetail';
 import LessonPlayer from './pages/LessonPlayer';
 // RPG Story module
-import StoryLobby  from './pages/StoryLobby';
+import StoryLobby from './pages/StoryLobby';
 import StoryDetail from './pages/StoryDetail';
 import StoryReader from './pages/StoryReader';
 // Vocabulary Learning module
-import VocabularyHome   from './pages/VocabularyHome';
+import VocabularyHome from './pages/VocabularyHome';
 import VocabularyDetail from './pages/VocabularyDetail';
-import VocabularyLearn  from './pages/VocabularyLearn';
+import VocabularyLearn from './pages/VocabularyLearn';
 // Reading Practice module
 import ReadingPractice from './pages/ReadingPractice';
 // Speaking Practice module
@@ -75,7 +75,7 @@ import AIListening from './pages/AIListening';
 // Protected Route Component with Onboarding check
 function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
   const { isAuthenticated, needsOnboarding, loading, user } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0F1117]">
@@ -83,18 +83,18 @@ function ProtectedRoute({ children, allowWithoutOnboarding = false }) {
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   // If user needs onboarding and this route doesn't allow bypass, redirect to onboarding
   // UNLESS user is admin (bypass for testing)
   const isAdmin = user?.role === 'admin';
   if (needsOnboarding && !allowWithoutOnboarding && !isAdmin) {
     return <Navigate to="/onboarding" replace />;
   }
-  
+
   return children;
 }
 
@@ -172,7 +172,7 @@ function HeartbeatManager() {
     };
 
     const interval = setInterval(sendHeartbeat, 60000);
-    
+
     // Initial heartbeat on login/mount
     sendHeartbeat();
 
@@ -188,321 +188,321 @@ function App() {
       <AuthProvider>
         <HeartbeatManager />
         <MaintenanceGuard>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landingpage />} />
-          <Route path="/landingpage" element={<Landingpage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/auth/google/callback" element={<GoogleCallback />} />
-          
-          {/* Onboarding Route - Protected but allows access without completed onboarding */}
-          <Route path="/onboarding" element={
-            <ProtectedRoute allowWithoutOnboarding={true}>
-              <Onboarding />
-            </ProtectedRoute>
-          } />
-          
-          {/* Public pricing page */}
-          <Route path="/pricing" element={<Pricing />} />
-          {/* VNPay return page (public — VNPay redirects here) */}
-          <Route path="/payment/result" element={<PaymentResult />} />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landingpage />} />
+            <Route path="/landingpage" element={<Landingpage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
-          {/* Placement Test — protected, accessible even if onboarding just finished */}
-          <Route path="/placement-test" element={
-            <ProtectedRoute allowWithoutOnboarding={true}>
-              <PlacementTest />
-            </ProtectedRoute>
-          } />
-          <Route path="/placement-result" element={
-            <ProtectedRoute allowWithoutOnboarding={true}>
-              <PlacementResult />
-            </ProtectedRoute>
-          } />
+            {/* Onboarding Route - Protected but allows access without completed onboarding */}
+            <Route path="/onboarding" element={
+              <ProtectedRoute allowWithoutOnboarding={true}>
+                <Onboarding />
+              </ProtectedRoute>
+            } />
 
-          {/* Protected Routes - Require onboarding completion */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <Profile defaultTab="settings" />
-            </ProtectedRoute>
-          } />
-          <Route path="/ai-writing/:id?" element={
-            <ProtectedRoute>
-              <AIWriting />
-            </ProtectedRoute>
-          } />
-          <Route path="/ai-speaking/:id?" element={
-            <ProtectedRoute>
-              <AISpeaking />
-            </ProtectedRoute>
-          } />
-          <Route path="/ai-conversation" element={
-            <ProtectedRoute>
-              <AIConversation />
-            </ProtectedRoute>
-          } />
-          <Route path="/ai-listening/:id?" element={
-            <ProtectedRoute>
-              <AIListening />
-            </ProtectedRoute>
-          } />
-          {/* Grammar Journey module */}
-          <Route path="/grammar" element={
-            <ProtectedRoute>
-              <GrammarLobby />
-            </ProtectedRoute>
-          } />
-          <Route path="/grammar/:id" element={
-            <ProtectedRoute>
-              <GrammarLesson />
-            </ProtectedRoute>
-          } />
-          <Route path="/my-subscription" element={
-            <ProtectedRoute>
-              <MySubscription />
-            </ProtectedRoute>
-          } />
+            {/* Public pricing page */}
+            <Route path="/pricing" element={<Pricing />} />
+            {/* VNPay return page (public — VNPay redirects here) */}
+            <Route path="/payment/result" element={<PaymentResult />} />
 
-          {/* Learning / Practice module */}
-          <Route path="/learn" element={
-            <ProtectedRoute>
-              <Learn />
-            </ProtectedRoute>
-          } />
-          <Route path="/learn/topics/:topicId" element={
-            <ProtectedRoute>
-              <TopicDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/learn/lessons/:lessonId" element={
-            <ProtectedRoute>
-              <LessonPlayer />
-            </ProtectedRoute>
-          } />
+            {/* Placement Test — protected, accessible even if onboarding just finished */}
+            <Route path="/placement-test" element={
+              <ProtectedRoute allowWithoutOnboarding={true}>
+                <PlacementTest />
+              </ProtectedRoute>
+            } />
+            <Route path="/placement-result" element={
+              <ProtectedRoute allowWithoutOnboarding={true}>
+                <PlacementResult />
+              </ProtectedRoute>
+            } />
 
-          {/* RPG Story module */}
-          <Route path="/stories" element={
-            <ProtectedRoute>
-              <StoryLobby />
-            </ProtectedRoute>
-          } />
-          <Route path="/stories/:storyId" element={
-            <ProtectedRoute>
-              <StoryDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/stories/:storyId/parts/:partNum" element={
-            <ProtectedRoute>
-              <StoryReader />
-            </ProtectedRoute>
-          } />
+            {/* Protected Routes - Require onboarding completion */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Profile defaultTab="settings" />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-writing/:id?" element={
+              <ProtectedRoute>
+                <AIWriting />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-speaking/:id?" element={
+              <ProtectedRoute>
+                <AISpeaking />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-conversation" element={
+              <ProtectedRoute>
+                <AIConversation />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-listening/:id?" element={
+              <ProtectedRoute>
+                <AIListening />
+              </ProtectedRoute>
+            } />
+            {/* Grammar Journey module */}
+            <Route path="/grammar" element={
+              <ProtectedRoute>
+                <GrammarLobby />
+              </ProtectedRoute>
+            } />
+            <Route path="/grammar/:id" element={
+              <ProtectedRoute>
+                <GrammarLesson />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-subscription" element={
+              <ProtectedRoute>
+                <MySubscription />
+              </ProtectedRoute>
+            } />
 
-          {/* Vocabulary Learning module */}
-          <Route path="/vocabulary" element={
-            <ProtectedRoute>
-              <VocabularyHome />
-            </ProtectedRoute>
-          } />
-          <Route path="/vocabulary/:topicId" element={
-            <ProtectedRoute>
-              <VocabularyDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/vocabulary/:topicId/learn" element={
-            <ProtectedRoute>
-              <VocabularyLearn />
-            </ProtectedRoute>
-          } />
+            {/* Learning / Practice module */}
+            <Route path="/learn" element={
+              <ProtectedRoute>
+                <Learn />
+              </ProtectedRoute>
+            } />
+            <Route path="/learn/topics/:topicId" element={
+              <ProtectedRoute>
+                <TopicDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/learn/lessons/:lessonId" element={
+              <ProtectedRoute>
+                <LessonPlayer />
+              </ProtectedRoute>
+            } />
 
-          {/* Reading Practice module */}
-          <Route path="/reading/:id?" element={
-            <ProtectedRoute>
-              <ReadingPractice />
-            </ProtectedRoute>
-          } />
+            {/* RPG Story module */}
+            <Route path="/stories" element={
+              <ProtectedRoute>
+                <StoryLobby />
+              </ProtectedRoute>
+            } />
+            <Route path="/stories/:storyId" element={
+              <ProtectedRoute>
+                <StoryDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/stories/:storyId/parts/:partNum" element={
+              <ProtectedRoute>
+                <StoryReader />
+              </ProtectedRoute>
+            } />
 
-          {/* Speaking Practice module */}
-          <Route path="/speaking-practice/:id?" element={
-            <ProtectedRoute>
-              <SpeakingPractice />
-            </ProtectedRoute>
-          } />
+            {/* Vocabulary Learning module */}
+            <Route path="/vocabulary" element={
+              <ProtectedRoute>
+                <VocabularyHome />
+              </ProtectedRoute>
+            } />
+            <Route path="/vocabulary/:topicId" element={
+              <ProtectedRoute>
+                <VocabularyDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/vocabulary/:topicId/learn" element={
+              <ProtectedRoute>
+                <VocabularyLearn />
+              </ProtectedRoute>
+            } />
 
-          {/* Writing Scenario module */}
-          <Route path="/writing-scenarios" element={
-            <ProtectedRoute>
-              <WritingScenarioLobby />
-            </ProtectedRoute>
-          } />
-          <Route path="/writing-scenario/:id?" element={
-            <ProtectedRoute>
-              <WritingScenarioPractice />
-            </ProtectedRoute>
-          } />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminDashboard />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/users" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminUsers />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/topics" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminTopics />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/topics/:topicId/lessons/:lessonId/builder" element={
-            <AdminRoute>
-              <CourseBuilder />
-            </AdminRoute>
-          } />
-          <Route path="/admin/topics/:topicId/lessons" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminLessons />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/vocabulary" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminVocabulary />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/reading-passages" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminReadingPassages />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/writing-scenarios" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminWritingScenarios />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/speaking-questions" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminSpeakingQuestions />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/writing-prompts" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminWritingPrompts />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/listening" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminListening />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/grammar" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminGrammar />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/billing" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminBilling />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/gamification" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminGamification />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/shop" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminShop />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/economy" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminEconomy />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/pokedex" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminPokedex />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/anti-cheat" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminAntiCheat />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/stories" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminStories />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/system-config" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminSystemConfig />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          <Route path="/admin/notifications" element={
-            <AdminRoute>
-              <AdminLayout>
-                <AdminNotifications />
-              </AdminLayout>
-            </AdminRoute>
-          } />
-          
-          {/* 404 - Catch all undefined routes */}
-          <Route path="/maintenance" element={<MaintenancePage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Reading Practice module */}
+            <Route path="/reading/:id?" element={
+              <ProtectedRoute>
+                <ReadingPractice />
+              </ProtectedRoute>
+            } />
+
+            {/* Speaking Practice module */}
+            <Route path="/speaking-practice/:id?" element={
+              <ProtectedRoute>
+                <SpeakingPractice />
+              </ProtectedRoute>
+            } />
+
+            {/* Writing Scenario module */}
+            <Route path="/writing-scenarios" element={
+              <ProtectedRoute>
+                <WritingScenarioLobby />
+              </ProtectedRoute>
+            } />
+            <Route path="/writing-scenario/:id?" element={
+              <ProtectedRoute>
+                <WritingScenarioPractice />
+              </ProtectedRoute>
+            } />
+
+            {/* Admin Routes */}
+            <Route path="/admin" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminDashboard />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/users" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminUsers />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/topics" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminTopics />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/topics/:topicId/lessons/:lessonId/builder" element={
+              <AdminRoute>
+                <CourseBuilder />
+              </AdminRoute>
+            } />
+            <Route path="/admin/topics/:topicId/lessons" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminLessons />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/vocabulary" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminVocabulary />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/reading-passages" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminReadingPassages />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/writing-scenarios" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminWritingScenarios />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/speaking-questions" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminSpeakingQuestions />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/writing-prompts" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminWritingPrompts />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/listening" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminListening />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/grammar" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminGrammar />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/billing" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminBilling />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/gamification" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminGamification />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/shop" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminShop />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/economy" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminEconomy />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/pokedex" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminPokedex />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/anti-cheat" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminAntiCheat />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/stories" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminStories />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/system-config" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminSystemConfig />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+            <Route path="/admin/notifications" element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminNotifications />
+                </AdminLayout>
+              </AdminRoute>
+            } />
+
+            {/* 404 - Catch all undefined routes */}
+            <Route path="/maintenance" element={<MaintenancePage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </MaintenanceGuard>
       </AuthProvider>
     </BrowserRouter>
